@@ -25,6 +25,15 @@ interface ChapterDao {
     @Query("SELECT COUNT(*) FROM chapters WHERE novelUrl = :novelUrl")
     fun getChapterCountFlow(novelUrl: String): Flow<Int>
 
+    @Query("UPDATE chapters SET read = :read WHERE id = :chapterId")
+    suspend fun updateChapterReadStatus(chapterId: Int, read: Boolean)
+
+    @Query("UPDATE chapters SET read = :read WHERE id IN (:chapterIds)")
+    suspend fun updateChaptersReadStatus(chapterIds: List<Int>, read: Boolean)
+
+    @Query("UPDATE chapters SET read = :read WHERE url = :chapterUrl")
+    suspend fun updateChapterReadStatusByUrl(chapterUrl: String, read: Boolean)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChapters(chapters: List<ChapterEntity>)
 

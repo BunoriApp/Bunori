@@ -186,7 +186,46 @@ class NovelDetailViewModel(
         )
 
     fun loadNovel(novelUrl: String) {
+        clearSelection()
         _novelUrl.value = novelUrl
+    }
+
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
+
+    private val _selectedChapterIds = MutableStateFlow<Set<Int>>(emptySet())
+    val selectedChapterIds: StateFlow<Set<Int>> = _selectedChapterIds.asStateFlow()
+
+    fun toggleChapterSelection(chapterId: Int) {
+        val current = _selectedChapterIds.value
+        val updated = if (current.contains(chapterId)) current - chapterId else current + chapterId
+        _selectedChapterIds.value = updated
+        _isSelectionMode.value = updated.isNotEmpty()
+    }
+
+    fun selectChapter(chapterId: Int) {
+        _isSelectionMode.value = true
+        _selectedChapterIds.value = _selectedChapterIds.value + chapterId
+    }
+
+    fun clearSelection() {
+        _selectedChapterIds.value = emptySet()
+        _isSelectionMode.value = false
+    }
+
+    fun selectAllChapters(chapters: List<Chapter>) {
+        _selectedChapterIds.value = chapters.map { it.id }.toSet()
+        _isSelectionMode.value = true
+    }
+
+    fun markSelectedChaptersRead(isRead: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val ids = _selectedChapterIds.value.toList()
+            if (ids.isNotEmpty()) {
+                chapterRepository.updateChaptersReadStatus(ids, isRead)
+            }
+            clearSelection()
+        }
     }
 
     fun updateChapterRange(range: ClosedFloatingPointRange<Float>) {

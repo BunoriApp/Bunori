@@ -34,5 +34,6 @@ data class ChapterEntity(
     val sourceUrl: String? = null,
     val title: String,
     val index: Int,
-    val fileLocation: String?
+    val fileLocation: String?,
+    val read: Boolean = false
 )

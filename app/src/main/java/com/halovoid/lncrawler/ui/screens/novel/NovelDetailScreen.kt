@@ -64,6 +64,12 @@ fun NovelDetailScreen(
     val downloadFilter by viewModel.downloadFilter.collectAsStateWithLifecycle()
     val sortState by viewModel.sortState.collectAsStateWithLifecycle()
     val chapterRange by viewModel.chapterRange.collectAsState()
+    val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedChapterIds by viewModel.selectedChapterIds.collectAsStateWithLifecycle()
+
+    androidx.activity.compose.BackHandler(enabled = isSelectionMode) {
+        viewModel.clearSelection()
+    }
     val listState = rememberLazyListState()
     val density = LocalResources.current.displayMetrics.density
     val heroHeightPx = remember { (280 * density).toInt() }
@@ -217,10 +223,14 @@ fun NovelDetailScreen(
                     novelTableOfContents(
                         chapters = chapters,
                         downloadingChapters = downloadingChapters,
+                        isSelectionMode = isSelectionMode,
+                        selectedChapterIds = selectedChapterIds,
                         onFetchChapter = { viewModel.fetchChapter(currentNovel, it) },
                         onDeleteChapter = { viewModel.deleteChapter(it) },
                         onReplayChapter = { viewModel.replayChapter(currentNovel, it) },
-                        onChapterClick = { onChapterClick(currentNovel.url, it.id) }
+                        onChapterClick = { onChapterClick(currentNovel.url, it.id) },
+                        onChapterLongClick = { viewModel.selectChapter(it.id) },
+                        onChapterToggleSelect = { viewModel.toggleChapterSelection(it.id) }
                     )
                 }
 
@@ -229,7 +239,14 @@ fun NovelDetailScreen(
                     novel = currentNovel,
                     isOpaque = isTopBarOpaque,
                     showTitle = showTitleInTopBar,
+                    isSelectionMode = isSelectionMode,
+                    selectedCount = selectedChapterIds.size,
                     onBack = onBack,
+                    onClearSelection = { viewModel.clearSelection() },
+                    onMarkAsRead = { viewModel.markSelectedChaptersRead(true) },
+                    onMarkAsUnread = { viewModel.markSelectedChaptersRead(false) },
+                    onSelectAll = { viewModel.selectAllChapters(chapters) },
+                    onUnselectAll = { viewModel.clearSelection() },
                     onFilterClick = { showFilterSheet = true },
                     isFilterActive = isFilterActive || isSortModified,
                     onRefreshMetadata = { viewModel.fetchNovelMetadata(currentNovel) },

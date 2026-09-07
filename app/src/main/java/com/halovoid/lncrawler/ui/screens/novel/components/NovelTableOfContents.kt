@@ -2,6 +2,7 @@ package com.halovoid.lncrawler.ui.screens.novel.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -26,25 +27,32 @@ import com.halovoid.lncrawler.ui.theme.*
 fun LazyListScope.novelTableOfContents(
     chapters: List<Chapter>,
     downloadingChapters: Pair<Set<Int>, List<ClosedRange<Int>>>,
+    isSelectionMode: Boolean,
+    selectedChapterIds: Set<Int>,
     onFetchChapter: (Chapter) -> Unit,
     onDeleteChapter: (Chapter) -> Unit,
     onReplayChapter: (Chapter) -> Unit,
-    onChapterClick: (Chapter) -> Unit
+    onChapterClick: (Chapter) -> Unit,
+    onChapterLongClick: (Chapter) -> Unit,
+    onChapterToggleSelect: (Chapter) -> Unit
 ) {
-
-
     items(chapters, key = { it.id }) { chapter ->
         val isDownloading = remember(downloadingChapters, chapter.id, chapter.index) {
             downloadingChapters.first.contains(chapter.id) ||
             downloadingChapters.second.any { it.contains(chapter.index) }
         }
+        val isSelected = selectedChapterIds.contains(chapter.id)
         ChapterRow(
             chapter = chapter,
             onFetchChapter = { onFetchChapter(it) },
             onDeleteChapter = { onDeleteChapter(it) },
             onReplayChapter = { onReplayChapter(it) },
             onChapterClick = { onChapterClick(it) },
-            isDownloading = isDownloading
+            onChapterLongClick = { onChapterLongClick(it) },
+            onChapterToggleSelect = { onChapterToggleSelect(it) },
+            isDownloading = isDownloading,
+            isSelectionMode = isSelectionMode,
+            isSelected = isSelected
         )
         HorizontalDivider(
             color = BorderColor.copy(alpha = 0.4f),
@@ -61,22 +69,43 @@ fun ChapterRow(
     onDeleteChapter: (Chapter) -> Unit,
     onReplayChapter: (Chapter) -> Unit,
     onChapterClick: (Chapter) -> Unit,
-    isDownloading: Boolean
+    onChapterLongClick: (Chapter) -> Unit,
+    onChapterToggleSelect: (Chapter) -> Unit,
+    isDownloading: Boolean,
+    isSelectionMode: Boolean,
+    isSelected: Boolean
 ) {
     var showMenu by remember { mutableStateOf(false) }
+
+    val backgroundColor = if (isSelected) {
+        BrandAccent.copy(alpha = 0.15f)
+    } else {
+        DarkBackground
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(DarkBackground)
-            .clickable { onChapterClick(chapter) }
+            .background(backgroundColor)
+            .combinedClickable(
+                onClick = {
+                    if (isSelectionMode) {
+                        onChapterToggleSelect(chapter)
+                    } else {
+                        onChapterClick(chapter)
+                    }
+                },
+                onLongClick = {
+                    onChapterLongClick(chapter)
+                }
+            )
             .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "Chapter ${chapter.index}",
-                color = PrimaryText,
+                color = if (chapter.read) SecondaryText else PrimaryText,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold
             )
@@ -116,7 +145,11 @@ fun ChapterRow(
                 )
             } else {
                 IconButton(
-                    onClick = { onFetchChapter(chapter) },
+                    onClick = {
+                        if (!isSelectionMode) {
+                            onFetchChapter(chapter)
+                        }
+                    },
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Icon(

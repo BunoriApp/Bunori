@@ -7,7 +7,12 @@ import com.halovoid.lncrawler.data.db.mappers.toEntity
 import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.utils.SimhashUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
@@ -39,10 +44,28 @@ class NovelRepository private constructor(context: Context) {
      * Retrieves all novels saved in the local database.
      * @return A [Flow] emitting the latest list of [com.halovoid.lncrawler.domain.models.Novel]s.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getAllNovels(): Flow<List<Novel>> {
-        return novelDao.getAllNovels().map { entities ->
-            entities.map { it.toDomain() }
-        }
+        return novelDao.getAllNovels().flatMapLatest { novelEntities ->
+            if (novelEntities.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                val flows = novelEntities.map { novelEntity ->
+                    combine(
+                        chapterDao.getChaptersFlow(novelEntity.url),
+                        volumeDao.getVolumesForNovelFlow(novelEntity.url)
+                    ) { chapterEntities, volumeEntities ->
+                        novelEntity.toDomain().copy(
+                            chapters = chapterEntities.map { it.toDomain() },
+                            volumes = volumeEntities.map { it.toDomain() }
+                        )
+                    }
+                }
+                combine(*flows.toTypedArray()) { novels ->
+                    novels.toList()
+                }
+            }
+        }.flowOn(Dispatchers.IO)
     }
 
     fun getNovelByUrlFlow(url: String): Flow<Novel?> {

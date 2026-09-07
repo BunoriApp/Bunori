@@ -46,6 +46,7 @@ fun ChapterEntity.toDomain(): Chapter = Chapter(
     fileLocation = fileLocation
 ).apply {
     sourceUrl = this@toDomain.sourceUrl
+    read = this@toDomain.read
 }
 
 fun Chapter.toEntity(): ChapterEntity = ChapterEntity(
@@ -56,7 +57,8 @@ fun Chapter.toEntity(): ChapterEntity = ChapterEntity(
     index = index,
     novelUrl = novelUrl,
     volumeId = volumeId,
-    fileLocation = fileLocation
+    fileLocation = fileLocation,
+    read = read
 )
 
 // --- Volume Mappings ---

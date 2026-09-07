@@ -97,4 +97,10 @@ object DatabaseMigrations {
             db.execSQL("ALTER TABLE novels ADD COLUMN coverHttpsUrl TEXT DEFAULT NULL")
         }
     }
+
+    val MIGRATION_14_15 = object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE chapters ADD COLUMN read INTEGER NOT NULL DEFAULT 0")
+        }
+    }
 }

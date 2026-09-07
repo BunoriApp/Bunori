@@ -17,4 +17,37 @@ data class Chapter(
     val fileLocation: String?
 ) {
     var sourceUrl: String? = null
+    var read: Boolean = false
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Chapter
+
+        if (id != other.id) return false
+        if (url != other.url) return false
+        if (title != other.title) return false
+        if (index != other.index) return false
+        if (novelUrl != other.novelUrl) return false
+        if (volumeId != other.volumeId) return false
+        if (fileLocation != other.fileLocation) return false
+        if (sourceUrl != other.sourceUrl) return false
+        if (read != other.read) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = id
+        result = 31 * result + url.hashCode()
+        result = 31 * result + title.hashCode()
+        result = 31 * result + index.hashCode()
+        result = 31 * result + novelUrl.hashCode()
+        result = 31 * result + volumeId.hashCode()
+        result = 31 * result + fileLocation.hashCode()
+        result = 31 * result + (sourceUrl?.hashCode() ?: 0)
+        result = 31 * result + read.hashCode()
+        return result
+    }
 }

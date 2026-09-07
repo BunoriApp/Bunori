@@ -53,6 +53,30 @@ fun NovelCard(
                 }
             )
 
+            // Unread chapters counter badge on top left
+            val unreadCount = remember(novel.chapters) {
+                novel.chapters.count { !it.read }
+            }
+            if (unreadCount > 0) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color.Black.copy(alpha = 0.75f),
+                    tonalElevation = 2.dp
+                ) {
+                    Text(
+                        text = "$unreadCount",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
             // Gradient overlay for text readability at bottom
             Box(
                 modifier = Modifier
@@ -90,19 +114,6 @@ fun NovelCard(
                         fontSize = 10.sp
                     )
                 }
-            }
-
-            // Subtle Progress indicator (Bottom)
-            if (novel.chapters.isNotEmpty()) {
-                LinearProgressIndicator(
-                    progress = { 0.35f }, // Placeholder: 35% read
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(2.dp),
-                    color = BrandAccent,
-                    trackColor = Color.Transparent
-                )
             }
         }
     }

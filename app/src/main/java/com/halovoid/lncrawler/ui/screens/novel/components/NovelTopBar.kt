@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,7 +31,14 @@ fun NovelTopBar(
     novel: Novel,
     isOpaque: Boolean,
     showTitle: Boolean,
+    isSelectionMode: Boolean,
+    selectedCount: Int,
     onBack: () -> Unit,
+    onClearSelection: () -> Unit,
+    onMarkAsRead: () -> Unit,
+    onMarkAsUnread: () -> Unit,
+    onSelectAll: () -> Unit,
+    onUnselectAll: () -> Unit,
     onFilterClick: () -> Unit,
     isFilterActive: Boolean,
     onRefreshMetadata: () -> Unit,
@@ -38,7 +46,7 @@ fun NovelTopBar(
 ) {
     // Smoothly animate the background color
     val backgroundColor by animateColorAsState(
-        targetValue = if (isOpaque) DarkBackground else Color.Transparent,
+        targetValue = if (isSelectionMode || isOpaque) DarkBackground else Color.Transparent,
         animationSpec = tween(durationMillis = 300),
         label = "TopBarBackgroundAnimation"
     )
@@ -46,7 +54,7 @@ fun NovelTopBar(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = backgroundColor,
-        tonalElevation = 0.dp // Remove heavy elevation, use background color only
+        tonalElevation = if (isSelectionMode) 2.dp else 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -55,65 +63,117 @@ fun NovelTopBar(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = PrimaryText
-                )
-            }
-
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showTitle,
-                    enter = fadeIn(animationSpec = tween(durationMillis = 250)),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 200))
-                ) {
-                    Text(
-                        text = novel.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+            if (isSelectionMode) {
+                IconButton(onClick = onClearSelection) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Clear Selection",
+                        tint = PrimaryText
                     )
                 }
-            }
 
-            IconButton(
-                onClick = onFilterClick,
-                colors = IconButtonDefaults.iconButtonColors(
-                    contentColor = if (isFilterActive) BrandAccent else PrimaryText
+                Text(
+                    text = "$selectedCount",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryText,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
                 )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FilterList,
-                    contentDescription = "Filter and Sort"
-                )
-            }
 
-            var showMenu by remember { mutableStateOf(false) }
-            IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More", tint = PrimaryText)
-            }
+                IconButton(onClick = onMarkAsRead) {
+                    Icon(
+                        Icons.Default.DoneAll,
+                        contentDescription = "Mark Completed",
+                        tint = PrimaryText
+                    )
+                }
 
-            if (showMenu) {
-                NovelActionsBottomSheet(
-                    novel = novel,
-                    onDismiss = { showMenu = false },
-                    onRefreshMetadata = {
-                        onRefreshMetadata()
-                        showMenu = false
-                    },
-                    onDeleteNovel = {
-                        onDeleteNovel()
-                        showMenu = false
+                IconButton(onClick = onMarkAsUnread) {
+                    Icon(
+                        Icons.Default.RemoveDone,
+                        contentDescription = "Mark as Unread",
+                        tint = PrimaryText
+                    )
+                }
+
+                IconButton(onClick = onSelectAll) {
+                    Icon(
+                        Icons.Default.SelectAll,
+                        contentDescription = "Select All",
+                        tint = PrimaryText
+                    )
+                }
+
+                IconButton(onClick = onUnselectAll) {
+                    Icon(
+                        Icons.Default.Deselect,
+                        contentDescription = "Unselect All",
+                        tint = PrimaryText
+                    )
+                }
+            } else {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = PrimaryText
+                    )
+                }
+
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showTitle,
+                        enter = fadeIn(animationSpec = tween(durationMillis = 250)),
+                        exit = fadeOut(animationSpec = tween(durationMillis = 200))
+                    ) {
+                        Text(
+                            text = novel.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
                     }
-                )
+                }
+
+                IconButton(
+                    onClick = onFilterClick,
+                    colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = if (isFilterActive) BrandAccent else PrimaryText
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FilterList,
+                        contentDescription = "Filter and Sort"
+                    )
+                }
+
+                var showMenu by remember { mutableStateOf(false) }
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = PrimaryText)
+                }
+
+                if (showMenu) {
+                    NovelActionsBottomSheet(
+                        novel = novel,
+                        onDismiss = { showMenu = false },
+                        onRefreshMetadata = {
+                            onRefreshMetadata()
+                            showMenu = false
+                        },
+                        onDeleteNovel = {
+                            onDeleteNovel()
+                            showMenu = false
+                        }
+                    )
+                }
             }
         }
     }

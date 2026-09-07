@@ -45,6 +45,18 @@ class ChapterRepository private constructor(context: Context) {
         chapterDao.updateChapter(chapter = chapter.toEntity())
     }
 
+    suspend fun updateChapterReadStatus(chapterId: Int, isRead: Boolean) {
+        chapterDao.updateChapterReadStatus(chapterId, isRead)
+    }
+
+    suspend fun updateChapterReadStatus(chapterUrl: String, isRead: Boolean) {
+        chapterDao.updateChapterReadStatusByUrl(chapterUrl, isRead)
+    }
+
+    suspend fun updateChaptersReadStatus(chapterIds: List<Int>, isRead: Boolean) {
+        chapterDao.updateChaptersReadStatus(chapterIds, isRead)
+    }
+
     fun getChapterCount(novelUrl: String): Flow<Int> =
         chapterDao.getChapterCountFlow(novelUrl)
 }
