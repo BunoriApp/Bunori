@@ -71,6 +71,7 @@ sealed class Screen(val route: String) {
     object DownloadPreferences : Screen("download_preferences")
     object AdvancedSettings : Screen("advanced_settings")
     object SupportSettings : Screen("support_settings")
+    object BackupSettings : Screen("backup_settings")
     object UpdateDetail : Screen("update_detail")
     object RequestDetail : Screen("request_detail/{requestId}") {
         fun createRoute(requestId: String) = "request_detail/${URLEncoder.encode(requestId, "UTF-8")}"
@@ -312,9 +313,17 @@ fun NavGraph(navController: NavHostController) {
                     onNavigateToSupportSettings = {
                         navController.navigate(Screen.SupportSettings.route)
                     },
+                    onNavigateToBackupSettings = {
+                        navController.navigate(Screen.BackupSettings.route)
+                    },
                     onNavigateToUpdate = {
                         navController.navigate(Screen.UpdateDetail.route)
                     }
+                )
+            }
+            composable(Screen.BackupSettings.route) {
+                com.halovoid.lncrawler.ui.screens.support.BackupSettingsScreen(
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.UpdateDetail.route) { backStackEntry ->

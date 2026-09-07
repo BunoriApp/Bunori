@@ -3,27 +3,18 @@ package com.halovoid.lncrawler.api.backup
 import android.content.Context
 import com.halovoid.lncrawler.data.db.AppDatabase
 import com.halovoid.lncrawler.data.db.entities.RequestEntity
+import com.halovoid.lncrawler.data.repository.PreferenceRepository
+import com.halovoid.lncrawler.data.repository.StorageRepositoryImpl
 import com.halovoid.lncrawler.data.scheduler.jobs.JobHandler
 import com.halovoid.lncrawler.data.scheduler.jobs.JobResult
+import kotlinx.coroutines.flow.firstOrNull
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-/**
- * add this on the jobs to create it as a job
- * it takes the current database + novels (no artifacts are saved)
- * manifest.json is created
- *  - formatVersion - 1
- *  - appVersion
- *  - databaseVersion
- *  - createdAt
- *  - contents - {"database": true, "chapters": true, "covers": true, "artifacts": false}
- * database.db
- * novels/
- * packaged into .lnbak file stored inside backup/directory
- */
 @Suppress("RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
 class BackupService(private val context: Context): JobHandler {
     override suspend fun handle(request: RequestEntity): JobResult {
@@ -35,11 +26,57 @@ class BackupService(private val context: Context): JobHandler {
         }
     }
 
-    fun createBackup(): File {
-        val backupDir = File(context.filesDir, "backup").apply { mkdirs() }
+    suspend fun createBackup(
+        backupDatabase: Boolean = true,
+        backupChapters: Boolean = true,
+        backupCovers: Boolean = true,
+        backupArtifacts: Boolean = false
+    ): File? {
         val timestamp = System.currentTimeMillis()
-        val backupFile = File(backupDir, "backup_$timestamp.lnback")
+        val fileName = "backup_$timestamp.lnbak"
 
+        val tempFile = File(context.cacheDir, fileName)
+        FileOutputStream(tempFile).use { fos ->
+            writeBackupToStream(fos, backupDatabase, backupChapters, backupCovers, backupArtifacts, timestamp)
+        }
+        val bytes = tempFile.readBytes()
+        tempFile.delete()
+
+        val exportUri = PreferenceRepository.getInstance(context).exportFolderUri.firstOrNull()
+        if (exportUri != null) {
+            try {
+                val storageRepository = StorageRepositoryImpl.getInstance(context)
+                storageRepository.saveFile("backup", fileName, "application/zip", bytes)
+                return null
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Fallback to local external/internal filesDir if exportUri is not set or failed
+        val backupDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "backup").apply { mkdirs() }
+        val fallbackFile = File(backupDir, fileName)
+        fallbackFile.writeBytes(bytes)
+
+        // Rolling cleanup: keep max 3 backups
+        val backups = backupDir.listFiles { _, name -> name.endsWith(".lnbak") }?.sortedBy { it.lastModified() }
+        if (backups != null && backups.size > 3) {
+            for (i in 0 until (backups.size - 3)) {
+                backups[i].delete()
+            }
+        }
+
+        return fallbackFile
+    }
+
+    private fun writeBackupToStream(
+        outputStream: OutputStream,
+        backupDatabase: Boolean,
+        backupChapters: Boolean,
+        backupCovers: Boolean,
+        backupArtifacts: Boolean,
+        timestamp: Long
+    ) {
         val dbFile = context.getDatabasePath("lncrawler.db")
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         val appVersion = packageInfo.versionName ?: "1.0"
@@ -51,37 +88,35 @@ class BackupService(private val context: Context): JobHandler {
             put("databaseVersion", databaseVersion)
             put("createdAt", timestamp)
             put("contents", JSONObject().apply {
-                put("database", true)
-                put("chapters", true)
-                put("covers", true)
-                put("artifacts", false)
+                put("database", backupDatabase)
+                put("chapters", backupChapters)
+                put("covers", backupCovers)
+                put("artifacts", backupArtifacts)
             })
         }
 
-        FileOutputStream(backupFile).use { fos ->
-            ZipOutputStream(fos).use {zos ->
-                zos.putNextEntry(ZipEntry("mainfest.json"))
-                zos.write(manifestJson.toString(2).toByteArray())
+        ZipOutputStream(outputStream).use { zos ->
+            zos.putNextEntry(ZipEntry("manifest.json"))
+            zos.write(manifestJson.toString(2).toByteArray())
+            zos.closeEntry()
+
+            if (backupDatabase && dbFile.exists()) {
+                zos.putNextEntry(ZipEntry("database.db"))
+                dbFile.inputStream().use { it.copyTo(zos) }
                 zos.closeEntry()
+            }
 
-                if (dbFile.exists()) {
-                    zos.putNextEntry(ZipEntry("database.db"))
-                    dbFile.inputStream().use { it.copyTo(zos) }
-                    zos.closeEntry()
-                }
-
+            if (backupChapters || backupCovers) {
                 val novelsDir = File(context.filesDir, "novels")
                 if (novelsDir.exists() && novelsDir.isDirectory) {
                     zipDirectory(novelsDir, "novels", zos)
                 }
             }
         }
-
-        return backupFile
     }
 
     private fun zipDirectory(dir: File, baseName: String, zos: ZipOutputStream) {
-        dir.listFiles().forEach { file ->
+        dir.listFiles()?.forEach { file ->
             val entryName = "$baseName/${file.name}"
             if (file.isDirectory) {
                 zipDirectory(file, entryName, zos)

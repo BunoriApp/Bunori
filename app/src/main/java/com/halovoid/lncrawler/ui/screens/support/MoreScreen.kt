@@ -38,6 +38,7 @@ fun MoreScreen(
     onNavigateToDownloadsPref: () -> Unit,
     onNavigateToAdvanced: () -> Unit,
     onNavigateToSupportSettings: () -> Unit,
+    onNavigateToBackupSettings: () -> Unit,
     onNavigateToUpdate: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
@@ -113,6 +114,13 @@ fun MoreScreen(
                 subtitle = "Contribute, star repository, donation",
                 icon = Icons.Outlined.Favorite,
                 onClick = onNavigateToSupportSettings
+            )
+
+            SettingsRow(
+                title = "Backup & Restore",
+                subtitle = "Manage app backups, database snapshots",
+                icon = Icons.Outlined.Storage,
+                onClick = onNavigateToBackupSettings
             )
 
             Spacer(modifier = Modifier.height(16.dp))

@@ -100,7 +100,20 @@ object DatabaseMigrations {
 
     val MIGRATION_14_15 = object : Migration(14, 15) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE chapters ADD COLUMN read INTEGER NOT NULL DEFAULT 0")
+            var columnExists = false
+            val cursor = db.query("PRAGMA table_info(chapters)")
+            while (cursor.moveToNext()) {
+                val nameIndex = cursor.getColumnIndex("name")
+                if (nameIndex != -1 && cursor.getString(nameIndex) == "read") {
+                    columnExists = true
+                    break
+                }
+            }
+            cursor.close()
+
+            if (!columnExists) {
+                db.execSQL("ALTER TABLE chapters ADD COLUMN read INTEGER NOT NULL DEFAULT 0")
+            }
         }
     }
 }
