@@ -1,16 +1,11 @@
 package com.halovoid.lncrawler.ui.feature.settings
 
-import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material3.*
@@ -20,11 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.halovoid.lncrawler.ui.core.components.AppTopBar
+import com.halovoid.lncrawler.ui.core.components.ConfirmCancelDialog
+import com.halovoid.lncrawler.ui.core.platform.rememberFolderPickerLauncher
 import com.halovoid.lncrawler.ui.core.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadPreferencesScreen(
     viewModel: SettingsViewModel,
@@ -37,29 +33,16 @@ fun DownloadPreferencesScreen(
     
     var showResetDialog by remember { mutableStateOf(false) }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
-            viewModel.setExportFolder(it)
-            Toast.makeText(context, "Download location updated", Toast.LENGTH_SHORT).show()
-        }
+    val launchFolderPicker = rememberFolderPickerLauncher { uri ->
+        viewModel.setExportFolder(uri)
+        Toast.makeText(context, "Download location updated", Toast.LENGTH_SHORT).show()
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Download Preferences", color = PrimaryText, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = PrimaryText)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
+            AppTopBar(
+                title = "Download Preferences",
+                onBack = onBack
             )
         },
         containerColor = DarkBackground
@@ -172,7 +155,7 @@ fun DownloadPreferencesScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { launcher.launch(null) }
+                    .clickable { launchFolderPicker() }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -237,30 +220,18 @@ fun DownloadPreferencesScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
 
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            title = { Text("Reset Onboarding?", color = PrimaryText, fontWeight = FontWeight.Bold) },
-            text = { Text("This will prompt the setup wizard next time the app launches. Your downloaded novels will not be deleted.", color = SecondaryText) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.resetOnboarding()
-                        showResetDialog = false
-                        Toast.makeText(context, "Onboarding reset completed", Toast.LENGTH_LONG).show()
-                    }
-                ) {
-                    Text("Reset", color = ErrorRed, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
-                    Text("Cancel", color = PrimaryText)
-                }
-            },
-            containerColor = DarkSurface
-        )
+        if (showResetDialog) {
+            ConfirmCancelDialog(
+                title = "Reset Onboarding?",
+                message = "This will prompt the setup wizard next time the app launches. Your downloaded novels will not be deleted.",
+                onConfirm = {
+                    viewModel.resetOnboarding()
+                    showResetDialog = false
+                    Toast.makeText(context, "Onboarding reset completed", Toast.LENGTH_LONG).show()
+                },
+                onDismiss = { showResetDialog = false }
+            )
+        }
     }
 }

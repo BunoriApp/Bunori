@@ -1,16 +1,11 @@
 package com.halovoid.lncrawler.ui.feature.settings
 
 import android.content.Context
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Storage
@@ -18,19 +13,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.lncrawler.api.backup.BackupService
 import com.halovoid.lncrawler.api.backup.RestoreService
 import com.halovoid.lncrawler.data.repository.PreferenceRepository
-import com.halovoid.lncrawler.ui.core.components.AppBottomSheet
-import com.halovoid.lncrawler.ui.core.components.AppBottomSheetDivider
-import com.halovoid.lncrawler.ui.core.components.AppBottomSheetGroup
+import com.halovoid.lncrawler.ui.core.components.AppTopBar
+import com.halovoid.lncrawler.ui.core.platform.rememberFileOpenLauncher
 import com.halovoid.lncrawler.ui.core.theme.*
+import com.halovoid.lncrawler.ui.feature.settings.components.BackupFrequencyBottomSheet
+import com.halovoid.lncrawler.ui.feature.settings.components.CreateBackupBottomSheet
 import java.io.File
 import java.util.zip.ZipFile
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +72,6 @@ fun getLatestBackupMetadata(context: Context): BackupMetadata {
     return BackupMetadata(timeStr, sizeStr, summary, files.size)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupSettingsScreen(
     onBack: () -> Unit
@@ -93,39 +86,25 @@ fun BackupSettingsScreen(
     var metadata by remember { mutableStateOf(getLatestBackupMetadata(context)) }
 
     var showCreateBottomSheet by remember { mutableStateOf(false) }
-    var backupDatabase by remember { mutableStateOf(true) }
-    var backupChapters by remember { mutableStateOf(true) }
-    var backupCovers by remember { mutableStateOf(true) }
-    var backupArtifacts by remember { mutableStateOf(false) }
-
     var backupFrequency by remember { mutableStateOf("Off") }
-    var showFrequencyMenu by remember { mutableStateOf(false) }
+    var showFrequencyBottomSheet by remember { mutableStateOf(false) }
 
-    val restoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            scope.launch(Dispatchers.IO) {
-                val success = RestoreService(context).restoreBackup(uri)
-                scope.launch {
-                    snackbarHostState.showSnackbar(
-                        if (success) "Backup restored successfully! Please restart the app" else "Failed to restore backup."
-                    )
-                }
+    val launchRestorePicker = rememberFileOpenLauncher(mimeTypes = arrayOf("*/*")) { uri ->
+        scope.launch(Dispatchers.IO) {
+            val success = RestoreService(context).restoreBackup(uri)
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    if (success) "Backup restored successfully! Please restart the app" else "Failed to restore backup."
+                )
             }
         }
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Backup & Restore", color = PrimaryText, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = PrimaryText)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
+            AppTopBar(
+                title = "Backup & Restore",
+                onBack = onBack
             )
         },
         containerColor = DarkBackground,
@@ -176,7 +155,7 @@ fun BackupSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { restoreLauncher.launch(arrayOf("*/*")) }
+                    .clickable { launchRestorePicker() }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -247,7 +226,7 @@ fun BackupSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showFrequencyMenu = true }
+                    .clickable { showFrequencyBottomSheet = true }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -271,21 +250,6 @@ fun BackupSettingsScreen(
                     color = BrandAccent,
                     fontWeight = FontWeight.Bold
                 )
-
-                DropdownMenu(
-                    expanded = showFrequencyMenu,
-                    onDismissRequest = { showFrequencyMenu = false }
-                ) {
-                    listOf("Off", "Daily", "Weekly", "Monthly").forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option) },
-                            onClick = {
-                                backupFrequency = option
-                                showFrequencyMenu = false
-                            }
-                        )
-                    }
-                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -327,70 +291,31 @@ fun BackupSettingsScreen(
         }
 
         if (showCreateBottomSheet) {
-            AppBottomSheet(
+            CreateBackupBottomSheet(
                 onDismiss = { showCreateBottomSheet = false },
-                title = "Create Backup",
-                subtitle = "Select what to include in the backup archive."
-            ) {
-                AppBottomSheetGroup {
-                    ListItem(
-                        headlineContent = { Text("Database", color = PrimaryText) },
-                        supportingContent = { Text("Library metadata, reading progress, settings", color = SecondaryText) },
-                        trailingContent = { Checkbox(checked = backupDatabase, onCheckedChange = { backupDatabase = it }) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { backupDatabase = !backupDatabase }
-                    )
-                    AppBottomSheetDivider()
-                    ListItem(
-                        headlineContent = { Text("Chapters / Novels", color = PrimaryText) },
-                        supportingContent = { Text("Downloaded novel/chapter content", color = SecondaryText) },
-                        trailingContent = { Checkbox(checked = backupChapters, onCheckedChange = { backupChapters = it }) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { backupChapters = !backupChapters }
-                    )
-                    AppBottomSheetDivider()
-                    ListItem(
-                        headlineContent = { Text("Covers", color = PrimaryText) },
-                        supportingContent = { Text("Downloaded cover images", color = SecondaryText) },
-                        trailingContent = { Checkbox(checked = backupCovers, onCheckedChange = { backupCovers = it }) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { backupCovers = !backupCovers }
-                    )
-                    AppBottomSheetDivider()
-                    ListItem(
-                        headlineContent = { Text("Artifacts (EPUB/PDF)", color = PrimaryText) },
-                        supportingContent = { Text("Generated/downloaded EPUB and PDF artifacts", color = SecondaryText) },
-                        trailingContent = { Checkbox(checked = backupArtifacts, onCheckedChange = { backupArtifacts = it }) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { backupArtifacts = !backupArtifacts }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        showCreateBottomSheet = false
-                        scope.launch(Dispatchers.IO) {
-                            BackupService(context).createBackup(
-                                backupDatabase = backupDatabase,
-                                backupChapters = backupChapters,
-                                backupCovers = backupCovers,
-                                backupArtifacts = backupArtifacts
-                            )
-                            metadata = getLatestBackupMetadata(context)
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Backup created successfully!")
-                            }
+                onCreateBackup = { db, ch, cov, art ->
+                    scope.launch(Dispatchers.IO) {
+                        BackupService(context).createBackup(
+                            backupDatabase = db,
+                            backupChapters = ch,
+                            backupCovers = cov,
+                            backupArtifacts = art
+                        )
+                        metadata = getLatestBackupMetadata(context)
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Backup created successfully!")
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandAccent),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Create Backup", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
+                    }
                 }
-            }
+            )
+        }
+
+        if (showFrequencyBottomSheet) {
+            BackupFrequencyBottomSheet(
+                currentFrequency = backupFrequency,
+                onFrequencySelected = { backupFrequency = it },
+                onDismiss = { showFrequencyBottomSheet = false }
+            )
         }
     }
 }

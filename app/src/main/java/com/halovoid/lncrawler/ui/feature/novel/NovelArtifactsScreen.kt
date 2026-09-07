@@ -2,8 +2,6 @@ package com.halovoid.lncrawler.ui.feature.novel
 
 import android.app.Application
 import android.content.Intent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +23,7 @@ import com.halovoid.lncrawler.domain.models.Artifact
 import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.ui.ViewModelFactory
 import com.halovoid.lncrawler.ui.core.components.ExportWarningDialog
+import com.halovoid.lncrawler.ui.core.platform.rememberFileExportLauncher
 import com.halovoid.lncrawler.ui.core.theme.*
 import com.halovoid.lncrawler.ui.feature.novel.components.artifact.ArtifactCard
 import com.halovoid.lncrawler.ui.feature.novel.components.artifact.ArtifactExportDialog
@@ -57,42 +56,38 @@ fun NovelArtifactsScreen(
     var selectedArtifact by remember { mutableStateOf<Artifact?>(null) }
     var activeDialog by remember { mutableStateOf<ArtifactsDialogState?>(null) }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/epub+zip")
-    ) { uri ->
-        uri?.let { destUri ->
-            selectedArtifact?.let { artifact ->
-                viewModel.copyArtifactToUri(
-                    artifact = artifact,
-                    destinationUri = destUri,
-                    onComplete = { resultUri ->
-                        if (resultUri != null) {
-                            scope.launch {
-                                val result = snackbarHostState.showSnackbar(
-                                    message = "Exported: ${artifact.artifactName}",
-                                    actionLabel = "OPEN",
-                                    duration = SnackbarDuration.Long
-                                )
-                                if (result == SnackbarResult.ActionPerformed) {
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        setDataAndType(resultUri, "application/epub+zip")
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(intent, "Open with"))
+    val launchFileExport = rememberFileExportLauncher(mimeType = "application/epub+zip") { destUri ->
+        selectedArtifact?.let { artifact ->
+            viewModel.copyArtifactToUri(
+                artifact = artifact,
+                destinationUri = destUri,
+                onComplete = { resultUri ->
+                    if (resultUri != null) {
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Exported: ${artifact.artifactName}",
+                                actionLabel = "OPEN",
+                                duration = SnackbarDuration.Long
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(resultUri, "application/epub+zip")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
+                                context.startActivity(Intent.createChooser(intent, "Open with"))
                             }
                         }
-                    },
-                    onFileMissing = {
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = "Original file not found.",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
                     }
-                )
-            }
+                },
+                onFileMissing = {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Original file not found.",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                }
+            )
         }
     }
 
@@ -177,7 +172,7 @@ fun NovelArtifactsScreen(
                         },
                         onDownload = {
                             selectedArtifact = artifact
-                            exportLauncher.launch(artifact.artifactName)
+                            launchFileExport(artifact.artifactName)
                             onDownload(artifact)
                         }
                     )
