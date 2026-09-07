@@ -29,7 +29,7 @@ import com.halovoid.lncrawler.data.handlers.RangeDownloadHandler
 import com.halovoid.lncrawler.data.repository.*
 import com.halovoid.lncrawler.data.scheduler.jobs.JobHandlerRegistry
 import com.halovoid.lncrawler.data.scheduler.jobs.JobScheduler
-import com.halovoid.lncrawler.ui.cloudflare.CloudflareResolverImpl
+import com.halovoid.lncrawler.ui.feature.crawler.cloudflare.CloudflareResolverImpl
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach

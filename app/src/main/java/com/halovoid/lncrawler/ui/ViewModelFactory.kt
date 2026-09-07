@@ -8,18 +8,18 @@ import com.halovoid.lncrawler.data.repository.NovelRepository
 import com.halovoid.lncrawler.data.repository.PreferenceRepository
 import com.halovoid.lncrawler.data.repository.ReaderRepository
 import com.halovoid.lncrawler.data.repository.RequestRepository
-import com.halovoid.lncrawler.ui.screens.novel.GroupedRequestsViewModel
-import com.halovoid.lncrawler.ui.screens.novel.NovelDetailViewModel
-import com.halovoid.lncrawler.ui.screens.crawler.CrawlerViewModel
-import com.halovoid.lncrawler.ui.screens.library.LibraryViewModel
-import com.halovoid.lncrawler.ui.screens.onboarding.FolderViewModel
-import com.halovoid.lncrawler.ui.screens.support.SettingsViewModel
-import com.halovoid.lncrawler.ui.screens.request.RequestDetailViewModel
-import com.halovoid.lncrawler.ui.screens.request.RequestViewModel
-import com.halovoid.lncrawler.ui.screens.search.SearchViewModel
-import com.halovoid.lncrawler.ui.screens.search.GlobalSearchViewModel
-import com.halovoid.lncrawler.ui.screens.download.DownloadViewModel
-import com.halovoid.lncrawler.ui.screens.reader.ReaderViewModel
+import com.halovoid.lncrawler.ui.feature.crawler.CrawlerViewModel
+import com.halovoid.lncrawler.ui.feature.downloads.DownloadViewModel
+import com.halovoid.lncrawler.ui.feature.library.LibraryViewModel
+import com.halovoid.lncrawler.ui.feature.novel.GroupedRequestsViewModel
+import com.halovoid.lncrawler.ui.feature.novel.NovelDetailViewModel
+import com.halovoid.lncrawler.ui.feature.onboarding.FolderViewModel
+import com.halovoid.lncrawler.ui.feature.reader.ReaderViewModel
+import com.halovoid.lncrawler.ui.feature.request.RequestDetailViewModel
+import com.halovoid.lncrawler.ui.feature.request.RequestViewModel
+import com.halovoid.lncrawler.ui.feature.search.GlobalSearchViewModel
+import com.halovoid.lncrawler.ui.feature.search.SearchViewModel
+import com.halovoid.lncrawler.ui.feature.settings.SettingsViewModel
 
 class ViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")

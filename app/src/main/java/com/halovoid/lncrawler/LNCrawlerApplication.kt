@@ -5,7 +5,7 @@ import com.halovoid.lncrawler.api.core.scrapper.Scrapper
 import com.halovoid.lncrawler.crash.CrashActivity
 import com.halovoid.lncrawler.crash.GlobalExceptionHandler
 import com.halovoid.lncrawler.api.loader.SourceLoader
-import com.halovoid.lncrawler.ui.cloudflare.CloudflareResolverImpl
+import com.halovoid.lncrawler.ui.feature.crawler.cloudflare.CloudflareResolverImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

@@ -1,944 +1,374 @@
-# LNCrawler UI and Code Architecture Rules
+# LNCrawler Architecture & Contribution Guidelines
 
-This document defines the architectural and UI convention for LNCrawler
+> These rules exist to keep LNCrawler predictable as it grows. They apply to every new
+> screen, ViewModel, repository, dialog, bottom sheet, or feature — whether written by a
+> human contributor or a coding agent.
+>
+> **Test for every change:** *A developer who has never touched LNCrawler should be able
+> to find the relevant code just by knowing the feature name — without reading history,
+> guessing at global helpers, or duplicating something that already exists.*
+> If a change makes that harder, reconsider it before merging.
 
-These rules are not suggestions
+---
 
-Any new feature, screen, component, ViewModel, repository integration, dialog, bottom sheet,
-or UI related functionality must follow these rules
+## 1. The Five-Minute Version
 
-The purpose of these rules is to keep LNCrawler understandable and maintainable as the project
-grows, including for contributors who have never worked on the project before.
+If you read nothing else, read this:
 
-The goal is not to create unnecessarily completed architechtures
+1. **Organize by feature, not by type.** `ui/feature/novel/`, not `ui/screens/`, `ui/dialogs/`.
+2. **Screens render state and send events. Nothing else.** No DB, no network, no file I/O.
+3. **ViewModels orchestrate. They don't touch Android UI or construct their own dependencies.**
+4. **Repositories/UseCases own data and business logic.** Injected, never `new`'d inside a ViewModel.
+5. **Search before you build.** If something similar exists, reuse or generalize it — don't fork it.
+6. **No `Utils`, `Helper`, `Manager`, or `Common*` grab-bags.** Name things by what they own.
 
-The goal is:
+Everything below is the detail behind these six points.
 
-- predictable code location
-- clear ownership
-- reusable infra
-- minimal duplication
-- separation of UI and business logic
-- consistent UI
-- easy onboarding for contributors
-- safe modifications by coding agents
+---
 
-## 1. Core Architectural Principle
+## 2. Project Structure
 
-Organize code by FEATURE, not by technical type wherever possible
-
-A contributor should be able to answer:
-
-"Where is UI for novels?"
-
-by looking at:
-
-ui/feature/novel/
-
-rather than searching through:
-
-ui/component/
-ui/screens/
-ui/dialogs/
-ui/utils/
-etc...
-
-The preffered high level structure is:
-
+```
 ui/
-    core/
-        components/
-        theme/
+  core/
+    components/        # genuinely feature-independent, reused across features
+    theme/              # colors, typography, spacing, shape tokens
 
-    feature/
-        crawler/
-        downloads/
-        library/
-        novel/
-        request/
-        search/
-        reader/
-        settings/
-        onboarding/
+  feature/
+    crawler/
+    downloads/
+    library/
+    novel/
+    request/
+    search/
+    reader/
+    settings/
+    onboarding/
+      <FeatureName>Screen.kt
+      <FeatureName>ViewModel.kt
+      components/
+        <FeatureSpecific>Section.kt
 
-    nvaigation/
+  navigation/
+```
 
-Non-UI infrastrucure must not be placed inside ui/ merely because the code is being used by the screen
+**Rule of thumb:** if you're asking "where should this file go?", the answer is almost
+always "inside the feature it belongs to." Non-UI infrastructure (repositories, managers,
+DI providers) does **not** live under `ui/` just because a screen happens to use it.
 
-## 2. Feature Ownership
+---
 
-Every screen or UI component must have a clear owning feature
+## 3. Layers & Responsibilities
 
-Examples - 
+| Layer | Owns | Must never do |
+|---|---|---|
+| **Screen** (Composable) | Rendering state, collecting user actions, navigation triggers | DB/network calls, business logic, constructing repositories, launching file pickers directly |
+| **ViewModel** | UI state, orchestrating use cases/repositories, exposing loading/error/success | Composable functions, Android UI APIs (file pickers, dialogs, Activity results), constructing its own repositories/API clients |
+| **UseCase** *(optional)* | A single, meaningful unit of business logic reused across ViewModels | Owning UI state, knowing about Compose |
+| **Repository** | Single source of truth for a data domain; talks to API/DB | UI concerns, navigation |
+| **Data/API/DB** | Persistence and network | Business decisions |
 
-NovelDetailScreen
-    -> ui/feature/novel/
+**Standard flow:**
 
-DownloadScreen
-    -> ui/feature/downloads/
+```
+User interaction → Screen → ViewModel → UseCase/Repository → API/Database
+```
 
-LibraryScreen
-    -> ui/feature/library/
+Small operations can skip the UseCase layer (`Screen → ViewModel → Repository` is fine).
+Add a UseCase only when logic is genuinely complex or shared — not for architectural
+completeness.
 
-BackupSettingsScreen
-    -> ui/feature/settings/
+### Dependency direction
+Dependencies flow inward: `UI → Application/Domain → Data → External systems`.
+A Screen should know *what* operation happens, never *how*.
 
-Novel-specific components belong to the novel feature:
-ui/feature/novel/components/
+```
+Bad:  Screen → Retrofit API → JSON parsing → database
+Good: Screen → ViewModel → Repository → API / Database
+```
 
-Settings-specific components belong to:
-ui/feature/settings/components/
+---
 
-Do not put feature-specific components into global components/.
+## 4. Dependency Construction
 
-## 3. Shared component rule
+ViewModels and Screens must never manually construct repositories, API clients, or
+managers.
 
-A component belongs in:
-
-ui/core/components/
-
-ONLY when it is genuinely feature-independent and is used or clearly
-intended to be used by multiple features.
-
-Examples:
-
-- generic EmptyState
-- generic LoadingIndicator
-- generic ScreenHeader
-- generic AppBottomSheet
-- generic confirmation dialog
-- generic reusable settings row
-
-A component must NOT be moved to core merely because it could
-technically be reused.
-
-Prefer feature ownership.
-
-Bad:
-
-ui/core/components/NovelCard.kt
-
-if NovelCard only exists for the novel/library experience.
-
-Good:
-
-ui/feature/library/components/NovelCard.kt
-
-If another feature later needs the same functionality, determine whether
-the component should actually become shared at that point.
-
-Do not create a global "components" dumping ground.
-
-## 4. Screen rule
-
-A Screen is responsible for:
-
-- composing UI
-- displaying state
-- collecting UI state
-- sending user actions/events
-- navigation triggers
-- launching UI-only platform APIs through a defined UI abstraction
-
-A Screen must NOT be responsible for:
-
-- database operations
-- network operations
-- creating repositories
-- constructing API clients
-- performing business logic
-- manipulating files directly
-- performing long-running work
-- deciding how data is persisted
-
-Keep Screens relatively declarative.
-
-Preferred flow:
-
-User interaction
-    ↓
-Screen
-    ↓
-ViewModel
-    ↓
-Use Case / Repository
-    ↓
-Data/API/Database
-
-## 5. ViewModel Rule
-
-ViewModels own screen state and screen-level business orchestration.
-
-ViewModels should:
-
-- expose UI state
-- receive user actions
-- invoke domain/data operations
-- expose loading/error/success states
-- coordinate operations required by the screen
-
-ViewModels should NOT:
-
-- directly manipulate Compose UI
-- contain Composable functions
-- launch Activity/Fragment UI APIs
-- directly invoke Android UI elements
-- create repositories manually
-- create API clients manually
-- directly launch file pickers
-- directly show dialogs
-- directly manipulate navigation UI
-
-A ViewModel should be usable without knowing what the screen looks like.
-
-## 6. Repository Rule
-
-ViewModels must NOT manually construct repositories.
-
-Bad:
-
-class SomeViewModel : ViewModel() {
-    private val repository = NovelRepository(...)
+```kotlin
+// Bad — every ViewModel builds its own copy
+class LibraryViewModel : ViewModel() {
+    private val repository = NovelRepository(ApiClient(...), Database(...))
 }
 
-or:
+// Good — constructed once, injected everywhere
+class LibraryViewModel(
+    private val repository: NovelRepository
+) : ViewModel()
+```
 
-val repository = RepositoryFactory.create(...)
+Repositories, managers, and API clients should have **one clear place of construction**
+(a DI framework, or — if the project isn't there yet — a lightweight, centralized
+provider). Don't introduce a full DI framework just to fix one ViewModel, but don't keep
+copy-pasting construction logic either. The second duplicate is your signal to
+centralize it.
 
-inside every ViewModel.
+---
 
-Repositories should be provided through dependency injection or a
-centralized dependency provider.
+## 5. Platform APIs (Files, Permissions, Clipboard...)
 
-A repository should have one clear source of construction.
+Platform/Android APIs are UI-layer concerns and must stay out of ViewModels.
 
-Preferred:
+| Concern | Owner |
+|---|---|
+| File/folder picker | UI/platform abstraction |
+| Permissions | UI/platform abstraction |
+| Clipboard | UI/platform abstraction |
+| Notifications | Service/platform layer |
+| Network | Data layer |
+| Database | Data layer |
+| File persistence | Data/service layer |
 
-ViewModel
-    ↓
-Injected Repository
+**Pattern for anything that needs a platform action (e.g. file picking):** the
+ViewModel expresses *intent*, the UI layer performs the *action*, the result flows back.
 
-or:
-
-ViewModel
-    ↓
-Injected UseCase
-    ↓
-Repository
-
-The same repository must not be reconstructed independently in every
-ViewModel.
-
-If a dependency is needed by multiple ViewModels, it should be possible
-to provide that dependency centrally.
-
-## 7. NO REPEATED INFRASTRUCTURE
-
-If the same infrastructure operation appears in more than one ViewModel,
-STOP and determine whether it belongs in a shared abstraction.
-
-Examples include:
-
-- obtaining repositories
-- file selection
-- folder selection
-- exporting files
-- importing files
-- backup creation
-- backup restoration
-- permission handling
-- URI handling
-- source synchronization
-- preferences access
-- database access
-
-Do not copy the same implementation into every ViewModel.
-
-Create an appropriate abstraction instead.
-
-## 8. FILE PICKER / FILE SELECTOR RULE
-
-ViewModels must NOT directly open Android file selectors.
-
-A ViewModel should express an intent such as:
-
-SelectBackupFile
-
-or:
-
-RequestFileSelection
-
-The UI/platform layer handles the actual Android Activity Result /
-Storage Access Framework interaction.
-
-Preferred conceptual flow:
-
-User taps "Restore Backup"
-        ↓
+```
 Screen sends RestoreBackupClicked
         ↓
-ViewModel emits RequestBackupFile
+ViewModel emits RequestBackupFile (one-time event)
         ↓
-Screen/UI file-picker abstraction launches selector
+Screen's file-picker abstraction launches the system picker
         ↓
-Selected URI is returned to ViewModel
+Selected URI returned to ViewModel
         ↓
-ViewModel starts restore operation
+ViewModel starts the restore operation
+```
 
-This keeps Android UI APIs out of ViewModels.
+There should be **one reusable file-picker abstraction** for the whole app — not a new
+`rememberLauncherForActivityResult` in every screen that needs one.
 
-There must be ONE reusable mechanism for common file/folder selection
-operations rather than every screen implementing its own launcher.
+---
 
-If multiple types of file selection are required, create a reusable
-abstraction that supports the required contracts.
+## 6. UI State
 
-Do not duplicate:
+Prefer one state model per non-trivial screen:
 
-rememberLauncherForActivityResult(...)
-Intent(...)
-OpenDocument(...)
-OpenDocumentTree(...)
-GetContent(...)
-etc.
-
-throughout individual screens.
-
-## 9. PLATFORM API RULE
-
-Platform APIs should have a clear ownership boundary.
-
-Examples:
-
-File picker
-    -> UI/platform abstraction
-
-Permissions
-    -> UI/platform abstraction
-
-Clipboard
-    -> UI/platform abstraction
-
-Notifications
-    -> appropriate platform/service layer
-
-Network
-    -> data layer
-
-Database
-    -> data layer
-
-File persistence
-    -> data/service layer
-
-Business decisions
-    -> domain/application layer
-
-Do not allow Android framework APIs to spread randomly through
-ViewModels and repositories.
-
-## 10. DEPENDENCY DIRECTION
-
-Dependencies should flow inward/downward.
-
-UI
- ↓
-Application/Domain
- ↓
-Data
- ↓
-External systems
-
-UI should not know implementation details of the API.
-
-For example:
-
-Bad:
-
-Screen
- → Retrofit API
- → JSON parsing
- → database
-
-Good:
-
-Screen
- → ViewModel
- → Repository
- → API / Database
-
-The UI should care about what operation is being performed, not how it
-is implemented.
-
-## 11. VIEWMODEL STATE
-
-Every non-trivial screen should have a clear UI state.
-
-Prefer a single state model where appropriate:
-
-data class ScreenUiState(
+```kotlin
+data class LibraryUiState(
     val isLoading: Boolean = false,
-    val data: ...,
-    val error: ...
+    val novels: List<Novel> = emptyList(),
+    val error: String? = null,
 )
+```
 
-The screen should render state rather than independently maintaining
-pieces of application state that belong to the ViewModel.
+- **Persistent state** (what's on screen) lives in the state model above.
+- **One-time events** (navigate, show a snackbar, open a file, launch a picker) are
+  modeled separately — e.g. a `SharedFlow` of events — never as fields the screen has
+  to remember to "consume."
+- No global mutable state to pass data between unrelated screens.
 
-Transient one-time events such as:
+---
 
-- navigation
-- opening a file
-- showing a snackbar
-- launching a system action
+## 7. Components, Dialogs, Bottom Sheets
 
-should be represented separately from persistent screen state.
+**Where a component lives:**
 
-Do not use arbitrary mutable globals to communicate between screens.
+| Component is... | Goes in |
+|---|---|
+| Used by exactly one feature | `ui/feature/<name>/components/` |
+| Genuinely feature-independent AND used/intended for 2+ features | `ui/core/components/` |
 
-## 12. UI COMPONENT RULE
+Don't move something to `core` "because it could theoretically be reused" — wait until a
+second feature actually needs it, then decide if it should graduate.
 
-Components should have one clear responsibility.
+**Dialogs** — for confirmations, destructive actions, small forms. Reuse
+`ConfirmCancelDialog` / `ConfirmDeleteDialog` etc. before writing a new one.
 
-Bad:
+**Bottom sheets** — preferred for option selection, filters/sort, contextual actions.
+Reuse the existing bottom sheet implementation (typography, spacing, corner radius, drag
+handle, animations, dismissal behavior) rather than building a parallel one.
 
-NovelScreenEverything.kt
+**Splitting a screen into components** — do it when a piece:
+- has a distinct responsibility (e.g. `NovelHeroSection`, `NovelSynopsisSection`)
+- is reused, or
+- meaningfully simplifies the parent screen
 
-containing:
+Don't split every 10 lines into its own file, and don't let one file (`NovelScreenEverything.kt`)
+grow to own hero + metadata + chapters + downloads + dialogs + networking at once.
 
-- hero
-- metadata
-- synopsis
-- chapters
-- downloads
-- artifacts
-- dialogs
-- navigation
-- networking
+---
 
-Good:
+## 8. Settings, Empty States, Loading/Error
 
-NovelDetailScreen
-NovelHeroSection
-NovelMetadataSection
-NovelSynopsisSection
-NovelTableOfContents
-NovelArtifactsSection
+**Settings** follow one layout pattern throughout the app:
 
-However, do not split every 10 lines into a component.
-
-Create a component when:
-
-- it has a meaningful responsibility
-- it is reused
-- it makes the parent screen significantly easier to understand
-- it represents a meaningful UI section
-
-## 13. DO NOT CREATE GOD COMPONENTS
-
-Avoid components such as:
-
-CommonUtils
-UIUtils
-Helper
-AppManager
-GlobalManager
-CommonViewModel
-EverythingRepository
-
-Do not solve architectural uncertainty by creating a giant utility class.
-
-If functionality belongs to a feature, keep it with that feature.
-
-If functionality is genuinely shared, define a focused abstraction.
-
-## 14. DIALOG RULE
-
-Use dialogs for:
-
-- confirmation
-- destructive actions
-- short focused decisions
-- small forms
-
-Do not create a new dialog implementation if an existing reusable
-dialog pattern already exists.
-
-If the application already has:
-
-ConfirmCancelDialog
-ConfirmDeleteDialog
-etc.
-
-reuse the established pattern.
-
-If multiple dialogs are solving the same problem with slightly
-different implementations, consider consolidating them.
-
-## 15. BOTTOM SHEET RULE
-
-Bottom sheets should be the preferred interaction for:
-
-- selectable options
-- action lists
-- filter/sort controls
-- configuration choices
-- contextual actions
-
-Reuse the existing BottomSheet implementation.
-
-Do not introduce another independent bottom-sheet implementation unless
-there is a concrete requirement the existing one cannot satisfy.
-
-All new bottom sheets must follow the existing:
-
-- typography
-- spacing
-- corner radius
-- drag handle
-- button placement
-- colors
-- animation
-- dismissal behavior
-
-## 16. SETTINGS UI RULE
-
-Settings screens should follow one consistent pattern.
-
-Preferred structure:
-
+```
 SECTION HEADER
+  Setting
+  Supporting description                    Current value >
 
-Setting
-Supporting description                         Current value >
+  Setting
+  Supporting description                    >
+```
 
-Setting
-Supporting description                         Current value >
+Use a custom card only when content genuinely needs a visually distinct container —
+not by default.
 
-SECTION HEADER
+**Empty states** must answer: *what's empty → why it might be → what to do next.* Never
+leave a blank area with no context, and never fabricate data just to look populated.
 
-Setting
-Supporting description                         >
-
-Avoid creating custom cards for every setting.
-
-Use cards only when the content genuinely requires a visually distinct
-container.
-
-Settings should feel like one coherent system across:
-
-- Download Preferences
-- Backup & Restore
-- Advanced Settings
-- Support Settings
-- other settings screens
-
-## 17. UI DESIGN SYSTEM RULE
-
-Never introduce arbitrary:
-
-- colors
-- typography
-- spacing
-- corner radii
-- shadows
-- icon sizes
-
-if an existing theme/design token already exists.
-
-Use the application's theme.
-
-If a value is repeatedly needed and does not have an existing token,
-consider adding a design token rather than repeatedly hardcoding it.
-
-The UI should look like one application, not a collection of individually
-designed screens.
-
-## 18. ICON RULE
-
-Icons should communicate function.
-
-Avoid:
-
-- oversized decorative icons
-- inconsistent icon sizes
-- mixing unrelated icon styles
-- using icons merely to fill empty space
-
-Use the existing icon sizing and visual treatment.
-
-## 19. EMPTY STATE RULE
-
-Empty states should explain:
-
-1. What is empty.
-2. Why it may be empty.
-3. What the user can do next, when applicable.
-
-Do not leave large blank areas without context.
-
-Do not fabricate data merely to make a screen look populated.
-
-## 20. ERROR / LOADING RULE
-
-Every operation that can:
-
-- fail
-- take significant time
-- require network access
-- access files
-- access the database
-
-should have an explicit loading/error/success state where appropriate.
-
-Do not silently swallow exceptions.
-
-Do not expose raw implementation exceptions directly to users unless
-appropriate.
-
-## 21. NAVIGATION RULE
-
-Navigation definitions belong in the navigation layer.
-
-Screens should not contain arbitrary navigation graph construction.
-
-A feature should expose navigation destinations in a predictable way.
-
-When adding a screen:
-
-1. Add the screen to its feature package.
-2. Add its route/destination to navigation.
-3. Keep navigation wiring centralized.
-4. Do not create feature-specific navigation systems without a strong
-   reason.
-
-## 22. NAMING RULE
-
-Names must describe responsibility.
-
-Prefer:
-
-BackupSettingsScreen
-BackupViewModel
-BackupRepository
-BackupManager
-
-over:
-
-BackupHelper
-BackupUtils
-BackupStuff
-
-For components:
-
-NovelHeroSection
-NovelMetadataSection
-BackupOptionSheet
-
-rather than:
-
-BackupThing
-BackupView
-BackupComponent2
-
-Use consistent terminology throughout the codebase.
-
-## 23. FILE ORGANIZATION RULE
-
-A feature should ideally look like:
-
-feature/
-    feature/
-        FeatureScreen.kt
-        FeatureViewModel.kt
-        components/
-            FeatureHeader.kt
-            FeatureRow.kt
-
-Additional files should only be added when their responsibility
-justifies them.
-
-Do not create:
-
-utils/
-helpers/
-misc/
-common/
-stuff/
-
-to avoid deciding where a file belongs.
-
-If it is difficult to determine where something belongs, that is a sign
-that its responsibility is unclear and should be resolved before adding
-it.
-
-## 24. REFACTORING RULE
-
-When moving files:
-
-- update package declarations
-- update imports
-- update references
-- update navigation
-- update tests
-- verify resource references
-- verify DI/dependency wiring
-- build the project
-
-Do not combine a structural refactor with a large behavioral rewrite
-unless necessary.
-
-Prefer small, independently verifiable migrations.
-
-## 25. AGENT RULE
-
-Before modifying an unfamiliar area of the project, inspect:
-
-1. The owning feature.
-2. Existing components in that feature.
-3. Existing shared components.
-4. Related ViewModels.
-5. Related repositories/use cases.
-6. Navigation.
-7. Existing patterns for the same UI interaction.
-
-Do not create a new implementation simply because the existing
-implementation was not immediately found.
-
-Search first.
-
-Reuse second.
-
-Create new infrastructure third.
-
-## 26. DUPLICATION RULE
-
-Before adding code, search for existing implementations.
-
-If something similar already exists:
-
-- reuse it if appropriate
-- generalize it if genuinely shared
-- leave it feature-local if it is feature-specific
-
-Do not create:
-
-FileSelectorA
-FileSelectorB
-FileSelectorC
-
-when one reusable abstraction can handle the required behavior.
-
-Likewise do not create multiple repository factories or multiple
-implementations of the same settings-row behavior.
-
-## 27. BUSINESS LOGIC RULE
-
-UI code should describe WHAT the user wants.
-
-It should not describe HOW the application accomplishes it.
-
-For example:
-
-Good:
-
-viewModel.restoreBackup(uri)
-
-Bad:
-
-screen:
-    unzip file
-    parse manifest
-    open database
-    copy files
-    update preferences
-
-The screen should never become the place where business logic accumulates.
-
-## 28. DATA ACCESS RULE
-
-Never access the database directly from:
-
-- Composables
-- Screens
-- UI components
-
-Never access network APIs directly from:
-
-- Composables
-- Screens
-- UI components
-- ViewModels when a repository abstraction already exists
-
-All data access must have an identifiable owner.
-
-## 29. FEATURE COMMUNICATION RULE
-
-Features should not reach into each other's internal implementation.
-
-Bad:
-
-NovelScreen directly accessing DownloadViewModel internals.
-
-Good:
-
-Novel feature requests a download operation through an appropriate
-application/domain abstraction.
-
-Features may share well-defined application services/repositories.
-
-Do not create hidden coupling between screens.
-
-## 30. PREFER SIMPLE ARCHITECTURE
-
-Do not introduce layers simply to satisfy architectural terminology.
-
-For a small operation:
-
-UI
- ↓
-ViewModel
- ↓
-Repository
-
-may be enough.
-
-For complicated business logic:
-
-UI
- ↓
-ViewModel
- ↓
-UseCase
- ↓
-Repository
-
-may be appropriate.
-
-The architecture should reflect actual complexity.
-
-The goal is clarity, not maximum number of classes.
-
-## 31. WHEN ADDING A NEW FEATURE
-
-Before implementation:
-
-1. Identify the feature owner.
-2. Identify required screens.
-3. Identify reusable components.
-4. Identify existing infrastructure that can be reused.
-5. Identify whether a new repository/use case is actually required.
-6. Identify whether the feature needs platform APIs.
-7. Decide where those platform APIs belong.
-
-Then implement.
-
-Do not start by creating arbitrary files under ui/components/.
-
-## 32. WHEN ADDING A NEW UI PATTERN
-
-If a new screen requires something that does not currently exist:
-
-First determine:
-
-"Is this actually a new UI pattern?"
-
-If yes, implement it consistently and consider whether it should become
-a reusable component.
-
-If it is only a variation of an existing pattern, extend/reuse the
-existing pattern instead.
-
-Do not create a second version of an existing component because the
-existing component requires minor modification.
-
-## 33. MAINTAINABILITY TEST
-
-Every change should pass this test:
-
-A developer who has never worked on LNCrawler should be able to find
-the relevant code by knowing the feature name.
-
-They should not need to:
-
-- search the entire repository
-- inspect unrelated ViewModels
-- understand historical implementation decisions
-- guess which global component is responsible
-- duplicate an existing implementation
-
-If a change makes this harder, reconsider the design.
-
-## 34. DEPENDENCY CONSTRUCTION RULE
-
-A class must not construct its own external dependencies when those
-dependencies are application-level services.
-
-Examples:
-
-- repositories
-- API clients
-- database instances
-- preference stores
-- file managers
-- backup managers
-- source managers
-- download managers
-
-Bad:
-
-class DownloadViewModel : ViewModel() {
-    private val repository = DownloadRepository(
-        ApiClient(...),
-        Database(...)
-    )
-}
-
-Bad:
-
-class LibraryViewModel : ViewModel() {
-    private val repository = DownloadRepository(...)
-}
-
-Good:
-
-class DownloadViewModel(
-    private val repository: DownloadRepository
-) : ViewModel()
-
-class LibraryViewModel(
-    private val repository: DownloadRepository
-) : ViewModel()
-
-The construction of DownloadRepository is centralized.
-
-If the project does not yet use a dependency injection framework,
-introduce a lightweight application-level dependency provider/factory
-before adding more manual dependency construction.
-
-Do not introduce a full DI framework solely to solve one small problem,
-but do not continue duplicating dependency construction across
-ViewModels either.
-
-## 35. FINAL PRINCIPLE
-
-The codebase should make the correct thing easy to do.
-
-Adding a new screen should be predictable.
-
-Adding a file picker should be predictable.
-
-Adding a repository should be predictable.
-
-Adding a bottom sheet should be predictable.
-
-Adding a setting should be predictable.
-
-Adding a new feature should be predictable.
-
-If a contributor repeatedly has to ask:
-
-"Where does this go?"
-
-the architecture needs improvement rather than expecting every
-contributor to learn undocumented historical conventions.
+**Loading/Error**: any operation that can fail, take time, or touch network/DB/files
+needs an explicit loading/error/success path. Don't swallow exceptions silently; don't
+expose raw stack traces to users.
+
+---
+
+## 9. Design System
+
+Never hardcode colors, type styles, spacing, radii, shadows, or icon sizes if a theme
+token already exists. If a value is needed repeatedly and no token exists, add one —
+don't repeat the magic number. The app should read as one product, not a set of
+independently-styled screens.
+
+---
+
+## 10. Naming
+
+Name things after what they're responsible for.
+
+| Prefer | Avoid |
+|---|---|
+| `BackupSettingsScreen`, `BackupViewModel`, `BackupRepository` | `BackupHelper`, `BackupUtils`, `BackupStuff` |
+| `NovelHeroSection`, `BackupOptionSheet` | `BackupThing`, `BackupComponent2` |
+
+**Banned class/file names** (these are architecture smells, not naming style):
+`CommonUtils`, `UIUtils`, `Helper`, `AppManager`, `GlobalManager`, `CommonViewModel`,
+`EverythingRepository`, and any `utils/`, `helpers/`, `misc/`, `common/`, `stuff/`
+package created to dodge deciding where something belongs. If you can't name it clearly,
+its responsibility isn't clear yet — fix that first.
+
+---
+
+## 11. Navigation & Cross-Feature Communication
+
+- Route/destination definitions live in `ui/navigation/`, not scattered per screen.
+- Features don't reach into each other's internals (e.g. `NovelScreen` should never
+  poke at `DownloadViewModel`'s private state). Cross-feature needs go through a shared
+  application service/repository.
+
+---
+
+## 12. Cookbook — "How Do I Add...?"
+
+Use these as literal checklists.
+
+### Add a new screen
+1. Confirm the owning feature (create `ui/feature/<name>/` if it's genuinely new).
+2. Create `<Name>Screen.kt` + `<Name>ViewModel.kt` inside it.
+3. Define its `UiState` and one-time events.
+4. Register the route in `ui/navigation/`.
+5. Wire the ViewModel's dependencies through the existing DI/provider — don't construct them inline.
+
+### Add a new feature
+1. Identify the feature name and create its package.
+2. List the screens it needs.
+3. Check `ui/core/components/` for anything reusable before building new components.
+4. Check existing repositories/use cases before deciding a new one is needed.
+5. Identify any platform APIs required and route them through the existing abstractions (§5).
+6. Only then start writing screens.
+
+### Add a repository
+1. Search for an existing repository that already owns this data domain.
+2. If none exists, create it in the data layer (not under `ui/`).
+3. Register its construction in the central DI/provider — don't let ViewModels build it.
+
+### Add a dialog / bottom sheet
+1. Check whether an existing dialog/sheet already solves this shape of problem.
+2. If yes, reuse it with different content/params.
+3. If no, build one following the existing visual and interaction conventions (§7), and consider whether it should live in `core` or the feature.
+
+### Add a setting
+1. Confirm which settings screen it belongs to.
+2. Follow the standard row layout (§8) — don't create a bespoke card.
+3. Route its persistence through the existing preferences abstraction, not a new one.
+
+### Add anything that touches files/permissions/clipboard
+1. Check `ui/core/` for the existing platform abstraction.
+2. Extend it if it doesn't yet support your use case.
+3. Never call Android APIs (`OpenDocument`, `rememberLauncherForActivityResult`, etc.) directly inside a Screen or ViewModel body as a one-off.
+
+---
+
+## 13. Writing New Code — Practical Rules
+
+These apply regardless of which layer you're touching.
+
+1. **Search before you write.** Grep the feature folder, then `core`, before adding
+   anything. If something 80% does what you need, extend it or generalize it —
+   don't fork a near-duplicate (`FileSelectorA`, `FileSelectorB`, ...).
+2. **One file, one responsibility.** If a file is doing UI + business logic + platform
+   calls, split it along those lines before adding more to it.
+3. **New code goes where the cookbook (§12) says it goes** — not wherever is fastest to
+   type at the moment. If you're unsure, that uncertainty is a signal to ask/check,
+   not to default to a `utils` package.
+4. **Keep functions small and named for intent.** `restoreBackup(uri)` at the call site,
+   not the unzip/parse/copy steps inline in a Screen or ViewModel.
+5. **State changes go through the ViewModel.** Composables read state and emit events;
+   they don't mutate application state directly.
+6. **Prefer composition over inheritance** for UI components — build small sections and
+   assemble them in the Screen, rather than deep Composable hierarchies with shared base
+   classes.
+7. **Match existing patterns exactly** for anything with an established convention
+   (dialogs, bottom sheets, settings rows, error states) — visual and structural
+   consistency beats a "slightly better" one-off.
+8. **Don't mix a structural refactor with a behavioral change** in the same commit/PR.
+   Move code first (update packages, imports, navigation, DI wiring, tests, build),
+   verify it still works, then change behavior separately.
+9. **Every operation that can fail gets a visible error path** — no bare `catch {}` that
+   discards the exception.
+10. **New public APIs (ViewModel methods, repository functions) should read like a
+    sentence of intent** — `loadLibrary()`, `deleteNovel(id)` — not `doStuff()` or
+    `handleClick2()`.
+11. **When done, re-run the Maintainability Test** in §1: could a new contributor find
+    this by feature name alone? If not, move it before merging.
+
+---
+
+## 14. Agent-Specific Instructions
+
+Before modifying an unfamiliar area:
+
+1. Open the owning feature folder and read what's already there.
+2. Check `ui/core/components/` for reusable pieces before creating new ones.
+3. Check for an existing ViewModel/repository/use case that already covers this need.
+4. Check `ui/navigation/` for how similar screens are wired in.
+5. Look for an existing pattern for the same *kind* of interaction (a similar dialog,
+   a similar settings row, a similar file-picker flow) and follow it.
+
+**Order of operations: search → reuse → generalize → create new.**
+Do not create a new implementation just because the existing one wasn't immediately
+obvious — that's almost always a sign to search harder, not to build a parallel version.
+
+---
+
+## 15. Anti-Patterns — Quick Reference
+
+| Don't | Do instead |
+|---|---|
+| `ui/components/NovelCard.kt` | `ui/feature/library/components/NovelCard.kt` |
+| ViewModel constructs its own repository | Repository injected via central DI/provider |
+| ViewModel calls `rememberLauncherForActivityResult` | ViewModel emits an intent event; UI layer launches the picker |
+| `CommonUtils`, `Helper`, `Manager` grab-bag classes | Named, feature- or domain-owned classes |
+| New dialog/sheet built from scratch each time | Reuse/extend the existing dialog and bottom-sheet implementations |
+| Hardcoded colors/spacing | Theme tokens |
+| Screen contains unzip/parse/DB logic | `viewModel.restoreBackup(uri)` — logic lives in the data/domain layer |
+| Combining a file-move refactor with new features in one PR | Move first, verify, then change behavior |
+
+---
+
+## 16. Final Principle
+
+The architecture should make the *correct* thing the *easy* thing: adding a screen,
+a file picker, a repository, a bottom sheet, or a setting should all be predictable and
+look the same way every time. If a contributor keeps having to ask "where does this go?",
+that's a gap in the architecture to fix — not something to route around with an
+undocumented convention.

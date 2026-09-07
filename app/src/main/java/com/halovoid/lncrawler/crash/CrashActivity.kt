@@ -6,10 +6,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import com.halovoid.lncrawler.MainActivity
-import com.halovoid.lncrawler.data.repository.PreferenceRepository
 import com.halovoid.lncrawler.data.repository.StorageRepositoryImpl
-import com.halovoid.lncrawler.ui.screens.crash.CrashScreen
-import com.halovoid.lncrawler.ui.theme.LNCrawlerTheme
+import com.halovoid.lncrawler.ui.core.theme.LNCrawlerTheme
+import com.halovoid.lncrawler.ui.feature.settings.CrashScreen
 
 class CrashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,63 +1,62 @@
 package com.halovoid.lncrawler.ui.navigation
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import android.app.Application
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import com.halovoid.lncrawler.data.db.entities.RequestType
 import com.halovoid.lncrawler.data.repository.PreferenceRepository
 import com.halovoid.lncrawler.ui.ViewModelFactory
-import com.halovoid.lncrawler.ui.screens.novel.GroupedRequestsScreen
-import com.halovoid.lncrawler.data.db.entities.RequestType
-import com.halovoid.lncrawler.domain.models.Request
-import com.halovoid.lncrawler.ui.screens.novel.NovelDetailScreen
-import com.halovoid.lncrawler.ui.screens.novel.NovelDetailViewModel
-import com.halovoid.lncrawler.ui.screens.request.RequestScreen
-import com.halovoid.lncrawler.ui.screens.request.RequestViewModel
-import com.halovoid.lncrawler.ui.screens.request.RequestDetailScreen
-import com.halovoid.lncrawler.ui.screens.request.NovelPreviewScreen
-import com.halovoid.lncrawler.ui.screens.download.DownloadScreen
-import com.halovoid.lncrawler.ui.screens.download.DownloadViewModel
-import com.halovoid.lncrawler.ui.screens.library.LibraryScreen
-import com.halovoid.lncrawler.ui.screens.onboarding.FolderScreen
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.halovoid.lncrawler.ui.screens.onboarding.FolderViewModel
-import androidx.compose.runtime.rememberCoroutineScope
-import com.halovoid.lncrawler.ui.screens.onboarding.WelcomeScreen
-import com.halovoid.lncrawler.ui.screens.onboarding.PermissionScreen
-import com.halovoid.lncrawler.ui.screens.onboarding.SourceSyncScreen
-import com.halovoid.lncrawler.ui.screens.crawler.CrawlerScreen
-import com.halovoid.lncrawler.ui.screens.crawler.CrawlerViewModel
-import kotlinx.coroutines.launch
-import com.halovoid.lncrawler.ui.screens.library.LibraryViewModel
-import com.halovoid.lncrawler.ui.screens.novel.GroupedRequestsViewModel
-import com.halovoid.lncrawler.ui.screens.search.*
-import com.halovoid.lncrawler.ui.screens.reader.ReaderScreen
-import com.halovoid.lncrawler.ui.screens.reader.ReaderViewModel
-import com.halovoid.lncrawler.ui.screens.novel.NovelActivityScreen
-import com.halovoid.lncrawler.ui.screens.novel.NovelArtifactsScreen
-import com.halovoid.lncrawler.ui.screens.support.MoreScreen
-import com.halovoid.lncrawler.ui.screens.support.SettingsViewModel
-import com.halovoid.lncrawler.ui.screens.support.DownloadPreferencesScreen
-import com.halovoid.lncrawler.ui.screens.support.AdvancedSettingsScreen
-import com.halovoid.lncrawler.ui.screens.support.SupportSettingsScreen
+import com.halovoid.lncrawler.ui.feature.crawler.CrawlerScreen
+import com.halovoid.lncrawler.ui.feature.crawler.CrawlerViewModel
+import com.halovoid.lncrawler.ui.feature.downloads.DownloadScreen
+import com.halovoid.lncrawler.ui.feature.downloads.DownloadViewModel
+import com.halovoid.lncrawler.ui.feature.library.LibraryScreen
+import com.halovoid.lncrawler.ui.feature.library.LibraryViewModel
+import com.halovoid.lncrawler.ui.feature.novel.GroupedRequestsScreen
+import com.halovoid.lncrawler.ui.feature.novel.GroupedRequestsViewModel
+import com.halovoid.lncrawler.ui.feature.novel.NovelActivityScreen
+import com.halovoid.lncrawler.ui.feature.novel.NovelArtifactsScreen
+import com.halovoid.lncrawler.ui.feature.novel.NovelDetailScreen
+import com.halovoid.lncrawler.ui.feature.novel.NovelDetailViewModel
+import com.halovoid.lncrawler.ui.feature.onboarding.FolderScreen
+import com.halovoid.lncrawler.ui.feature.onboarding.FolderViewModel
+import com.halovoid.lncrawler.ui.feature.onboarding.PermissionScreen
+import com.halovoid.lncrawler.ui.feature.onboarding.SourceSyncScreen
+import com.halovoid.lncrawler.ui.feature.onboarding.WelcomeScreen
+import com.halovoid.lncrawler.ui.feature.reader.ReaderScreen
+import com.halovoid.lncrawler.ui.feature.reader.ReaderViewModel
+import com.halovoid.lncrawler.ui.feature.request.ManualRequestScreen
+import com.halovoid.lncrawler.ui.feature.request.NovelPreviewScreen
+import com.halovoid.lncrawler.ui.feature.request.RequestDetailScreen
+import com.halovoid.lncrawler.ui.feature.request.RequestScreen
+import com.halovoid.lncrawler.ui.feature.request.RequestViewModel
+import com.halovoid.lncrawler.ui.feature.search.ExperimentalSearchScreen
+import com.halovoid.lncrawler.ui.feature.search.SearchViewModel
+import com.halovoid.lncrawler.ui.feature.settings.AdvancedSettingsScreen
+import com.halovoid.lncrawler.ui.feature.settings.BackupSettingsScreen
+import com.halovoid.lncrawler.ui.feature.settings.DownloadPreferencesScreen
+import com.halovoid.lncrawler.ui.feature.settings.MoreScreen
+import com.halovoid.lncrawler.ui.feature.settings.SettingsViewModel
+import com.halovoid.lncrawler.ui.feature.settings.SupportSettingsScreen
+import com.halovoid.lncrawler.ui.feature.settings.UpdateDetailScreen
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.net.URLDecoder
 import java.net.URLEncoder
 
-/**
- * Defines the available navigation destinations in the application.
- */
 sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
     object Permissions : Screen("permissions")
@@ -98,9 +97,6 @@ sealed class Screen(val route: String) {
     object ManualRequest : Screen("manual_request")
 }
 
-/**
- * Main navigation graph setup for the app.
- */
 @Composable
 fun NavGraph(navController: NavHostController) {
     val application = LocalContext.current.applicationContext as Application
@@ -239,7 +235,7 @@ fun NavGraph(navController: NavHostController) {
                     viewModelStoreOwner = parentEntry,
                     factory = remember { ViewModelFactory(application) }
                 )
-                com.halovoid.lncrawler.ui.screens.request.ManualRequestScreen(
+                ManualRequestScreen(
                     viewModel = requestViewModel,
                     searchUrl = null,
                     onBack = { navController.popBackStack() },
@@ -290,10 +286,10 @@ fun NavGraph(navController: NavHostController) {
                 )
                 DownloadScreen(
                     viewModel = downloadViewModel,
-                    onRequestClick = { requestId ->
+                    onRequestClick = { requestId: String ->
                         navController.navigate(Screen.RequestDetail.createRoute(requestId))
                     },
-                    onGroupClick = { type ->
+                    onGroupClick = { type: RequestType ->
                         navController.navigate(Screen.GroupedRequests.createRoute("ALL", "all", type.name))
                     }
                 )
@@ -322,7 +318,7 @@ fun NavGraph(navController: NavHostController) {
                 )
             }
             composable(Screen.BackupSettings.route) {
-                com.halovoid.lncrawler.ui.screens.support.BackupSettingsScreen(
+                BackupSettingsScreen(
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -334,7 +330,7 @@ fun NavGraph(navController: NavHostController) {
                     viewModelStoreOwner = supportEntry,
                     factory = remember { ViewModelFactory(application) }
                 )
-                com.halovoid.lncrawler.ui.screens.support.UpdateDetailScreen(
+                UpdateDetailScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )
@@ -413,8 +409,8 @@ fun NavGraph(navController: NavHostController) {
                     onGroupClick = { type ->
                         navController.navigate(Screen.GroupedRequests.createRoute("DEPENDENCY", requestId, type.name))
                     },
-                    onRequestClick = { requestId ->
-                        navController.navigate(Screen.RequestDetail.createRoute(requestId))
+                    onRequestClick = { id ->
+                        navController.navigate(Screen.RequestDetail.createRoute(id))
                     }
                 )
             }
@@ -425,9 +421,12 @@ fun NavGraph(navController: NavHostController) {
                     "UTF-8"
                 )
                 NovelDetailScreen(
-                    novelUrl,
-                    onRequestClick = {requestId ->
+                    novelUrl = novelUrl,
+                    onRequestClick = { requestId ->
                         navController.navigate(Screen.RequestDetail.createRoute(requestId))
+                    },
+                    onChapterClick = { url, chapterId ->
+                        navController.navigate(Screen.Reader.createRoute(url, chapterId))
                     },
                     onBack = {
                         navController.popBackStack()
@@ -437,9 +436,6 @@ fun NavGraph(navController: NavHostController) {
                     },
                     onArtifactsClick = {
                         navController.navigate(Screen.NovelArtifacts.createRoute(novelUrl))
-                    },
-                    onChapterClick = { url, chapterId ->
-                        navController.navigate(Screen.Reader.createRoute(url, chapterId))
                     }
                 )
             }
@@ -492,10 +488,7 @@ fun NavGraph(navController: NavHostController) {
                     novel = novel,
                     artifacts = artifacts,
                     onBack = { navController.popBackStack() },
-                    onDownload = { artifact ->
-                        // Artifact downloading logic is handled in the screen or passed here
-                        // For now, let's assume the screen handles the CreateDocument launcher
-                    }
+                    onDownload = { _ -> }
                 )
             }
             composable(Screen.GroupedRequests.route) { backStackEntry ->

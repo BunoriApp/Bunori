@@ -40,7 +40,7 @@
             android:theme="@style/Theme.LNCrawler" />
 
         <activity
-            android:name=".ui.cloudflare.CloudflareActivity"
+            android:name=".ui.feature.crawler.cloudflare.CloudflareActivity"
             android:exported="false"
             android:theme="@style/Theme.LNCrawler" />
 
