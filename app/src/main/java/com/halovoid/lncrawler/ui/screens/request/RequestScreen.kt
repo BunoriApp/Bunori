@@ -56,6 +56,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.lazy.itemsIndexed
 import com.halovoid.lncrawler.domain.models.Novel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.halovoid.lncrawler.data.db.entities.RequestType
 
 enum class RequestTab {
     SEARCH, CRAWLERS
@@ -594,12 +595,13 @@ fun FilterBottomSheet(
             )
             AppBottomSheetDivider()
 
-            com.halovoid.lncrawler.data.db.entities.RequestType.entries.forEach { type ->
+            RequestType.entries.forEach { type ->
                 val label = when (type) {
-                    com.halovoid.lncrawler.data.db.entities.RequestType.NOVEL_METADATA -> "Metadata"
-                    com.halovoid.lncrawler.data.db.entities.RequestType.CHAPTER -> "Chapters"
-                    com.halovoid.lncrawler.data.db.entities.RequestType.ARTIFACT -> "Exports"
-                    com.halovoid.lncrawler.data.db.entities.RequestType.RANGE_DOWNLOAD -> "Downloads"
+                    RequestType.NOVEL_METADATA -> "Metadata"
+                    RequestType.CHAPTER -> "Chapters"
+                    RequestType.ARTIFACT -> "Exports"
+                    RequestType.RANGE_DOWNLOAD -> "Downloads"
+                    RequestType.BACKUP -> "Backups"
                 }
                 ListItem(
                     headlineContent = { Text(label, color = PrimaryText) },
@@ -609,7 +611,7 @@ fun FilterBottomSheet(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onFilterSelected(type) }
                 )
-                if (type != com.halovoid.lncrawler.data.db.entities.RequestType.entries.last()) {
+                if (type != RequestType.entries.last()) {
                     AppBottomSheetDivider()
                 }
             }

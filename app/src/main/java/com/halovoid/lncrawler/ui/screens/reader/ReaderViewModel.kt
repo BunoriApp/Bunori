@@ -77,6 +77,26 @@ class ReaderViewModel(
         centerPos = pos
         _currentChapter.value = allChapters.getOrNull(pos)
         _currentChapterNumber.value = pos + 1
+
+        // Automatically mark preceding chapters as read
+        if (pos > 0) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val previousChapters = allChapters.subList(0, pos).filter { !it.read }
+                if (previousChapters.isNotEmpty()) {
+                    val previousIds = previousChapters.map { it.id }
+                    chapterRepository.updateChaptersReadStatus(previousIds, true)
+                    allChapters = allChapters.map { chapter ->
+                        if (chapter.id in previousIds) {
+                            chapter.read = true
+                            chapter
+                        } else {
+                            chapter
+                        }
+                    }
+                }
+            }
+        }
+
         windowJob?.cancel()
         windowJob = viewModelScope.launch(Dispatchers.IO) {
             shiftWindow(pos)

@@ -9,6 +9,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.halovoid.lncrawler.MainActivity
 import com.halovoid.lncrawler.R
+import com.halovoid.lncrawler.api.backup.BackupService
 import com.halovoid.lncrawler.data.artifact.ArtifactGenerator
 import com.halovoid.lncrawler.data.artifact.ArtifactGeneratorFactory
 import com.halovoid.lncrawler.data.artifact.generators.EpubGenerator
@@ -149,6 +150,7 @@ class SchedulerService : Service() {
         registry.register(RequestType.RANGE_DOWNLOAD, RangeDownloadHandler(
             chapterRepository, requestDao
         ))
+        registry.register(RequestType.BACKUP, BackupService(applicationContext))
 
         // 5. Set Up Scheduler
         scheduler = JobScheduler(requestDao, registry, preferenceRepository = preferenceRepository)

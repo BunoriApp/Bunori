@@ -131,6 +131,7 @@ fun RequestGroupCard(
         RequestType.CHAPTER -> "Chapters"
         RequestType.ARTIFACT -> "Exports"
         RequestType.RANGE_DOWNLOAD -> "Downloads"
+        RequestType.BACKUP -> "Backups"
     }
 
     Surface(

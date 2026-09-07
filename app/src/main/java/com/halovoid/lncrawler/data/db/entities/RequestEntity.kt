@@ -9,7 +9,8 @@ enum class RequestType {
     NOVEL_METADATA,
     CHAPTER,
     ARTIFACT,
-    RANGE_DOWNLOAD
+    RANGE_DOWNLOAD,
+    BACKUP
 }
 
 enum class RequestStatus {

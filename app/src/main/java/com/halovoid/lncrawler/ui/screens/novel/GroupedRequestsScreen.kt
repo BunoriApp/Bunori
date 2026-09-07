@@ -63,6 +63,7 @@ fun GroupedRequestsScreen(
             RequestType.CHAPTER -> "Chapter Downloads"
             RequestType.ARTIFACT -> "Exports"
             RequestType.RANGE_DOWNLOAD -> "Downloads"
+            RequestType.BACKUP -> "Backups"
         }
 
         Scaffold(
