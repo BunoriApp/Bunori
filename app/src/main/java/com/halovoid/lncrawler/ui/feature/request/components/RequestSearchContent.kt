@@ -1,5 +1,6 @@
 package com.halovoid.lncrawler.ui.feature.request.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +38,14 @@ import com.halovoid.lncrawler.ui.feature.search.GlobalSearchState
 import com.halovoid.lncrawler.ui.feature.search.GlobalSearchViewModel
 import com.halovoid.lncrawler.ui.feature.search.SourceSearchStatus
 
+/**
+ * the screen for searching, a child to the request screen
+ *  isSearchActive - used for deciding when to go full screen for search and when to show just the box
+ *  isCompactMode - this is for toggling between grid and compact mode
+ *  upon cancelling the request the search query is made blank and the user can search again
+ *
+ *  this mostly handles the animation part of the search screen + result fetching
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestSearchContent(
@@ -48,23 +58,21 @@ fun RequestSearchContent(
     onNavigateToDetail: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val libraryUrls by requestViewModel.libraryUrls.collectAsStateWithLifecycle()
-    val searchState by viewModel.searchState.collectAsStateWithLifecycle()
-    var isCompactMode by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    var isFocused by remember { mutableStateOf(false) }
+    var isCompactMode by remember { mutableStateOf(false) }
+
+    val searchState by viewModel.searchState.collectAsStateWithLifecycle()
+    val libraryUrls by requestViewModel.libraryUrls.collectAsStateWithLifecycle()
+
+    val isSearching = searchState is GlobalSearchState.Searching
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
-    val activeSearch = searchState !is GlobalSearchState.Idle || isFocused || searchQuery.isNotEmpty()
-
-    LaunchedEffect(activeSearch) {
-        onSearchActiveChange(activeSearch)
-    }
-
-    androidx.activity.compose.BackHandler(enabled = activeSearch) {
+    BackHandler(enabled = isSearchActive) {
         searchQuery = ""
         viewModel.resetState()
         onSearchActiveChange(false)
+        focusManager.clearFocus()
         keyboardController?.hide()
     }
 
@@ -120,19 +128,12 @@ fun RequestSearchContent(
                     .padding(start = 16.dp, end = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = if (isSearchActive) PrimaryText else SecondaryText,
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(Icons.Default.Search, contentDescription = null, tint = if (isSearchActive) PrimaryText else SecondaryText, modifier = Modifier.size(20.dp))
 
                 TextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .onFocusChanged { isFocused = it.isFocused },
+                    modifier = Modifier.weight(1f),
                     placeholder = { Text("Search for novels...", color = SecondaryText, fontSize = 16.sp) },
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
@@ -159,10 +160,13 @@ fun RequestSearchContent(
                     IconButton(
                         onClick = {
                             if (searchQuery.isNotBlank()) {
+                                onSearchActiveChange(true)
                                 viewModel.search(searchQuery)
                                 keyboardController?.hide()
                             } else {
-                                viewModel.resetState()
+                                searchQuery = ""
+                                onSearchActiveChange(false)
+                                keyboardController?.hide()
                             }
                         }
                     ) {
@@ -170,7 +174,7 @@ fun RequestSearchContent(
                             imageVector = if (searchQuery.isNotBlank()) {
                                 Icons.AutoMirrored.Filled.ArrowForward
                             } else {
-                                Icons.Default.KeyboardArrowDown
+                                Icons.Default.Cancel
                             },
                             contentDescription = if (searchQuery.isNotBlank()) "Search" else "Back to Idle",
                             tint = if (searchQuery.isNotBlank()) PrimaryText else SecondaryText

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.lncrawler.api.core.crawler.CrawlerFactory
 import com.halovoid.lncrawler.domain.models.SearchItem
+import com.halovoid.lncrawler.ui.core.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +17,9 @@ sealed class GlobalSearchState {
     object Idle : GlobalSearchState()
     data class Searching(
         val query: String,
-        val sourceStates: Map<String, SourceSearchStatus>
+        val sourceStates: Map<String, SourceSearchStatus>,
+        val isComplete: Boolean = false,
+        val isEmpty: Boolean = false
     ) : GlobalSearchState()
     data class Error(val message: String) : GlobalSearchState()
 }
@@ -54,7 +57,7 @@ class GlobalSearchViewModel(
                         val results = withContext(Dispatchers.IO) {
                             crawler.getSearchResults(query)
                         }
-                        android.util.Log.d(
+                        AppLog.d(
                             "GlobalSearchViewModel",
                             "Crawler '${crawler.name}' returned ${results.size} results for query '$query': ${results.map { "${it.title} (${it.url})" }}"
                         )
@@ -70,7 +73,7 @@ class GlobalSearchViewModel(
                         }
                         updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
                     } catch (e: Exception) {
-                        android.util.Log.e("GlobalSearchViewModel", "Error searching ${crawler.name}: ${e.message}", e)
+                        AppLog.e("GlobalSearchViewModel", "Error searching ${crawler.name}: ${e.message}", e)
                         updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
                     }
                 }
@@ -84,7 +87,18 @@ class GlobalSearchViewModel(
             val updatedMap = currentState.sourceStates.toMutableMap().apply {
                 put(sourceName, status)
             }
-            _searchState.value = currentState.copy(sourceStates = updatedMap)
+
+            val allDone = updatedMap.all { it.value !is SourceSearchStatus.Loading }
+            val allEmpty = updatedMap.all {
+                val stat = it.value
+                stat is SourceSearchStatus.Success && stat.items.isEmpty()
+            }
+
+            _searchState.value = currentState.copy(
+                sourceStates = updatedMap,
+                isComplete = allDone,
+                isEmpty = allEmpty
+            )
         }
     }
 

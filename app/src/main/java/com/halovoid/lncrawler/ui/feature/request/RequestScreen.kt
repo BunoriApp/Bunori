@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -22,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.halovoid.lncrawler.ui.ViewModelFactory
+import com.halovoid.lncrawler.ui.core.components.AppTopBar
 import com.halovoid.lncrawler.ui.core.components.ScreenHeader
 import com.halovoid.lncrawler.ui.core.theme.*
 import com.halovoid.lncrawler.ui.feature.crawler.CrawlerScreen
@@ -36,6 +36,17 @@ enum class RequestTab {
     SEARCH, CRAWLERS
 }
 
+/**
+ * contains two tabs
+ * 1. search
+ * 2. crawler
+ *
+ * actions being done
+ * - checks for crawler update everytime the screen is visited
+ * - initiates viewModel for functionalities
+ *
+ * Its work is to navigate to either search screen or the crawler screen based on what is required
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestScreen(
@@ -43,8 +54,7 @@ fun RequestScreen(
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateToRequest: () -> Unit,
     viewModel: RequestViewModel,
-    crawlerViewModel: CrawlerViewModel,
-    searchUrl: String? = null
+    crawlerViewModel: CrawlerViewModel
 ) {
     var selectedTab by remember { mutableStateOf(RequestTab.SEARCH) }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -182,7 +192,7 @@ fun RequestScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+//TODO: This is more of a legacy thing that has no use whatsoever in the application anymore remove it
 @Composable
 fun ManualRequestScreen(
     viewModel: RequestViewModel,
@@ -195,18 +205,9 @@ fun ManualRequestScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Request Novel", color = PrimaryText, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = PrimaryText
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
+            AppTopBar(
+                title = "Request Novel",
+                onBack = onBack
             )
         },
         containerColor = DarkBackground

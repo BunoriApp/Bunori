@@ -6,12 +6,15 @@ import androidx.lifecycle.viewModelScope
 import com.halovoid.lncrawler.api.core.crawler.CrawlerFactory
 import com.halovoid.lncrawler.api.core.scrapper.Scrapper
 import com.halovoid.lncrawler.data.factory.RequestFactory
-import com.halovoid.lncrawler.data.repository.RequestRepository
-import com.halovoid.lncrawler.data.repository.NovelRepository
 import com.halovoid.lncrawler.data.repository.IndexRepository
-import com.halovoid.lncrawler.data.scheduler.services.SchedulerService
+import com.halovoid.lncrawler.data.repository.NovelRepository
+import com.halovoid.lncrawler.data.repository.RequestRepository
 import com.halovoid.lncrawler.domain.models.Novel
-import com.halovoid.lncrawler.utils.SimhashUtils
+import com.halovoid.lncrawler.domain.usecase.SaveNovelResult
+import com.halovoid.lncrawler.domain.usecase.SaveNovelUseCase
+import com.halovoid.lncrawler.domain.usecase.StartNovelCrawlUseCase
+import com.halovoid.lncrawler.ui.core.logging.AppLog
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -19,16 +22,18 @@ class RequestViewModel(
     application: Application,
     private val requestRepository: RequestRepository,
     private val novelRepository: NovelRepository = NovelRepository.getInstance(application),
-    private val requestFactory: RequestFactory = RequestFactory()
+    private val requestFactory: RequestFactory = RequestFactory(),
+    private val saveNovelUseCase: SaveNovelUseCase = SaveNovelUseCase(novelRepository),
+    private val startNovelCrawlUseCase: StartNovelCrawlUseCase = StartNovelCrawlUseCase(requestRepository, requestFactory)
 ) : AndroidViewModel(application) {
 
     private val indexRepository: IndexRepository = IndexRepository()
 
     private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
+    val error: StateFlow<String?> = _error.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _novelPreview = MutableStateFlow<Novel?>(null)
     val novelPreview: StateFlow<Novel?> = _novelPreview.asStateFlow()
@@ -46,16 +51,19 @@ class RequestViewModel(
     private val _addSuccess = MutableSharedFlow<Unit>()
     val addSuccess = _addSuccess.asSharedFlow()
 
+    private val _uiEvents = Channel<RequestUiEvent>()
+    val uiEvents = _uiEvents.receiveAsFlow()
+
     val cancellingRequestIds: StateFlow<Set<String>> = requestRepository.cancellingRequestIds
     val activeActionIds: StateFlow<Set<String>> = requestRepository.activeActionIds
 
     fun resolveCloudflare(requestId: String, url: String) {
         viewModelScope.launch {
-            android.util.Log.i("RequestViewModel", "Starting Cloudflare resolution for $requestId at $url")
+            AppLog.i("RequestViewModel", "Starting Cloudflare resolution for $requestId at $url")
             val success = Scrapper.globalResolver?.resolve(url) ?: false
-            android.util.Log.i("RequestViewModel", "Resolution result: $success")
+            AppLog.i("RequestViewModel", "Resolution result: $success")
             if (success) {
-                android.util.Log.i("RequestViewModel", "Replaying request $requestId")
+                AppLog.i("RequestViewModel", "Replaying request $requestId")
                 requestRepository.replayRequest(requestId)
             }
         }
@@ -111,13 +119,15 @@ class RequestViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val hash = novel.titleHash ?: SimhashUtils.generateSimhash(novel.title)
-                val similar = novelRepository.getSimilarNovels(hash, 3)
-                
-                if (similar.isNotEmpty()) {
-                    _similarNovels.value = similar
-                } else {
-                    saveNovel(novel)
+                when (val result = saveNovelUseCase.checkAndSave(novel)) {
+                    is SaveNovelResult.SimilarFound -> {
+                        _similarNovels.value = result.similarNovels
+                    }
+                    is SaveNovelResult.Saved -> {
+                        _similarNovels.value = emptyList()
+                        _addSuccess.emit(Unit)
+                        _uiEvents.send(RequestUiEvent.NavigateBack)
+                    }
                 }
             } catch (e: Exception) {
                 _error.value = "Failed to check similarity: ${e.message}"
@@ -131,9 +141,10 @@ class RequestViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                novelRepository.saveNovelMetadata(novel)
+                saveNovelUseCase.saveDirectly(novel)
                 _similarNovels.value = emptyList()
                 _addSuccess.emit(Unit)
+                _uiEvents.send(RequestUiEvent.NavigateBack)
             } catch (e: Exception) {
                 _error.value = "Failed to add to library: ${e.message}"
             } finally {
@@ -164,10 +175,7 @@ class RequestViewModel(
     fun startNovelCrawl(crawlerName: String, url: String, title: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            val request = requestFactory.metadataFromUrl(crawlerName, url, title)
-
-            requestRepository.insertRequests(listOf(request))
-            SchedulerService.startService(getApplication())
+            startNovelCrawlUseCase(getApplication(), crawlerName, url, title)
             _isLoading.value = false
         }
     }

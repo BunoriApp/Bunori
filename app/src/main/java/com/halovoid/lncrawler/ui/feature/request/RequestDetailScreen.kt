@@ -1,14 +1,10 @@
 package com.halovoid.lncrawler.ui.feature.request
 
 import android.content.Intent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,14 +20,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.halovoid.lncrawler.data.db.entities.RequestType
 import com.halovoid.lncrawler.domain.models.Request
 import com.halovoid.lncrawler.ui.ViewModelFactory
+import com.halovoid.lncrawler.ui.core.components.AppTopBar
 import com.halovoid.lncrawler.ui.core.components.SecurityCheckDialog
+import com.halovoid.lncrawler.ui.core.platform.rememberFileExportLauncher
 import com.halovoid.lncrawler.ui.core.theme.*
 import com.halovoid.lncrawler.ui.feature.novel.components.artifact.ArtifactCard
 import com.halovoid.lncrawler.ui.feature.request.components.RequestCard
 import com.halovoid.lncrawler.ui.feature.request.components.requestHistorySection
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestDetailScreen(
     requestId: String?,
@@ -71,12 +68,8 @@ fun RequestDetailScreen(
         )
     }
 
-    val saveLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument(
-            "application/epub+zip"
-        )
-    ) { uri ->
-        if (uri != null && artifactMetadata != null) {
+    val launchFileExport = rememberFileExportLauncher(mimeType = "application/epub+zip") { uri ->
+        if (artifactMetadata != null) {
             viewModel.copyArtifactToUri(
                 artifact = artifactMetadata!!,
                 destinationUri = uri,
@@ -118,14 +111,9 @@ fun RequestDetailScreen(
         containerColor = DarkBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Request Details", fontWeight = FontWeight.Bold, color = PrimaryText) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = PrimaryText)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
+            AppTopBar(
+                title = "Request Details",
+                onBack = onBackClick
             )
         }
     ) { innerPadding ->
@@ -194,7 +182,7 @@ fun RequestDetailScreen(
                                 }
                             },
                             onDownload = {
-                                saveLauncher.launch(it.artifactName)
+                                launchFileExport(it.artifactName)
                             }
                         )
                     }

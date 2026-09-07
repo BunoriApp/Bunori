@@ -9,7 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.*
@@ -31,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.ui.core.components.AppBottomSheet
+import com.halovoid.lncrawler.ui.core.components.AppTopBar
 import com.halovoid.lncrawler.ui.core.theme.*
 import com.halovoid.lncrawler.ui.feature.novel.components.NovelSynopsisSection
 
@@ -171,7 +171,6 @@ fun SimilarNovelCard(novel: Novel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovelPreviewContent(
     novel: Novel?,
@@ -186,13 +185,9 @@ fun NovelPreviewContent(
     Scaffold(
         containerColor = DarkBackground,
         topBar = {
-            TopAppBar(
-                title = { Text("Preview", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = PrimaryText) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = PrimaryText)
-                    }
-                },
+            AppTopBar(
+                title = "Preview",
+                onBack = onBack,
                 actions = {
                     if (novel != null) {
                         IconButton(onClick = {
@@ -202,8 +197,7 @@ fun NovelPreviewContent(
                             Icon(Icons.Default.Language, contentDescription = "View Source", tint = PrimaryText)
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                }
             )
         }
     ) { innerPadding ->

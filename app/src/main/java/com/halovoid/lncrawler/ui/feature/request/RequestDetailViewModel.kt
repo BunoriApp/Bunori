@@ -11,6 +11,7 @@ import com.halovoid.lncrawler.data.repository.RequestRepository
 import com.halovoid.lncrawler.domain.models.Artifact
 import com.halovoid.lncrawler.domain.models.Chapter
 import com.halovoid.lncrawler.domain.models.Request
+import com.halovoid.lncrawler.ui.core.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -40,11 +41,11 @@ class RequestDetailViewModel(
 
     fun resolveCloudflare(requestId: String, url: String) {
         viewModelScope.launch {
-            android.util.Log.i("RequestDetailViewModel", "Starting Cloudflare resolution for $requestId at $url")
+            AppLog.i("RequestDetailViewModel", "Starting Cloudflare resolution for $requestId at $url")
             val success = com.halovoid.lncrawler.api.core.scrapper.Scrapper.globalResolver?.resolve(url) ?: false
-            android.util.Log.i("RequestDetailViewModel", "Resolution result: $success")
+            AppLog.i("RequestDetailViewModel", "Resolution result: $success")
             if (success) {
-                android.util.Log.i("RequestDetailViewModel", "Replaying request $requestId")
+                AppLog.i("RequestDetailViewModel", "Replaying request $requestId")
                 requestRepository.replayRequest(requestId)
             }
         }

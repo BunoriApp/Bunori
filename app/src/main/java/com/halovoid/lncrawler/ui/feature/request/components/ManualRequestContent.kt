@@ -31,6 +31,23 @@ fun ManualRequestContent(
     val error by viewModel.error.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
+    val onSubmit = {
+        if (!isLoading && urlInput.isNotBlank()) {
+            val crawlerName = viewModel.validateUrl(urlInput)
+            if (crawlerName != null) {
+                if (libraryUrls.contains(urlInput)) {
+                    onNavigateToDetail(crawlerName, urlInput)
+                } else {
+                    viewModel.pushToRedis(urlInput) {
+                        viewModel.setPreviewUrl(urlInput)
+                        viewModel.setPreviewNovel(null)
+                        onNavigateToPreview()
+                    }
+                }
+            }
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp)
@@ -81,22 +98,7 @@ fun ManualRequestContent(
                 )
 
                 IconButton(
-                    onClick = {
-                        if (!isLoading) {
-                            val crawlerName = viewModel.validateUrl(urlInput)
-                            if (crawlerName != null) {
-                                if (libraryUrls.contains(urlInput)) {
-                                    onNavigateToDetail(crawlerName, urlInput)
-                                } else {
-                                    viewModel.pushToRedis(urlInput) {
-                                        viewModel.setPreviewUrl(urlInput)
-                                        viewModel.setPreviewNovel(null)
-                                        onNavigateToPreview()
-                                    }
-                                }
-                            }
-                        }
-                    },
+                    onClick = onSubmit,
                     enabled = !isLoading && urlInput.isNotBlank(),
                     modifier = Modifier.size(48.dp)
                 ) {

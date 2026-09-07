@@ -36,6 +36,8 @@ import com.halovoid.lncrawler.ui.feature.request.components.CompactSearchResultC
 import com.halovoid.lncrawler.ui.feature.request.components.SearchResultCard
 import com.halovoid.lncrawler.ui.feature.request.components.SourceHeader
 
+//INFO: The server for experimental search has been shut down because of repeated complaints the development still works in the background
+//TODO: Remove the Experimental Search from the app
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExperimentalSearchScreen(

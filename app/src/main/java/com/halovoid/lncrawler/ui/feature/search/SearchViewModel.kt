@@ -21,6 +21,8 @@ sealed class SearchState {
     data class Error(val message: String) : SearchState()
 }
 
+//NOTE: It is the searchViewModel initially created to cater to experimental search but is now obsolete
+//TODO: Remove this from the codebase as well as application
 class SearchViewModel(
     application: Application,
     private val requestRepository: RequestRepository = RequestRepository.getInstance(application),
