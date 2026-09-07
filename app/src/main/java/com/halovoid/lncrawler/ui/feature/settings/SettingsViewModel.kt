@@ -32,9 +32,11 @@ sealed class AppUpdateState {
     data class Error(val message: String) : AppUpdateState()
 }
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val preferenceRepository = PreferenceRepository.getInstance(application)
-    private val updateRepository = UpdateRepository.getInstance(application)
+class SettingsViewModel(
+    application: Application,
+    private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application),
+    private val updateRepository: UpdateRepository = UpdateRepository.getInstance(application)
+) : AndroidViewModel(application) {
     private val updateDownloader = UpdateDownloader(application)
 
     private val _refreshing = MutableStateFlow(false)

@@ -31,6 +31,11 @@ import com.halovoid.lncrawler.ui.feature.novel.components.artifact.ArtifactExpor
 import com.halovoid.lncrawler.ui.feature.novel.components.artifact.ExportFormat
 import kotlinx.coroutines.launch
 
+sealed interface ArtifactsDialogState {
+    data object SelectFormat : ArtifactsDialogState
+    data class ExportWarning(val format: ExportFormat, val totalSelected: Int, val downloadedCount: Int) : ArtifactsDialogState
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovelArtifactsScreen(
@@ -50,9 +55,7 @@ fun NovelArtifactsScreen(
     val chapterRange by viewModel.chapterRange.collectAsStateWithLifecycle()
 
     var selectedArtifact by remember { mutableStateOf<Artifact?>(null) }
-    var showExportDialog by remember { mutableStateOf(false) }
-    var showExportWarning by remember { mutableStateOf(false) }
-    var pendingExportFormat by remember { mutableStateOf<ExportFormat?>(null) }
+    var activeDialog by remember { mutableStateOf<ArtifactsDialogState?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/epub+zip")
@@ -103,7 +106,7 @@ fun NovelArtifactsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showExportDialog = true }) {
+                    IconButton(onClick = { activeDialog = ArtifactsDialogState.SelectFormat }) {
                         Icon(Icons.Default.Add, contentDescription = "Create Artifact")
                     }
                 },
@@ -142,7 +145,7 @@ fun NovelArtifactsScreen(
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
-                        onClick = { showExportDialog = true },
+                        onClick = { activeDialog = ArtifactsDialogState.SelectFormat },
                         colors = ButtonDefaults.buttonColors(containerColor = BrandAccent)
                     ) {
                         Text("Create Artifact")
@@ -182,49 +185,49 @@ fun NovelArtifactsScreen(
             }
         }
 
-        if (showExportDialog) {
-            val start = chapterRange.start.toInt()
-            val end = chapterRange.endInclusive.toInt()
-            val rangeChapters = chapters.filter { it.index in start..end }
-            val downloadedCount = rangeChapters.count { it.fileLocation?.startsWith("content://") == true }
+        when (val dialog = activeDialog) {
+            is ArtifactsDialogState.SelectFormat -> {
+                val start = chapterRange.start.toInt()
+                val end = chapterRange.endInclusive.toInt()
+                val rangeChapters = chapters.filter { it.index in start..end }
+                val downloadedCount = rangeChapters.count { it.fileLocation?.startsWith("content://") == true }
 
-            ArtifactExportDialog(
-                onDismiss = { showExportDialog = false },
-                onExport = { format ->
-                    showExportDialog = false
-                    if (downloadedCount < rangeChapters.size) {
-                        pendingExportFormat = format
-                        showExportWarning = true
-                    } else {
-                        novel?.let { viewModel.startBackgroundExport(it, format) }
-                        onBack()
+                ArtifactExportDialog(
+                    onDismiss = { activeDialog = null },
+                    onExport = { format ->
+                        if (downloadedCount < rangeChapters.size) {
+                            activeDialog = ArtifactsDialogState.ExportWarning(
+                                format = format,
+                                totalSelected = rangeChapters.size,
+                                downloadedCount = downloadedCount
+                            )
+                        } else {
+                            activeDialog = null
+                            novel?.let { viewModel.startBackgroundExport(it, format) }
+                            onBack()
+                        }
                     }
-                }
-            )
-        }
-
-        if (showExportWarning && pendingExportFormat != null) {
-            val start = chapterRange.start.toInt()
-            val end = chapterRange.endInclusive.toInt()
-            val rangeChapters = chapters.filter { it.index in start..end }
-            val downloadedCount = rangeChapters.count { it.fileLocation?.startsWith("content://") == true }
-
-            ExportWarningDialog(
-                totalSelected = rangeChapters.size,
-                downloadedCount = downloadedCount,
-                onDownloadFirst = {
-                    showExportWarning = false
-                    novel?.let { viewModel.fetchRange(it) }
-                },
-                onExportAnyway = {
-                    showExportWarning = false
-                    novel?.let { viewModel.startBackgroundExport(it, pendingExportFormat!!) }
-                    onBack()
-                },
-                onDismiss = {
-                    showExportWarning = false
-                }
-            )
+                )
+            }
+            is ArtifactsDialogState.ExportWarning -> {
+                ExportWarningDialog(
+                    totalSelected = dialog.totalSelected,
+                    downloadedCount = dialog.downloadedCount,
+                    onDownloadFirst = {
+                        activeDialog = null
+                        novel?.let { viewModel.fetchRange(it) }
+                    },
+                    onExportAnyway = {
+                        activeDialog = null
+                        novel?.let { viewModel.startBackgroundExport(it, dialog.format) }
+                        onBack()
+                    },
+                    onDismiss = {
+                        activeDialog = null
+                    }
+                )
+            }
+            null -> Unit
         }
     }
 }

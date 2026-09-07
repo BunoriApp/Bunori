@@ -5,25 +5,23 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.lncrawler.api.core.crawler.CrawlerFactory
 import com.halovoid.lncrawler.api.core.scrapper.Scrapper
+import com.halovoid.lncrawler.data.factory.RequestFactory
 import com.halovoid.lncrawler.data.repository.RequestRepository
 import com.halovoid.lncrawler.data.repository.NovelRepository
-import com.halovoid.lncrawler.data.db.entities.RequestEntity
-import com.halovoid.lncrawler.data.db.entities.RequestStatus
-import com.halovoid.lncrawler.data.db.entities.RequestType
 import com.halovoid.lncrawler.data.repository.IndexRepository
 import com.halovoid.lncrawler.data.scheduler.services.SchedulerService
 import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.utils.SimhashUtils
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 
 class RequestViewModel(
     application: Application,
-    private val requestRepository: RequestRepository
+    private val requestRepository: RequestRepository,
+    private val novelRepository: NovelRepository = NovelRepository.getInstance(application),
+    private val requestFactory: RequestFactory = RequestFactory()
 ) : AndroidViewModel(application) {
 
-    private val novelRepository = NovelRepository.getInstance(application)
     private val indexRepository: IndexRepository = IndexRepository()
 
     private val _error = MutableStateFlow<String?>(null)
@@ -166,25 +164,7 @@ class RequestViewModel(
     fun startNovelCrawl(crawlerName: String, url: String, title: String) {
         viewModelScope.launch {
             _isLoading.value = true
-
-            val metadata = JSONObject().apply {
-                put("crawlerName", crawlerName)
-            }.toString()
-
-            val request = RequestEntity(
-                id = "${url}_metadata",
-                type = RequestType.NOVEL_METADATA,
-                novelUrl = url,
-                name = "Metadata: $title",
-                metadata = metadata,
-                status = RequestStatus.PENDING,
-                rstatus = RequestStatus.PENDING,
-                dependsOn = null,
-                url = url,
-                priority = 0,
-                completedAt = null,
-                parentNovel = null
-            )
+            val request = requestFactory.metadataFromUrl(crawlerName, url, title)
 
             requestRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())

@@ -4,9 +4,8 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.halovoid.lncrawler.data.db.entities.RequestEntity
+import com.halovoid.lncrawler.data.factory.RequestFactory
 import com.halovoid.lncrawler.data.db.entities.RequestStatus
-import com.halovoid.lncrawler.data.db.entities.RequestType
 import com.halovoid.lncrawler.data.repository.ArtifactRepository
 import com.halovoid.lncrawler.data.repository.ChapterRepository
 import com.halovoid.lncrawler.data.repository.NovelRepository
@@ -18,6 +17,9 @@ import com.halovoid.lncrawler.domain.models.Artifact
 import com.halovoid.lncrawler.domain.models.Chapter
 import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.domain.models.Request
+import com.halovoid.lncrawler.domain.usecase.DeleteChapterUseCase
+import com.halovoid.lncrawler.domain.usecase.ReplayChapterUseCase
+import com.halovoid.lncrawler.ui.core.theme.PrimaryText
 import com.halovoid.lncrawler.ui.feature.novel.components.artifact.ExportFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,7 +32,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 
 enum class DownloadFilter {
     ALL, DOWNLOADED, NOT_DOWNLOADED
@@ -51,14 +52,24 @@ data class ChapterSortState(
 
 class NovelDetailViewModel(
     application: Application,
-    private val requestRepository: RequestRepository
+    private val requestRepository: RequestRepository,
+    private val requestFactory: RequestFactory = RequestFactory(),
+    private val deleteChapterUseCase: DeleteChapterUseCase = DeleteChapterUseCase(
+        ChapterRepository.getInstance(application),
+        StorageRepositoryImpl.getInstance(application)
+    ),
+    private val replayChapterUseCase: ReplayChapterUseCase = ReplayChapterUseCase(
+        ChapterRepository.getInstance(application),
+        StorageRepositoryImpl.getInstance(application),
+        requestRepository,
+        requestFactory
+    )
 ) : AndroidViewModel(application) {
     private val novelRepository = NovelRepository.getInstance(application)
     private val volumeRepository = VolumeRepository.getInstance(application)
 
     private val artifactRepository = ArtifactRepository.getInstance(application)
     private val chapterRepository = ChapterRepository.getInstance(application)
-    private val storageRepository = StorageRepositoryImpl.getInstance(application)
 
     private val _novelUrl = MutableStateFlow<String?>(null)
     private val _requestedUrls = mutableSetOf<String>()
@@ -231,27 +242,7 @@ class NovelDetailViewModel(
         viewModelScope.launch {
             val start = _chapterRange.value.start.toInt()
             val end = _chapterRange.value.endInclusive.toInt()
-
-            val metadata = JSONObject().apply {
-                put("format", format.toString())
-                put("crawlerName", novel.crawlerName)
-                put("startIndex", start)
-                put("endIndex", end)
-            }.toString()
-
-            val request = RequestEntity(
-                id = "${novel.url}_export_${format}_${start}_${end}_${System.nanoTime()}",
-                type = RequestType.ARTIFACT,
-                novelUrl = novel.url,
-                name = "Export: ${novel.title} ($format) [$start-$end]",
-                metadata = metadata,
-                parentNovel = novel.url,
-                status = RequestStatus.PENDING,
-                rstatus = RequestStatus.PENDING,
-                url = null,
-                dependsOn = null,
-                completedAt = null
-            )
+            val request = requestFactory.export(novel, format, start, end)
 
             requestRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())
@@ -260,27 +251,9 @@ class NovelDetailViewModel(
 
     fun fetchNovelMetadata(novel: Novel) {
         viewModelScope.launch {
-            val metadata = JSONObject().apply {
-                put("crawlerName", novel.crawlerName)
-            }.toString()
-
-            val request = RequestEntity(
-                id = "${novel.url}_metadata",
-                type = RequestType.NOVEL_METADATA,
-                novelUrl = novel.url,
-                name = "Metadata: ${novel.title}",
-                metadata = metadata,
-                status = RequestStatus.PENDING,
-                rstatus = RequestStatus.PENDING,
-                dependsOn = null,
-                url = novel.url,
-                priority = 0,
-                completedAt = null,
-                parentNovel = novel.url
-            )
+            val request = requestFactory.metadata(novel)
 
             requestRepository.insertRequests(listOf(request))
-
             SchedulerService.startService(getApplication())
         }
     }
@@ -289,32 +262,10 @@ class NovelDetailViewModel(
         viewModelScope.launch {
             val start = _chapterRange.value.start.toInt()
             val end = _chapterRange.value.endInclusive.toInt()
-            
             val rangeChapters = novel.chapters.filter { it.index in start..end }
-            
-            val requestId = "${novel.url}_download_${start}_${end}"
-            val metadata = JSONObject().apply {
-                put("crawlerName", novel.crawlerName)
-                put("startIndex", start)
-                put("endIndex", end)
-            }.toString()
-
-            val request = RequestEntity(
-                id = requestId,
-                type = RequestType.RANGE_DOWNLOAD,
-                novelUrl = novel.url,
-                name = "Download: ${novel.title} ($start-$end)",
-                metadata = metadata,
-                parentNovel = novel.url,
-                url = novel.url,
-                status = RequestStatus.PENDING,
-                rstatus = RequestStatus.PENDING,
-                completedAt = null,
-                progressTotal = rangeChapters.size
-            )
+            val request = requestFactory.rangeDownload(novel, start, end, rangeChapters.size)
 
             requestRepository.insertRequests(listOf(request))
-
             SchedulerService.startService(getApplication())
         }
     }
@@ -323,30 +274,7 @@ class NovelDetailViewModel(
         viewModelScope.launch {
             val allChapters = chapterRepository.getChaptersByNovelUrl(novel.url)
             if (allChapters.isEmpty()) return@launch
-            
-            val start = 1
-            val end = allChapters.size
-            
-            val requestId = "${novel.url}_download_all"
-            val metadata = JSONObject().apply {
-                put("crawlerName", novel.crawlerName)
-                put("startIndex", start)
-                put("endIndex", end)
-            }.toString()
-
-            val request = RequestEntity(
-                id = requestId,
-                type = RequestType.RANGE_DOWNLOAD,
-                novelUrl = novel.url,
-                name = "Download All: ${novel.title}",
-                metadata = metadata,
-                parentNovel = novel.url,
-                url = novel.url,
-                status = RequestStatus.PENDING,
-                rstatus = RequestStatus.PENDING,
-                completedAt = null,
-                progressTotal = allChapters.size
-            )
+            val request = requestFactory.downloadAll(novel, allChapters.size)
 
             requestRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())
@@ -361,27 +289,7 @@ class NovelDetailViewModel(
             
             val start = volumeChapters.minOf { it.index }
             val end = volumeChapters.maxOf { it.index }
-            
-            val requestId = "${novel.url}_download_vol_${volumeIndex}"
-            val metadata = JSONObject().apply {
-                put("crawlerName", novel.crawlerName)
-                put("startIndex", start)
-                put("endIndex", end)
-            }.toString()
-
-            val request = RequestEntity(
-                id = requestId,
-                type = RequestType.RANGE_DOWNLOAD,
-                novelUrl = novel.url,
-                name = "Download: ${novel.title} Vol $volumeIndex",
-                metadata = metadata,
-                parentNovel = novel.url,
-                url = novel.url,
-                status = RequestStatus.PENDING,
-                rstatus = RequestStatus.PENDING,
-                completedAt = null,
-                progressTotal = volumeChapters.size
-            )
+            val request = requestFactory.downloadVolume(novel, volumeIndex, start, end, volumeChapters.size)
 
             requestRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())
@@ -390,27 +298,7 @@ class NovelDetailViewModel(
 
     fun fetchChapter(novel: Novel, chapter: Chapter) {
         viewModelScope.launch {
-            val chapterMetadata = JSONObject().apply {
-                put("chapterId", chapter.id)
-                put("crawlerName", novel.crawlerName)
-            }.toString()
-
-            val request = RequestEntity(
-                id = "${novel.url}_chapter_${chapter.index}",
-                type = RequestType.CHAPTER,
-                parentNovel = novel.url,
-                dependsOn = null,
-                priority = 10,
-                name = "Chapter: ${chapter.title}",
-                status = RequestStatus.PENDING,
-                rstatus = RequestStatus.PENDING,
-                completedAt = null,
-                metadata = chapterMetadata,
-                url = chapter.url,
-                novelUrl = novel.url,
-                progressTotal = 1,
-                progressSuccess = 0,
-            )
+            val request = requestFactory.chapter(novel, chapter)
 
             requestRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())
@@ -419,24 +307,13 @@ class NovelDetailViewModel(
 
     fun deleteChapter(chapter: Chapter) {
         viewModelScope.launch(Dispatchers.IO) {
-            chapter.fileLocation?.let { location ->
-                try {
-                    storageRepository.delete(Uri.parse(location))
-                } catch (e: Exception) {}
-            }
-            chapterRepository.updateChapter(chapter.copy(fileLocation = null))
+            deleteChapterUseCase(chapter)
         }
     }
 
     fun replayChapter(novel: Novel, chapter: Chapter) {
         viewModelScope.launch(Dispatchers.IO) {
-            chapter.fileLocation?.let { location ->
-                try {
-                    storageRepository.delete(Uri.parse(location))
-                } catch (e: Exception) {}
-            }
-            chapterRepository.updateChapter(chapter.copy(fileLocation = null))
-            fetchChapter(novel, chapter)
+            replayChapterUseCase(novel, chapter)
         }
     }
 

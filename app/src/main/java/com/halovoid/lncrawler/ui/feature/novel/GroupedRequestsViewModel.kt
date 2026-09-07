@@ -20,12 +20,18 @@ enum class FilterState {
     }
 }
 
+sealed interface RequestScope {
+    data object All : RequestScope
+    data class ByNovel(val novelUrl: String) : RequestScope
+    data class ByDependency(val requestId: String) : RequestScope
+}
+
 class GroupedRequestsViewModel(
     application: Application,
     private val requestRepository: RequestRepository
 ) : AndroidViewModel(application) {
 
-    private val _context = MutableStateFlow<Pair<String, String>?>(null)
+    private val _scope = MutableStateFlow<RequestScope?>(null)
     
     private val _statusFilters = MutableStateFlow<Map<RequestStatus, FilterState>>(emptyMap())
     val statusFilters: StateFlow<Map<RequestStatus, FilterState>> = _statusFilters.asStateFlow()
@@ -44,13 +50,12 @@ class GroupedRequestsViewModel(
     val activeActionIds: StateFlow<Set<String>> = requestRepository.activeActionIds
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val allRequests: StateFlow<List<Request>> = _context.filterNotNull()
-        .flatMapLatest { (type, value) ->
-            when (type) {
-                "ALL" -> requestRepository.getRootRequests()
-                "NOVEL" -> requestRepository.getRootRequestByNovelFlow(value)
-                "DEPENDENCY" -> requestRepository.getRequestsByDependenceFlow(value)
-                else -> flowOf(emptyList())
+    val allRequests: StateFlow<List<Request>> = _scope.filterNotNull()
+        .flatMapLatest { scope ->
+            when (scope) {
+                is RequestScope.All -> requestRepository.getRootRequests()
+                is RequestScope.ByNovel -> requestRepository.getRootRequestByNovelFlow(scope.novelUrl)
+                is RequestScope.ByDependency -> requestRepository.getRequestsByDependenceFlow(scope.requestId)
             }
         }
         .stateIn(
@@ -82,7 +87,16 @@ class GroupedRequestsViewModel(
         )
 
     fun loadRequests(contextType: String, contextValue: String) {
-        _context.value = contextType to contextValue
+        _scope.value = when (contextType.uppercase()) {
+            "ALL" -> RequestScope.All
+            "NOVEL" -> RequestScope.ByNovel(contextValue)
+            "DEPENDENCY" -> RequestScope.ByDependency(contextValue)
+            else -> RequestScope.All
+        }
+    }
+
+    fun loadScope(scope: RequestScope) {
+        _scope.value = scope
     }
 
     fun replayRequest(requestId: String) {

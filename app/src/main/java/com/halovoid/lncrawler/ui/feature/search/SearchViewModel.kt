@@ -3,9 +3,7 @@ package com.halovoid.lncrawler.ui.feature.search
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.halovoid.lncrawler.data.db.entities.RequestEntity
-import com.halovoid.lncrawler.data.db.entities.RequestStatus
-import com.halovoid.lncrawler.data.db.entities.RequestType
+import com.halovoid.lncrawler.data.factory.RequestFactory
 import com.halovoid.lncrawler.data.repository.RequestRepository
 import com.halovoid.lncrawler.data.repository.SearchRepository
 import com.halovoid.lncrawler.data.scheduler.services.SchedulerService
@@ -15,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 
 sealed class SearchState {
     object Idle : SearchState()
@@ -26,9 +23,10 @@ sealed class SearchState {
 
 class SearchViewModel(
     application: Application,
-    private val searchRepository: SearchRepository = SearchRepository()
+    private val requestRepository: RequestRepository = RequestRepository.getInstance(application),
+    private val searchRepository: SearchRepository = SearchRepository(),
+    private val requestFactory: RequestFactory = RequestFactory()
 ) : AndroidViewModel(application) {
-    private val requestRepository = RequestRepository.getInstance(application)
 
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState.asStateFlow()
@@ -63,24 +61,7 @@ class SearchViewModel(
 
     fun startCrawl(item: SearchItem) {
         viewModelScope.launch {
-            val metadata = JSONObject().apply {
-                put("crawlerName", item.source)
-            }.toString()
-
-            val request = RequestEntity(
-                id = "${item.url}_metadata",
-                type = RequestType.NOVEL_METADATA,
-                novelUrl = item.url,
-                name = "Metadata: ${item.title}",
-                metadata = metadata,
-                status = RequestStatus.PENDING,
-                rstatus = RequestStatus.PENDING,
-                dependsOn = null,
-                url = item.url,
-                priority = 0,
-                completedAt = null,
-                parentNovel = null
-            )
+            val request = requestFactory.metadataFromSearchItem(item)
 
             requestRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())

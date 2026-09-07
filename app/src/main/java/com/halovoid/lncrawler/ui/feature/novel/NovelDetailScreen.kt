@@ -28,6 +28,12 @@ import com.halovoid.lncrawler.ui.feature.novel.components.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 
+sealed interface NovelDetailDialogState {
+    data object ConfirmDelete : NovelDetailDialogState
+    data object DownloadRange : NovelDetailDialogState
+    data object FilterSheet : NovelDetailDialogState
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovelDetailScreen(
@@ -104,9 +110,7 @@ fun NovelDetailScreen(
         Pair(ids, ranges)
     }
 
-    var showDeleteConfirmation by remember { mutableStateOf(false) }
-    var showDownloadDialog by remember { mutableStateOf(false) }
-    var showFilterSheet by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<NovelDetailDialogState?>(null) }
 
     val isFilterActive = downloadFilter != DownloadFilter.ALL
     val isSortModified = sortState.type != SortType.CHAPTER_NUMBER || sortState.order != SortOrder.ASCENDING
@@ -146,7 +150,7 @@ fun NovelDetailScreen(
                             artifactsExist = chapters.isNotEmpty(),
                             downloadEnabled = chapters.isNotEmpty(),
                             onActivityClick = onActivityClick,
-                            onDownloadClick = { showDownloadDialog = true },
+                            onDownloadClick = { activeDialog = NovelDetailDialogState.DownloadRange },
                             onArtifactsClick = onArtifactsClick,
                             onWebViewClick = {
                                 val intent = Intent(Intent.ACTION_VIEW, currentNovel.url.toUri())
@@ -224,48 +228,49 @@ fun NovelDetailScreen(
                     onMarkAsUnread = { viewModel.markSelectedChaptersRead(false) },
                     onSelectAll = { viewModel.selectAllChapters(chapters) },
                     onUnselectAll = { viewModel.clearSelection() },
-                    onFilterClick = { showFilterSheet = true },
+                    onFilterClick = { activeDialog = NovelDetailDialogState.FilterSheet },
                     isFilterActive = isFilterActive || isSortModified,
                     onRefreshMetadata = { viewModel.fetchNovelMetadata(currentNovel) },
-                    onDeleteNovel = { showDeleteConfirmation = true }
+                    onDeleteNovel = { activeDialog = NovelDetailDialogState.ConfirmDelete }
                 )
             }
 
-            if (showDeleteConfirmation) {
-                ConfirmDeleteDialog (
-                    title = "Delete request?",
-                    message = "This will permanently remove \"${currentNovel.title}\" from your request history. This action cannot be undone.",
-                    onConfirm = {
-                        showDeleteConfirmation = false
-                        viewModel.deleteNovelPermanently(currentNovel)
-                        onBack()
-                    },
-                    onDismiss = { showDeleteConfirmation = false }
-                )
-            }
-
-            if (showDownloadDialog) {
-                DownloadRangeDialog(
-                    initialRange = chapterRange,
-                    totalChapters = currentNovel.chapters.size,
-                    onConfirm = { range ->
-                        viewModel.updateChapterRange(range)
-                        viewModel.fetchRange(currentNovel)
-                        showDownloadDialog = false
-                    },
-                    onDismiss = { showDownloadDialog = false }
-                )
-            }
-
-            if (showFilterSheet) {
-                ChapterFilterSortSheet(
-                    downloadFilter = downloadFilter,
-                    sortState = sortState,
-                    onSetFilter = { viewModel.setDownloadFilter(it) },
-                    onToggleAlphabetical = { viewModel.toggleAlphabeticalSort() },
-                    onToggleChapterNumber = { viewModel.toggleChapterNumberSort() },
-                    onDismiss = { showFilterSheet = false }
-                )
+            when (activeDialog) {
+                is NovelDetailDialogState.ConfirmDelete -> {
+                    ConfirmDeleteDialog(
+                        title = "Delete request?",
+                        message = "This will permanently remove \"${currentNovel.title}\" from your request history. This action cannot be undone.",
+                        onConfirm = {
+                            activeDialog = null
+                            viewModel.deleteNovelPermanently(currentNovel)
+                            onBack()
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
+                is NovelDetailDialogState.DownloadRange -> {
+                    DownloadRangeDialog(
+                        initialRange = chapterRange,
+                        totalChapters = currentNovel.chapters.size,
+                        onConfirm = { range ->
+                            viewModel.updateChapterRange(range)
+                            viewModel.fetchRange(currentNovel)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
+                is NovelDetailDialogState.FilterSheet -> {
+                    ChapterFilterSortSheet(
+                        downloadFilter = downloadFilter,
+                        sortState = sortState,
+                        onSetFilter = { viewModel.setDownloadFilter(it) },
+                        onToggleAlphabetical = { viewModel.toggleAlphabeticalSort() },
+                        onToggleChapterNumber = { viewModel.toggleChapterNumberSort() },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
+                null -> Unit
             }
         }
     }

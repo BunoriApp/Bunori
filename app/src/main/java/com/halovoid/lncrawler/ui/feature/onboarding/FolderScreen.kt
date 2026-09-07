@@ -1,9 +1,5 @@
 package com.halovoid.lncrawler.ui.feature.onboarding
 
-import android.content.Intent
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -16,10 +12,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.halovoid.lncrawler.ui.core.platform.rememberFolderPickerLauncher
 import com.halovoid.lncrawler.ui.core.theme.*
 import kotlinx.coroutines.launch
 
@@ -28,22 +24,13 @@ fun FolderScreen(
     viewModel: FolderViewModel,
     onNext: () -> Unit
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val selectedFolder by viewModel.exportFolderUri.collectAsState(initial = null)
     val friendlyPath by viewModel.friendlyPath.collectAsState(initial = "")
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
-            scope.launch {
-                viewModel.setExportFolder(it)
-            }
+    val launchFolderPicker = rememberFolderPickerLauncher { uri ->
+        scope.launch {
+            viewModel.setExportFolder(uri)
         }
     }
 
@@ -107,7 +94,7 @@ fun FolderScreen(
             Spacer(modifier = Modifier.height(48.dp))
             
             TextButton(
-                onClick = { launcher.launch(null) },
+                onClick = launchFolderPicker,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.textButtonColors(

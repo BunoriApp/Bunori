@@ -1,5 +1,9 @@
 package com.halovoid.lncrawler.ui.feature.settings
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,22 +17,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Path
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.animation.core.*
-import androidx.compose.animation.animateColorAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.halovoid.lncrawler.ui.core.components.FlowingSineWave
+import com.halovoid.lncrawler.ui.core.components.MarkdownContent
 import com.halovoid.lncrawler.ui.core.theme.*
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -240,124 +236,5 @@ fun UpdateDetailScreen(
                 CircularProgressIndicator(color = BrandAccent)
             }
         }
-    }
-}
-
-@Composable
-fun MarkdownContent(markdown: String) {
-    val lines = markdown.lines()
-    Column(modifier = Modifier.fillMaxWidth()) {
-        lines.forEach { line ->
-            val trimmed = line.trim()
-            when {
-                trimmed.startsWith("###") -> {
-                    Text(
-                        text = trimmed.removePrefix("###").trim(),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryText,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                    )
-                }
-                trimmed.startsWith("##") -> {
-                    if (!trimmed.contains("v", ignoreCase = true)) {
-                        Text(
-                            text = trimmed.removePrefix("##").trim(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryText,
-                            modifier = Modifier.padding(top = 20.dp, bottom = 10.dp)
-                        )
-                    }
-                }
-                trimmed.startsWith("*") || trimmed.startsWith("-") -> {
-                    Row(modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp)) {
-                        Text("•", color = SecondaryText, modifier = Modifier.padding(end = 12.dp))
-                        Text(
-                            text = parseBasicMarkdown(trimmed.substring(1).trim()),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = SecondaryText,
-                            lineHeight = 22.sp
-                        )
-                    }
-                }
-                trimmed.isNotBlank() -> {
-                    Text(
-                        text = parseBasicMarkdown(trimmed),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SecondaryText,
-                        lineHeight = 22.sp,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-fun parseBasicMarkdown(text: String): AnnotatedString {
-    return buildAnnotatedString {
-        var currentIndex = 0
-        val regex = "\\*\\*(.*?)\\*\\*".toRegex()
-        val matches = regex.findAll(text)
-        
-        matches.forEach { matchResult ->
-            val start = matchResult.range.first
-            val end = matchResult.range.last
-            
-            append(text.substring(currentIndex, start))
-            
-            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = PrimaryText)) {
-                append(matchResult.groupValues[1])
-            }
-            
-            currentIndex = end + 1
-        }
-        
-        if (currentIndex < text.length) {
-            append(text.substring(currentIndex))
-        }
-    }
-}
-
-@Composable
-fun FlowingSineWave(
-    modifier: Modifier = Modifier,
-    color: Color,
-    amplitude: Float,
-    wavelength: Float,
-    durationMillis: Int,
-    reverse: Boolean,
-    fillProgress: Float = 0.5f
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "wave")
-    val phase by infiniteTransition.animateFloat(
-        initialValue = if (reverse) (2 * Math.PI).toFloat() else 0f,
-        targetValue = if (reverse) 0f else (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "phase"
-    )
-
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        val path = Path()
-
-        path.moveTo(0f, height)
-        for (x in 0..width.toInt() step 4) {
-            val relativeX = x.toFloat()
-            val y = (height * (1f - fillProgress)) + Math.sin((relativeX / wavelength * 2 * Math.PI) - phase).toFloat() * amplitude
-            path.lineTo(relativeX, y)
-        }
-        path.lineTo(width, height)
-        path.close()
-
-        drawPath(
-            path = path,
-            color = color
-        )
     }
 }
