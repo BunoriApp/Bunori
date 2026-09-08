@@ -32,6 +32,8 @@ sealed interface NovelDetailDialogState {
     data object ConfirmDelete : NovelDetailDialogState
     data object DownloadRange : NovelDetailDialogState
     data object FilterSheet : NovelDetailDialogState
+    data object NovelDetails : NovelDetailDialogState
+    data object SourceFilterSheet : NovelDetailDialogState
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,6 +58,8 @@ fun NovelDetailScreen(
     val chapterRange by viewModel.chapterRange.collectAsState()
     val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedChapterIds by viewModel.selectedChapterIds.collectAsStateWithLifecycle()
+    val selectedSources by viewModel.selectedSources.collectAsStateWithLifecycle()
+    val availableSources by viewModel.availableSources.collectAsStateWithLifecycle()
 
     androidx.activity.compose.BackHandler(enabled = isSelectionMode) {
         viewModel.clearSelection()
@@ -113,6 +117,7 @@ fun NovelDetailScreen(
     var activeDialog by remember { mutableStateOf<NovelDetailDialogState?>(null) }
 
     val isFilterActive = downloadFilter != DownloadFilter.ALL
+    val isSourceFilterActive = availableSources.isNotEmpty() && selectedSources.size < availableSources.size
     val isSortModified = sortState.type != SortType.CHAPTER_NUMBER || sortState.order != SortOrder.ASCENDING
 
     LaunchedEffect(novelUrl) {
@@ -140,7 +145,10 @@ fun NovelDetailScreen(
                     }
 
                     item {
-                        NovelMetadataTable(novel = currentNovel)
+                        NovelMetadataTable(
+                            novel = currentNovel,
+                            onClick = { activeDialog = NovelDetailDialogState.NovelDetails }
+                        )
                     }
 
                     item {
@@ -230,6 +238,8 @@ fun NovelDetailScreen(
                     onUnselectAll = { viewModel.clearSelection() },
                     onFilterClick = { activeDialog = NovelDetailDialogState.FilterSheet },
                     isFilterActive = isFilterActive || isSortModified,
+                    onSourceFilterClick = { activeDialog = NovelDetailDialogState.SourceFilterSheet },
+                    isSourceFilterActive = isSourceFilterActive,
                     onRefreshMetadata = { viewModel.fetchNovelMetadata(currentNovel) },
                     onDeleteNovel = { activeDialog = NovelDetailDialogState.ConfirmDelete }
                 )
@@ -249,9 +259,12 @@ fun NovelDetailScreen(
                     )
                 }
                 is NovelDetailDialogState.DownloadRange -> {
+                    val minIndex = chapters.minOfOrNull { it.index.toFloat() } ?: 1f
+                    val maxIndex = chapters.maxOfOrNull { it.index.toFloat() } ?: currentNovel.chapters.size.toFloat().coerceAtLeast(1f)
                     DownloadRangeDialog(
                         initialRange = chapterRange,
-                        totalChapters = currentNovel.chapters.size,
+                        minChapterIndex = minIndex,
+                        maxChapterIndex = maxIndex,
                         onConfirm = { range ->
                             viewModel.updateChapterRange(range)
                             viewModel.fetchRange(currentNovel)
@@ -267,6 +280,20 @@ fun NovelDetailScreen(
                         onSetFilter = { viewModel.setDownloadFilter(it) },
                         onToggleAlphabetical = { viewModel.toggleAlphabeticalSort() },
                         onToggleChapterNumber = { viewModel.toggleChapterNumberSort() },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
+                is NovelDetailDialogState.NovelDetails -> {
+                    NovelDetailsBottomSheet(
+                        novel = currentNovel,
+                        onDismiss = { activeDialog = null }
+                    )
+                }
+                is NovelDetailDialogState.SourceFilterSheet -> {
+                    SourceFilterBottomSheet(
+                        availableSources = availableSources,
+                        selectedSources = selectedSources,
+                        onToggleSource = { viewModel.toggleSourceSelection(it) },
                         onDismiss = { activeDialog = null }
                     )
                 }

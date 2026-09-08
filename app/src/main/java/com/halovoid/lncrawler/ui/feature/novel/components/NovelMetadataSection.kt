@@ -1,6 +1,7 @@
 package com.halovoid.lncrawler.ui.feature.novel.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -14,13 +15,14 @@ import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.ui.core.theme.*
 
 @Composable
-fun NovelMetadataTable(novel: Novel) {
+fun NovelMetadataTable(novel: Novel, onClick: () -> Unit = {}) {
     Column(
         modifier = Modifier
             .padding(horizontal = 24.dp)
             .padding(bottom = 8.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(DarkSurfaceVariant.copy(alpha = 0.5f))
+            .clickable { onClick() }
             .padding(12.dp)
     ) {
         MetadataSection(

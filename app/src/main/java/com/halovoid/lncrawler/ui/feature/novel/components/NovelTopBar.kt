@@ -36,6 +36,8 @@ fun NovelTopBar(
     onUnselectAll: () -> Unit,
     onFilterClick: () -> Unit,
     isFilterActive: Boolean,
+    onSourceFilterClick: () -> Unit,
+    isSourceFilterActive: Boolean,
     onRefreshMetadata: () -> Unit,
     onDeleteNovel: () -> Unit
 ) {
@@ -135,6 +137,18 @@ fun NovelTopBar(
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
                     }
+                }
+
+                IconButton(
+                    onClick = onSourceFilterClick,
+                    colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = if (isSourceFilterActive) BrandAccent else PrimaryText
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Scanlator Sources"
+                    )
                 }
 
                 IconButton(

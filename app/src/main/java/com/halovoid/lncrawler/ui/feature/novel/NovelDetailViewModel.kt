@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -104,14 +105,95 @@ class NovelDetailViewModel(
     private val _downloadFilter = MutableStateFlow(DownloadFilter.ALL)
     val downloadFilter: StateFlow<DownloadFilter> = _downloadFilter.asStateFlow()
 
+    private val _selectedSources = MutableStateFlow<Set<String>>(emptySet())
+    val selectedSources: StateFlow<Set<String>> = _selectedSources.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val availableSources: StateFlow<List<String>> = novel
+        .filterNotNull()
+        .map { nov -> nov.chapters.map { it.scanlationSource }.distinct() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     private val _sortState = MutableStateFlow(ChapterSortState())
     val sortState: StateFlow<ChapterSortState> = _sortState.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val rootRequests: StateFlow<List<Request>> = novel
+        .filterNotNull()
+        .flatMapLatest { nov ->
+            requestRepository.getRootRequestByNovelFlow(nov.url)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val chapters: StateFlow<List<Chapter>> = combine(
+        novel.filterNotNull().flatMapLatest { nov ->
+            chapterRepository.getChaptersFlow(nov.url)
+        },
+        _downloadFilter,
+        _selectedSources,
+        _sortState
+    ) { rawChapters, filter, selectedSources, sort ->
+        val filteredByDownload = when (filter) {
+            DownloadFilter.ALL -> rawChapters
+            DownloadFilter.DOWNLOADED -> rawChapters.filter { it.fileLocation?.startsWith("content://") == true }
+            DownloadFilter.NOT_DOWNLOADED -> rawChapters.filter { it.fileLocation?.startsWith("content://") != true }
+        }
+
+        val filteredBySource = if (selectedSources.isEmpty()) {
+            filteredByDownload
+        } else {
+            filteredByDownload.filter { selectedSources.contains(it.scanlationSource) }
+        }
+
+        when (sort.type) {
+            SortType.CHAPTER_NUMBER -> {
+                if (sort.order == SortOrder.ASCENDING) {
+                    filteredBySource.sortedWith(compareBy({ it.index }, { it.id }))
+                } else {
+                    filteredBySource.sortedWith(compareByDescending<Chapter> { it.index }.thenByDescending { it.id })
+                }
+            }
+            SortType.ALPHABETICAL -> {
+                if (sort.order == SortOrder.ASCENDING) filteredBySource.sortedBy { it.title }
+                else filteredBySource.sortedByDescending { it.title }
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val artifacts: StateFlow<List<Artifact>> = novel
+        .filterNotNull()
+        .flatMapLatest { nov ->
+            artifactRepository.getArtifactsByNovelFlow(nov.url)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     init {
         viewModelScope.launch {
             novel.collect { currentNovel ->
                 if (currentNovel != null) {
                     if (currentNovel.chapters.isNotEmpty()) {
+                        val sources = currentNovel.chapters.map { it.scanlationSource }.distinct()
+                        if (_selectedSources.value.isEmpty()) {
+                            _selectedSources.value = sources.toSet()
+                        }
                         val currentRange = _chapterRange.value
                         if (currentRange.start == 1f && currentRange.endInclusive == 1f) {
                             _chapterRange.value = 1f..currentNovel.chapters.size.toFloat()
@@ -132,64 +214,20 @@ class NovelDetailViewModel(
                 }
             }
         }
-    }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val rootRequests: StateFlow<List<Request>> = novel
-        .filterNotNull()
-        .flatMapLatest { nov ->
-            requestRepository.getRootRequestByNovelFlow(nov.url)
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val chapters: StateFlow<List<Chapter>> = combine(
-        novel.filterNotNull().flatMapLatest { nov ->
-            chapterRepository.getChaptersFlow(nov.url)
-        },
-        _downloadFilter,
-        _sortState
-    ) { rawChapters, filter, sort ->
-        val filtered = when (filter) {
-            DownloadFilter.ALL -> rawChapters
-            DownloadFilter.DOWNLOADED -> rawChapters.filter { it.fileLocation?.startsWith("content://") == true }
-            DownloadFilter.NOT_DOWNLOADED -> rawChapters.filter { it.fileLocation?.startsWith("content://") != true }
-        }
-
-        when (sort.type) {
-            SortType.CHAPTER_NUMBER -> {
-                if (sort.order == SortOrder.ASCENDING) {
-                    filtered.sortedWith(compareBy({ it.index }, { it.id }))
-                } else {
-                    filtered.sortedWith(compareByDescending<Chapter> { it.index }.thenByDescending { it.id })
+        viewModelScope.launch {
+            chapters.collect { filteredChapters ->
+                if (filteredChapters.isNotEmpty()) {
+                    val minIndex = filteredChapters.minOf { it.index }.toFloat()
+                    val maxIndex = filteredChapters.maxOf { it.index }.toFloat()
+                    val currentRange = _chapterRange.value
+                    if (currentRange.start < minIndex || currentRange.endInclusive > maxIndex || (currentRange.start == 1f && currentRange.endInclusive == 1f)) {
+                        _chapterRange.value = minIndex..maxIndex
+                    }
                 }
             }
-            SortType.ALPHABETICAL -> {
-                if (sort.order == SortOrder.ASCENDING) filtered.sortedBy { it.title }
-                else filtered.sortedByDescending { it.title }
-            }
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val artifacts: StateFlow<List<Artifact>> = novel
-        .filterNotNull()
-        .flatMapLatest { nov ->
-            artifactRepository.getArtifactsByNovelFlow(nov.url)
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    }
 
     fun loadNovel(novelUrl: String) {
         clearSelection()
@@ -224,6 +262,18 @@ class NovelDetailViewModel(
         _isSelectionMode.value = true
     }
 
+    fun toggleSourceSelection(source: String) {
+        val current = _selectedSources.value
+        _selectedSources.value = if (current.contains(source)) {
+            if (current.size > 1) current - source else current
+        } else {
+            current + source
+        }
+    }
+
+    fun selectAllSources(sources: List<String>) {
+        _selectedSources.value = sources.toSet()
+    }
     fun markSelectedChaptersRead(isRead: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             val ids = _selectedChapterIds.value.toList()
@@ -262,34 +312,8 @@ class NovelDetailViewModel(
         viewModelScope.launch {
             val start = _chapterRange.value.start.toInt()
             val end = _chapterRange.value.endInclusive.toInt()
-            val rangeChapters = novel.chapters.filter { it.index in start..end }
+            val rangeChapters = chapters.value.filter { it.index in start..end }
             val request = requestFactory.rangeDownload(novel, start, end, rangeChapters.size)
-
-            requestRepository.insertRequests(listOf(request))
-            SchedulerService.startService(getApplication())
-        }
-    }
-
-    fun downloadAllChapters(novel: Novel) {
-        viewModelScope.launch {
-            val allChapters = chapterRepository.getChaptersByNovelUrl(novel.url)
-            if (allChapters.isEmpty()) return@launch
-            val request = requestFactory.downloadAll(novel, allChapters.size)
-
-            requestRepository.insertRequests(listOf(request))
-            SchedulerService.startService(getApplication())
-        }
-    }
-
-    fun downloadVolume(novel: Novel, volumeId: String, volumeIndex: Int) {
-        viewModelScope.launch {
-            val allChapters = chapterRepository.getChaptersByNovelUrl(novel.url)
-            val volumeChapters = allChapters.filter { it.volumeId == volumeId }
-            if (volumeChapters.isEmpty()) return@launch
-            
-            val start = volumeChapters.minOf { it.index }
-            val end = volumeChapters.maxOf { it.index }
-            val request = requestFactory.downloadVolume(novel, volumeIndex, start, end, volumeChapters.size)
 
             requestRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())

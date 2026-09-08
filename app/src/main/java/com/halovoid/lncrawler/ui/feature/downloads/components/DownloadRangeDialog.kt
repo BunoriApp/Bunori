@@ -11,11 +11,14 @@ import com.halovoid.lncrawler.ui.core.theme.SecondaryText
 @Composable
 fun DownloadRangeDialog(
     initialRange: ClosedFloatingPointRange<Float>,
-    totalChapters: Int,
+    minChapterIndex: Float = 1f,
+    maxChapterIndex: Float,
     onConfirm: (ClosedFloatingPointRange<Float>) -> Unit,
     onDismiss: () -> Unit
 ) {
     var currentRange by remember { mutableStateOf(initialRange) }
+    val rangeSpan = (maxChapterIndex - minChapterIndex).toInt()
+    val steps = if (rangeSpan > 1) rangeSpan - 1 else 0
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -32,8 +35,8 @@ fun DownloadRangeDialog(
                 RangeSlider(
                     value = currentRange,
                     onValueChange = { currentRange = it },
-                    valueRange = 1f..totalChapters.toFloat(),
-                    steps = if (totalChapters > 1) totalChapters - 2 else 0,
+                    valueRange = minChapterIndex..maxChapterIndex,
+                    steps = steps,
                     colors = SliderDefaults.colors(
                         thumbColor = PrimaryAccent,
                         activeTrackColor = PrimaryAccent

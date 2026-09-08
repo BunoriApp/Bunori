@@ -15,7 +15,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.ui.core.components.AppBottomSheet
+import com.halovoid.lncrawler.ui.core.components.AppBottomSheetDivider
+import com.halovoid.lncrawler.ui.core.components.AppBottomSheetGroup
 import com.halovoid.lncrawler.ui.core.theme.*
 import com.halovoid.lncrawler.ui.feature.novel.DownloadFilter
 import com.halovoid.lncrawler.ui.feature.novel.SortOrder
