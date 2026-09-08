@@ -26,7 +26,11 @@ class ReplayChapterUseCase(
                 AppLog.w("ReplayChapterUseCase", "Failed to delete chapter file at $location on replay", e)
             }
         }
-        chapterRepository.updateChapter(chapter.copy(fileLocation = null))
+        chapterRepository.updateChapter(chapter.copy(fileLocation = null).apply {
+            sourceUrl = chapter.sourceUrl
+            scanlationSource = chapter.scanlationSource
+            read = chapter.read
+        })
         val request = requestFactory.chapter(novel, chapter)
         requestRepository.insertRequests(listOf(request))
     }

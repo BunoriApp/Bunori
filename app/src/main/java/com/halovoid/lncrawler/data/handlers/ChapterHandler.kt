@@ -42,7 +42,11 @@ class ChapterHandler(
             // 2. Update the file Location in the Chapter Database
             chapterRepository.updateChapter(chapter = chapter.copy(
                 fileLocation = fileLocation.toString()
-            ))
+            ).apply {
+                sourceUrl = chapter.sourceUrl
+                scanlationSource = chapter.scanlationSource
+                read = chapter.read
+            })
 
             return JobResult.Success
         } catch (e: CloudflareBlockedException) {

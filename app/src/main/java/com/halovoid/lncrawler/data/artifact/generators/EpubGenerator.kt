@@ -69,6 +69,73 @@ class EpubGenerator(
         """.trimMargin()
     }
 
+    // Matches <img ... src="..." ...> tags (case-insensitive, single or double quotes)
+    private val imgTagRegex = Regex("""<img[^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*>""", RegexOption.IGNORE_CASE)
+
+    private fun extensionForUrl(url: String): String {
+        val lower = url.substringBefore('?').substringBefore('#').lowercase()
+        return when {
+            lower.endsWith(".png") -> "png"
+            lower.endsWith(".webp") -> "webp"
+            lower.endsWith(".gif") -> "gif"
+            lower.endsWith(".jpeg") -> "jpg"
+            else -> "jpg"
+        }
+    }
+
+    private fun mediaTypeForExtension(ext: String): String = when (ext) {
+        "png" -> "image/png"
+        "webp" -> "image/webp"
+        "gif" -> "image/gif"
+        else -> "image/jpeg"
+    }
+
+    // Downloads image bytes from either a remote URL or a local content/file URI.
+    private suspend fun downloadImageBytes(src: String): ByteArray? {
+        return try {
+            if (src.startsWith("http://", ignoreCase = true) || src.startsWith("https://", ignoreCase = true)) {
+                val request = okhttp3.Request.Builder().url(src).build()
+                com.halovoid.lncrawler.api.core.network.NetworkClient.okHttpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) response.body?.bytes() else null
+                }
+            } else {
+                storageRepository.openInputStream(src.toUri())?.use { it.readBytes() }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    // Finds every <img src="..."> in a chapter's HTML, downloads any image not already
+    // embedded, adds it to the epub package via addItem, and rewrites the src to point
+    // at the local packaged file so the image works fully offline.
+    private suspend fun embedChapterImages(
+        chapterId: String,
+        html: String,
+        imageCache: MutableMap<String, String>,
+        addItem: (EpubItem) -> Unit
+    ): String {
+        val sources = imgTagRegex.findAll(html).map { it.groupValues[1] }.distinct().toList()
+        if (sources.isEmpty()) return html
+
+        for (src in sources) {
+            if (imageCache.containsKey(src)) continue
+            val bytes = downloadImageBytes(src) ?: continue
+            val ext = extensionForUrl(src)
+            val fileName = "img_${chapterId}_${imageCache.size}.$ext"
+            imageCache[src] = fileName
+            addItem(EpubItem("images/$fileName", bytes, mediaTypeForExtension(ext), "image_${fileName.substringBefore(".")}"))
+        }
+
+        var result = html
+        for (src in sources) {
+            val fileName = imageCache[src] ?: continue
+            result = result.replace(src, "images/$fileName")
+        }
+        return result
+    }
+
     // XHTML Wrapper
     private fun wrapXHTML(title: String, body: String): String {
         return """
@@ -235,6 +302,9 @@ class EpubGenerator(
     ): File = withContext(Dispatchers.IO) {
         val items = mutableListOf<EpubItem>()
         val addedFileNames = mutableSetOf<String>()
+        // Maps a chapter image's original src -> the local filename it was packaged as,
+        // so the same remote image referenced twice isn't downloaded/embedded twice.
+        val chapterImageCache = mutableMapOf<String, String>()
 
         fun addItem(item: EpubItem) {
             if (addedFileNames.add(item.fileName)) {
@@ -303,9 +373,10 @@ class EpubGenerator(
                     .sortedBy { it.index }
                     .forEach { chapter ->
                         ensureActive()
-                        val content = chapter.fileLocation?.let { loc ->
+                        val rawContent = chapter.fileLocation?.let { loc ->
                             storageRepository.readText(loc.toUri())
                         } ?: "<p><em>Content not available</em></p>"
+                        val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem)
 
                         addItem(EpubItem(
                             "chapter_${chapter.id}_${chapter.index.toString().padStart(5, '0')}.xhtml",
@@ -319,9 +390,10 @@ class EpubGenerator(
             // No volumes, just add chapters
             chapters.sortedBy { it.index }.forEach { chapter ->
                 ensureActive()
-                val content = chapter.fileLocation?.let { loc ->
+                val rawContent = chapter.fileLocation?.let { loc ->
                     storageRepository.readText(loc.toUri())
                 } ?: "<p><em>Content not available</em></p>"
+                val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem)
 
                 addItem(EpubItem(
                     "chapter_${chapter.id}_${chapter.index.toString().padStart(5, '0')}.xhtml",
@@ -349,7 +421,7 @@ class EpubGenerator(
         items.find { it.id == "cover" }?.let { orderedItems.add(it) }
         items.find { it.id == "intro" }?.let { orderedItems.add(it) }
         orderedItems.add(navItem)
-        items.filter { it.id.startsWith("volume_") || it.id.startsWith("chapter_") }
+        items.filter { it.id.startsWith("volume_") || it.id.startsWith("chapter_") || it.id.startsWith("image_") }
             .forEach { orderedItems.add(it) }
 
         // Final items for OPF and NCX should be the ordered ones

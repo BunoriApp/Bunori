@@ -21,6 +21,10 @@ class DeleteChapterUseCase(
                 AppLog.w("DeleteChapterUseCase", "Failed to delete chapter file at $location", e)
             }
         }
-        chapterRepository.updateChapter(chapter.copy(fileLocation = null))
+        chapterRepository.updateChapter(chapter.copy(fileLocation = null).apply {
+            sourceUrl = chapter.sourceUrl
+            scanlationSource = chapter.scanlationSource
+            read = chapter.read
+        })
     }
 }

@@ -154,7 +154,7 @@ fun RequestScreen(
                                         }
                                     ) {
                                         Text(
-                                            "Crawlers",
+                                            "Sources",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = if (selectedTab == RequestTab.CRAWLERS) FontWeight.Bold else FontWeight.Normal,
                                             color = if (selectedTab == RequestTab.CRAWLERS) PrimaryText else SecondaryText

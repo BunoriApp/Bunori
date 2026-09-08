@@ -13,6 +13,7 @@ import com.halovoid.lncrawler.api.backup.BackupService
 import com.halovoid.lncrawler.data.artifact.ArtifactGenerator
 import com.halovoid.lncrawler.data.artifact.ArtifactGeneratorFactory
 import com.halovoid.lncrawler.data.artifact.generators.EpubGenerator
+import com.halovoid.lncrawler.data.artifact.generators.PdfGenerator
 import com.halovoid.lncrawler.api.core.crawler.CrawlerFactory
 import com.halovoid.lncrawler.api.core.network.CloudflareInterceptor
 import com.halovoid.lncrawler.api.core.scrapper.Scrapper
@@ -119,7 +120,8 @@ class SchedulerService : Service() {
 
         // 2. Initialize Artifact System
         val epubGenerator = EpubGenerator(storageRepository)
-        val generators = listOf<ArtifactGenerator>(epubGenerator)
+        val pdfGenerator = PdfGenerator(storageRepository)
+        val generators = listOf<ArtifactGenerator>(epubGenerator, pdfGenerator)
         val generatorFactory = ArtifactGeneratorFactory(generators)
 
         // 3. Initialize Handler and Registry

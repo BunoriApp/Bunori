@@ -56,7 +56,7 @@ fun NovelArtifactsScreen(
     var selectedArtifact by remember { mutableStateOf<Artifact?>(null) }
     var activeDialog by remember { mutableStateOf<ArtifactsDialogState?>(null) }
 
-    val launchFileExport = rememberFileExportLauncher(mimeType = "application/epub+zip") { destUri ->
+    val launchFileExport = rememberFileExportLauncher(mimeType = "*/*") { destUri ->
         selectedArtifact?.let { artifact ->
             viewModel.copyArtifactToUri(
                 artifact = artifact,
@@ -70,8 +70,9 @@ fun NovelArtifactsScreen(
                                 duration = SnackbarDuration.Long
                             )
                             if (result == SnackbarResult.ActionPerformed) {
+                                val mimeType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
                                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(resultUri, "application/epub+zip")
+                                    setDataAndType(resultUri, mimeType)
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
                                 context.startActivity(Intent.createChooser(intent, "Open with"))
@@ -158,15 +159,17 @@ fun NovelArtifactsScreen(
                     ArtifactCard(
                         artifact = artifact,
                         onOpen = {
+                            val mimeType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
                             val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(it.artifactDestination.toUri(), "application/epub+zip")
+                                setDataAndType(artifact.artifactDestination.toUri(), mimeType)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
                             try {
                                 context.startActivity(Intent.createChooser(intent, "Open with"))
                             } catch (e: Exception) {
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("No app found to open EPUB")
+                                    val docType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "PDF" else "EPUB"
+                                    snackbarHostState.showSnackbar("No app found to open $docType")
                                 }
                             }
                         },

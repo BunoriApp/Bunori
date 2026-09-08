@@ -58,10 +58,11 @@ class ArtifactHandler(
             // 4. Save Permanenetly to the user's selected storage
             val novelKey = crawler.getNovelKey(novel.title)
             val fileName = "${novelKey}_${System.currentTimeMillis()}.$format"
+            val mimeType = if (format.equals("pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
             val finalUri = storageRepository.saveFile(
                 relativePath = "artifacts/$novelKey",
                 fileName = fileName,
-                mimeType = "application/epub+zip",
+                mimeType = mimeType,
                 data = tempFile.readBytes()
             )
 

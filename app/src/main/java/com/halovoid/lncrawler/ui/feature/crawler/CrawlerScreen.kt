@@ -109,7 +109,7 @@ fun CrawlerScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "New crawler versions are ready.",
+                                "New sources are ready.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = SecondaryText
                             )

@@ -62,13 +62,16 @@ fun ArtifactExportDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                ExportFormatItem(
-                    format = ExportFormat.EPUB,
-                    selected = selectedFormat == ExportFormat.EPUB,
-                    onClick = {
-                        selectedFormat = ExportFormat.EPUB
-                    }
-                )
+                ExportFormat.entries.forEach { format ->
+                    ExportFormatItem(
+                        format = format,
+                        selected = selectedFormat == format,
+                        onClick = {
+                            selectedFormat = format
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
         },
         confirmButton = {

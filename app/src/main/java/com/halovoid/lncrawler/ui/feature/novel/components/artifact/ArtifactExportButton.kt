@@ -80,5 +80,9 @@ enum class ExportFormat(
     EPUB(
         extension = "epub",
         mimeType = "application/epub+zip"
+    ),
+    PDF(
+        extension = "pdf",
+        mimeType = "application/pdf"
     )
 }

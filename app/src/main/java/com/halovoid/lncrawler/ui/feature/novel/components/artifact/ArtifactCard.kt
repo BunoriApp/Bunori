@@ -56,8 +56,11 @@ fun ArtifactCard(
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
+
+            val extension = artifact.artifactName.substringAfterLast('.', "")
+            val doctype = "${extension.uppercase()} document"
             Text(
-                text = "EPUB document",
+                text = doctype,
                 style = MaterialTheme.typography.labelSmall,
                 color = SecondaryText
             )
