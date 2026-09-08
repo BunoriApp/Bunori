@@ -116,4 +116,23 @@ object DatabaseMigrations {
             }
         }
     }
+
+    val MIGRATION_15_16 = object : Migration(15, 16) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            var columnExists = false
+            val cursor = db.query("PRAGMA table_info(chapters)")
+            while (cursor.moveToNext()) {
+                val nameIndex = cursor.getColumnIndex("name")
+                if (nameIndex != -1 && cursor.getString(nameIndex) == "scanlationSource") {
+                    columnExists = true
+                    break
+                }
+            }
+            cursor.close()
+
+            if (!columnExists) {
+                db.execSQL("ALTER TABLE chapters ADD COLUMN scanlationSource TEXT NOT NULL DEFAULT 'NotProvided'")
+            }
+        }
+    }
 }

@@ -185,20 +185,32 @@ fun NovelPreviewContent(
     Scaffold(
         containerColor = DarkBackground,
         topBar = {
-            AppTopBar(
-                title = "Preview",
-                onBack = onBack,
-                actions = {
-                    if (novel != null) {
-                        IconButton(onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, novel.url.toUri())
-                            context.startActivity(intent)
-                        }) {
-                            Icon(Icons.Default.Language, contentDescription = "View Source", tint = PrimaryText)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp),
+                        color = BrandAccent,
+                        trackColor = Color.Transparent
+                    )
+                }
+                AppTopBar(
+                    title = "Preview",
+                    onBack = onBack,
+                    containerColor = Color.Transparent,
+                    actions = {
+                        if (novel != null) {
+                            IconButton(onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, novel.url.toUri())
+                                context.startActivity(intent)
+                            }) {
+                                Icon(Icons.Default.Language, contentDescription = "View Source", tint = PrimaryText)
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         Box(
@@ -229,14 +241,6 @@ fun NovelPreviewContent(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (isLoading) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth().height(4.dp),
-                            color = BrandAccent,
-                            trackColor = Color.Transparent
-                        )
-                    }
-
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

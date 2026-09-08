@@ -32,6 +32,7 @@ data class ChapterEntity(
     val volumeId: String,
     val url: String,
     val sourceUrl: String? = null,
+    val scanlationSource: String = "NotProvided",
     val title: String,
     val index: Int,
     val fileLocation: String?,

@@ -18,6 +18,7 @@ data class Chapter(
 ) {
     var sourceUrl: String? = null
     var read: Boolean = false
+    var scanlationSource: String = "NotProvided"
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -34,6 +35,7 @@ data class Chapter(
         if (fileLocation != other.fileLocation) return false
         if (sourceUrl != other.sourceUrl) return false
         if (read != other.read) return false
+        if (scanlationSource != other.scanlationSource) return false
 
         return true
     }
@@ -48,6 +50,7 @@ data class Chapter(
         result = 31 * result + fileLocation.hashCode()
         result = 31 * result + (sourceUrl?.hashCode() ?: 0)
         result = 31 * result + read.hashCode()
+        result = 31 * result + scanlationSource.hashCode()
         return result
     }
 }

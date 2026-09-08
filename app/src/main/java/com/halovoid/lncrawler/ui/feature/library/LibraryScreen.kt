@@ -1,6 +1,5 @@
 package com.halovoid.lncrawler.ui.feature.library
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -8,7 +7,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
@@ -19,12 +17,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.halovoid.lncrawler.ui.core.components.AppBottomSheet
-import com.halovoid.lncrawler.ui.core.components.AppBottomSheetDivider
-import com.halovoid.lncrawler.ui.core.components.AppBottomSheetGroup
 import com.halovoid.lncrawler.ui.core.components.MutedEmptyState
 import com.halovoid.lncrawler.ui.core.components.ScreenHeader
 import com.halovoid.lncrawler.ui.core.theme.*
+import com.halovoid.lncrawler.ui.feature.library.components.LibraryFilterBottomSheet
 import com.halovoid.lncrawler.ui.feature.library.components.NovelCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -144,38 +140,6 @@ fun LibraryScreen(
                             onClick = { onNovelClick(novel.crawlerName, novel.url) }
                         )
                     }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LibraryFilterBottomSheet(
-    selected: String,
-    options: List<String>,
-    onDismiss: () -> Unit,
-    onSelected: (String) -> Unit
-) {
-    AppBottomSheet(
-        onDismiss = onDismiss,
-        title = "Filter Sources"
-    ) {
-        AppBottomSheetGroup {
-            options.forEachIndexed { index, option ->
-                ListItem(
-                    headlineContent = { Text(option, color = PrimaryText) },
-                    trailingContent = {
-                        if (selected == option) {
-                            Icon(Icons.Default.Check, contentDescription = null, tint = BrandAccent)
-                        }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.clickable { onSelected(option) }
-                )
-                if (index < options.lastIndex) {
-                    AppBottomSheetDivider()
                 }
             }
         }

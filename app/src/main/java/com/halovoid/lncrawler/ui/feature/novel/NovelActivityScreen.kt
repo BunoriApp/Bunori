@@ -3,8 +3,6 @@ package com.halovoid.lncrawler.ui.feature.novel
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,13 +10,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.halovoid.lncrawler.domain.models.Request
+import com.halovoid.lncrawler.ui.core.components.AppTopBar
 import com.halovoid.lncrawler.ui.core.theme.DarkBackground
 import com.halovoid.lncrawler.ui.core.theme.PrimaryText
 import com.halovoid.lncrawler.ui.core.theme.SecondaryText
 import com.halovoid.lncrawler.ui.feature.request.components.RequestActionHandler
 import com.halovoid.lncrawler.ui.feature.request.components.RequestCard
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovelActivityScreen(
     requests: List<Request>,
@@ -33,18 +31,9 @@ fun NovelActivityScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Activity", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkBackground,
-                    titleContentColor = PrimaryText,
-                    navigationIconContentColor = PrimaryText
-                )
+            AppTopBar(
+                title = "Activity",
+                onBack = onBack
             )
         },
         containerColor = DarkBackground
