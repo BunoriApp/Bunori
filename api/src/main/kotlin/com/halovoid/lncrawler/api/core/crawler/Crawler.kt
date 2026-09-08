@@ -144,15 +144,16 @@ abstract class Crawler {
 
         val volumes = createVolumes(novel)
 
-        // Enforce formatting and volume assignment on domain chapters
-        val chapters = novel.chapters.mapIndexed { index, chapter ->
-            val volumeIndex = (index / chapterPerVolume) + 1
+        // Enforce formatting and volume assignment on domain chapters without re-indexing
+        val chapters = novel.chapters.map { chapter ->
+            val volumeIndex = ((chapter.index - 1).coerceAtLeast(0) / chapterPerVolume) + 1
             chapter.copy(
-                title = formatTitle(chapter.title).ifBlank { "Chapter ${index + 1}" },
-                index = index + 1,
+                title = formatTitle(chapter.title).ifBlank { "Chapter ${chapter.index}" },
+                index = chapter.index,
                 volumeId = "${novel.url}_vol_${volumeIndex}"
             ).apply {
                 sourceUrl = chapter.sourceUrl ?: chapter.url
+                scanlationSource = chapter.scanlationSource
             }
         }
 

@@ -16,6 +16,9 @@ import com.halovoid.lncrawler.ui.core.theme.*
 
 @Composable
 fun NovelMetadataTable(novel: Novel, onClick: () -> Unit = {}) {
+    val sources = novel.chapters.map { it.scanlationSource }.filter { it.isNotBlank() && it != "NotProvided" }.distinct()
+    val sourceDisplay = if (sources.isNotEmpty()) sources.joinToString(", ") else novel.crawlerName
+
     Column(
         modifier = Modifier
             .padding(horizontal = 24.dp)
@@ -30,7 +33,7 @@ fun NovelMetadataTable(novel: Novel, onClick: () -> Unit = {}) {
                 "Author" to (novel.author ?: "Unknown"),
                 "Volumes" to novel.volumes.size.toString(),
                 "Chapters" to novel.chapters.size.toString(),
-                "Source" to novel.crawlerName
+                "Sources" to sourceDisplay
             )
         )
     }

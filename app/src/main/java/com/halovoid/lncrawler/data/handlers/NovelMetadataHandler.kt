@@ -64,6 +64,8 @@ class NovelMetadataHandler(
                         fileLocation = existing.fileLocation
                     ).apply {
                         sourceUrl = existing.sourceUrl ?: chapter.url
+                        scanlationSource = chapter.scanlationSource
+                        read = existing.read
                     }
                 } else {
                     chapter.apply {

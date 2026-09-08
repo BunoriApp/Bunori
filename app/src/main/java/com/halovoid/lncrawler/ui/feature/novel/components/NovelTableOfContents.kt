@@ -107,15 +107,41 @@ fun ChapterRow(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold
             )
-            if (chapter.title.isNotBlank()) {
-                Text(
-                    text = chapter.title,
-                    color = SecondaryText,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+            val hasTitle = chapter.title.isNotBlank()
+            val hasSource = chapter.scanlationSource.isNotBlank() && chapter.scanlationSource != "NotProvided"
+
+            if (hasTitle || hasSource) {
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (hasTitle) {
+                        Text(
+                            text = chapter.title,
+                            color = SecondaryText,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+                    if (hasSource) {
+                        if (hasTitle) {
+                            Text(
+                                text = " • ",
+                                color = SecondaryText,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Text(
+                            text = chapter.scanlationSource,
+                            color = SecondaryText,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
         
