@@ -1,14 +1,18 @@
 package com.halovoid.lncrawler.ui.feature.library
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.lncrawler.ui.core.components.MutedEmptyState
 import com.halovoid.lncrawler.ui.core.components.ScreenHeader
 import com.halovoid.lncrawler.ui.core.theme.*
+import com.halovoid.lncrawler.ui.feature.library.components.CompactNovelCard
 import com.halovoid.lncrawler.ui.feature.library.components.LibraryFilterBottomSheet
 import com.halovoid.lncrawler.ui.feature.library.components.NovelCard
 
@@ -31,6 +36,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel
 ) {
     val novels by viewModel.novels.collectAsStateWithLifecycle()
+    val isCompactMode by viewModel.libraryCompactView.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var selectedDomain by remember { mutableStateOf("Any") }
     
@@ -95,6 +101,14 @@ fun LibraryScreen(
                     IconButton(onClick = { isSearching = true }) {
                         Icon(Icons.Default.Search, contentDescription = "Search", tint = PrimaryText)
                     }
+
+                    IconButton(onClick = { viewModel.setLibraryCompactView(!isCompactMode) }) {
+                        Icon(
+                            imageVector = if (isCompactMode) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
+                            contentDescription = if (isCompactMode) "Grid View" else "Compact View",
+                            tint = PrimaryText
+                        )
+                    }
                     
                     var showFilter by remember { mutableStateOf(false) }
                     IconButton(onClick = { showFilter = true }) {
@@ -126,6 +140,19 @@ fun LibraryScreen(
                     icon = Icons.AutoMirrored.Outlined.LibraryBooks,
                     modifier = Modifier.weight(1f)
                 )
+            } else if (isCompactMode) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filteredNovels, key = { it.url }) { novel ->
+                        CompactNovelCard(
+                            novel = novel,
+                            onClick = { onNovelClick(novel.crawlerName, novel.url) }
+                        )
+                    }
+                }
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(120.dp),

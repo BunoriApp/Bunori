@@ -11,6 +11,9 @@ import com.halovoid.lncrawler.api.loader.UpdateDownloader
 import com.halovoid.lncrawler.api.loader.UpdateInstaller
 import com.halovoid.lncrawler.data.repository.PreferenceRepository
 import com.halovoid.lncrawler.data.repository.UpdateRepository
+import com.halovoid.lncrawler.ui.feature.novel.DownloadFilter
+import com.halovoid.lncrawler.ui.feature.novel.SortOrder
+import com.halovoid.lncrawler.ui.feature.novel.SortType
 import com.halovoid.lncrawler.ui.feature.onboarding.UriUtils
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -67,6 +70,54 @@ class SettingsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = 3
+    )
+
+    val searchCompactView: StateFlow<Boolean> = preferenceRepository.searchCompactView.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val libraryCompactView: StateFlow<Boolean> = preferenceRepository.libraryCompactView.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val defaultChapterDownloadFilter: StateFlow<DownloadFilter> = preferenceRepository.defaultChapterDownloadFilter
+        .map { filterName ->
+            runCatching { DownloadFilter.valueOf(filterName) }.getOrDefault(DownloadFilter.ALL)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DownloadFilter.ALL
+        )
+
+    val defaultChapterSortType: StateFlow<SortType> = preferenceRepository.defaultChapterSortType
+        .map { sortTypeName ->
+            runCatching { SortType.valueOf(sortTypeName) }.getOrDefault(SortType.CHAPTER_NUMBER)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = SortType.CHAPTER_NUMBER
+        )
+
+    val defaultChapterSortOrder: StateFlow<SortOrder> = preferenceRepository.defaultChapterSortOrder
+        .map { orderName ->
+            runCatching { SortOrder.valueOf(orderName) }.getOrDefault(SortOrder.ASCENDING)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = SortOrder.ASCENDING
+        )
+
+    val defaultSourceFilter: StateFlow<String> = preferenceRepository.defaultSourceFilter.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "ALL"
     )
 
     val exportFolderUri: StateFlow<Uri?> = preferenceRepository.exportFolderUri.stateIn(
@@ -208,6 +259,42 @@ class SettingsViewModel(
     fun resetOnboarding() {
         viewModelScope.launch {
             preferenceRepository.setOnboardingCompleted(false)
+        }
+    }
+
+    fun setSearchCompactView(compact: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setSearchCompactView(compact)
+        }
+    }
+
+    fun setLibraryCompactView(compact: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setLibraryCompactView(compact)
+        }
+    }
+
+    fun setDefaultChapterDownloadFilter(filter: DownloadFilter) {
+        viewModelScope.launch {
+            preferenceRepository.setDefaultChapterDownloadFilter(filter.name)
+        }
+    }
+
+    fun setDefaultChapterSortType(sortType: SortType) {
+        viewModelScope.launch {
+            preferenceRepository.setDefaultChapterSortType(sortType.name)
+        }
+    }
+
+    fun setDefaultChapterSortOrder(sortOrder: SortOrder) {
+        viewModelScope.launch {
+            preferenceRepository.setDefaultChapterSortOrder(sortOrder.name)
+        }
+    }
+
+    fun setDefaultSourceFilter(sourceFilter: String) {
+        viewModelScope.launch {
+            preferenceRepository.setDefaultSourceFilter(sourceFilter)
         }
     }
 }

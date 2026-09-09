@@ -49,7 +49,7 @@ fun ExperimentalSearchScreen(
 ) {
     val libraryUrls by requestViewModel.libraryUrls.collectAsStateWithLifecycle()
     val searchState by searchViewModel.searchState.collectAsStateWithLifecycle()
-    var isCompactMode by remember { mutableStateOf(false) }
+    val isCompactMode by searchViewModel.searchCompactView.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -94,7 +94,7 @@ fun ExperimentalSearchScreen(
                 )
 
                 if (isSearching) {
-                    IconButton(onClick = { isCompactMode = !isCompactMode }) {
+                    IconButton(onClick = { searchViewModel.setSearchCompactView(!isCompactMode) }) {
                         Icon(
                             imageVector = if (isCompactMode) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
                             contentDescription = if (isCompactMode) "Comfortable View" else "Compact View",

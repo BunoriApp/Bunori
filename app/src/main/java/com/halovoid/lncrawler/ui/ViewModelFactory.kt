@@ -40,14 +40,19 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             modelClass.isAssignableFrom(NovelDetailViewModel::class.java) -> {
                 NovelDetailViewModel(
                     application,
-                    RequestRepository.getInstance(application)
+                    RequestRepository.getInstance(application),
+                    preferenceRepository = PreferenceRepository.getInstance(application)
                 ) as T
             }
             modelClass.isAssignableFrom(FolderViewModel::class.java) -> {
                 FolderViewModel(application, PreferenceRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(LibraryViewModel::class.java) -> {
-                LibraryViewModel(application, NovelRepository.getInstance(application)) as T
+                LibraryViewModel(
+                    application,
+                    NovelRepository.getInstance(application),
+                    PreferenceRepository.getInstance(application)
+                ) as T
             }
             modelClass.isAssignableFrom(CrawlerViewModel::class.java) -> {
                 CrawlerViewModel(application, PreferenceRepository.getInstance(application)) as T

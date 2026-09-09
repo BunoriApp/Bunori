@@ -4,12 +4,15 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.lncrawler.api.core.crawler.CrawlerFactory
+import com.halovoid.lncrawler.data.repository.PreferenceRepository
 import com.halovoid.lncrawler.domain.models.SearchItem
 import com.halovoid.lncrawler.ui.core.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -31,8 +34,22 @@ sealed class SourceSearchStatus {
 }
 
 class GlobalSearchViewModel(
-    application: Application
+    application: Application,
+    private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
+
+    val searchCompactView: StateFlow<Boolean> = preferenceRepository.searchCompactView
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    fun setSearchCompactView(compact: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setSearchCompactView(compact)
+        }
+    }
 
     private val _searchState = MutableStateFlow<GlobalSearchState>(GlobalSearchState.Idle)
     val searchState: StateFlow<GlobalSearchState> = _searchState.asStateFlow()

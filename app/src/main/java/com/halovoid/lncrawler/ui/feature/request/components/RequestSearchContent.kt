@@ -59,7 +59,7 @@ fun RequestSearchContent(
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var isCompactMode by remember { mutableStateOf(false) }
+    val isCompactMode by viewModel.searchCompactView.collectAsStateWithLifecycle()
 
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val libraryUrls by requestViewModel.libraryUrls.collectAsStateWithLifecycle()
@@ -185,7 +185,7 @@ fun RequestSearchContent(
 
             if (isSearchActive && searchState is GlobalSearchState.Searching) {
                 Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = { isCompactMode = !isCompactMode }) {
+                IconButton(onClick = { viewModel.setSearchCompactView(!isCompactMode) }) {
                     Icon(
                         imageVector = if (isCompactMode) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
                         contentDescription = if (isCompactMode) "Comfortable View" else "Compact View",

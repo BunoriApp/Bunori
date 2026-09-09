@@ -46,6 +46,7 @@ import com.halovoid.lncrawler.ui.feature.request.RequestViewModel
 import com.halovoid.lncrawler.ui.feature.search.ExperimentalSearchScreen
 import com.halovoid.lncrawler.ui.feature.search.SearchViewModel
 import com.halovoid.lncrawler.ui.feature.settings.AdvancedSettingsScreen
+import com.halovoid.lncrawler.ui.feature.settings.AppearanceSettingsScreen
 import com.halovoid.lncrawler.ui.feature.settings.BackupSettingsScreen
 import com.halovoid.lncrawler.ui.feature.settings.DownloadPreferencesScreen
 import com.halovoid.lncrawler.ui.feature.settings.MoreScreen
@@ -68,6 +69,7 @@ sealed class Screen(val route: String) {
     object Crawlers : Screen("crawlers")
     object Support : Screen("support")
     object DownloadPreferences : Screen("download_preferences")
+    object AppearanceSettings : Screen("appearance_settings")
     object AdvancedSettings : Screen("advanced_settings")
     object SupportSettings : Screen("support_settings")
     object BackupSettings : Screen("backup_settings")
@@ -300,6 +302,9 @@ fun NavGraph(navController: NavHostController) {
                 )
                 MoreScreen(
                     viewModel = settingsViewModel,
+                    onNavigateToAppearance = {
+                        navController.navigate(Screen.AppearanceSettings.route)
+                    },
                     onNavigateToDownloadsPref = {
                         navController.navigate(Screen.DownloadPreferences.route)
                     },
@@ -344,6 +349,19 @@ fun NavGraph(navController: NavHostController) {
                     factory = remember { ViewModelFactory(application) }
                 )
                 DownloadPreferencesScreen(
+                    viewModel = settingsViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.AppearanceSettings.route) { backStackEntry ->
+                val supportEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(Screen.Support.route)
+                }
+                val settingsViewModel: SettingsViewModel = viewModel(
+                    viewModelStoreOwner = supportEntry,
+                    factory = remember { ViewModelFactory(application) }
+                )
+                AppearanceSettingsScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )

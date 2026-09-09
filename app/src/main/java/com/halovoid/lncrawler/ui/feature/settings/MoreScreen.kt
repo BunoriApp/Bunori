@@ -34,6 +34,7 @@ import com.halovoid.lncrawler.ui.core.theme.*
 @Composable
 fun MoreScreen(
     viewModel: SettingsViewModel,
+    onNavigateToAppearance: () -> Unit,
     onNavigateToDownloadsPref: () -> Unit,
     onNavigateToAdvanced: () -> Unit,
     onNavigateToSupportSettings: () -> Unit,
@@ -91,6 +92,13 @@ fun MoreScreen(
 
             SectionHeader(text = "Settings")
             
+            SettingsRow(
+                title = "Appearance",
+                subtitle = "Library layout, search view mode, novel detail filters",
+                icon = Icons.Outlined.Palette,
+                onClick = onNavigateToAppearance
+            )
+
             SettingsRow(
                 title = "Download Preferences",
                 subtitle = "Parallel downloads, data saver, folder path",

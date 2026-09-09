@@ -9,6 +9,7 @@ import com.halovoid.lncrawler.data.db.entities.RequestStatus
 import com.halovoid.lncrawler.data.repository.ArtifactRepository
 import com.halovoid.lncrawler.data.repository.ChapterRepository
 import com.halovoid.lncrawler.data.repository.NovelRepository
+import com.halovoid.lncrawler.data.repository.PreferenceRepository
 import com.halovoid.lncrawler.data.repository.VolumeRepository
 import com.halovoid.lncrawler.data.scheduler.services.SchedulerService
 import com.halovoid.lncrawler.data.repository.RequestRepository
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -64,7 +66,8 @@ class NovelDetailViewModel(
         StorageRepositoryImpl.getInstance(application),
         requestRepository,
         requestFactory
-    )
+    ),
+    private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
     private val novelRepository = NovelRepository.getInstance(application)
     private val volumeRepository = VolumeRepository.getInstance(application)
@@ -186,6 +189,21 @@ class NovelDetailViewModel(
         )
 
     init {
+        viewModelScope.launch {
+            val defaultFilterStr = preferenceRepository.defaultChapterDownloadFilter.firstOrNull()
+            if (defaultFilterStr != null) {
+                _downloadFilter.value = runCatching { DownloadFilter.valueOf(defaultFilterStr) }.getOrDefault(DownloadFilter.ALL)
+            }
+
+            val defaultSortTypeStr = preferenceRepository.defaultChapterSortType.firstOrNull()
+            val defaultSortOrderStr = preferenceRepository.defaultChapterSortOrder.firstOrNull()
+            if (defaultSortTypeStr != null || defaultSortOrderStr != null) {
+                val sortType = runCatching { SortType.valueOf(defaultSortTypeStr ?: "") }.getOrDefault(SortType.CHAPTER_NUMBER)
+                val sortOrder = runCatching { SortOrder.valueOf(defaultSortOrderStr ?: "") }.getOrDefault(SortOrder.ASCENDING)
+                _sortState.value = ChapterSortState(type = sortType, order = sortOrder)
+            }
+        }
+
         viewModelScope.launch {
             novel.collect { currentNovel ->
                 if (currentNovel != null) {

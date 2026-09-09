@@ -4,14 +4,17 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.lncrawler.data.factory.RequestFactory
+import com.halovoid.lncrawler.data.repository.PreferenceRepository
 import com.halovoid.lncrawler.data.repository.RequestRepository
 import com.halovoid.lncrawler.data.repository.SearchRepository
 import com.halovoid.lncrawler.data.scheduler.services.SchedulerService
 import com.halovoid.lncrawler.domain.models.SearchItem
 import com.halovoid.lncrawler.domain.models.SearchResponse
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed class SearchState {
@@ -27,8 +30,22 @@ class SearchViewModel(
     application: Application,
     private val requestRepository: RequestRepository = RequestRepository.getInstance(application),
     private val searchRepository: SearchRepository = SearchRepository(),
-    private val requestFactory: RequestFactory = RequestFactory()
+    private val requestFactory: RequestFactory = RequestFactory(),
+    private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
+
+    val searchCompactView: StateFlow<Boolean> = preferenceRepository.searchCompactView
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    fun setSearchCompactView(compact: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setSearchCompactView(compact)
+        }
+    }
 
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState.asStateFlow()

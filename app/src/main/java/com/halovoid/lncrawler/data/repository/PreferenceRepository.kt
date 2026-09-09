@@ -19,6 +19,12 @@ private val BETA_MODE_APP = booleanPreferencesKey("beta_mode_app")
 private val BETA_MODE_CRAWLERS = booleanPreferencesKey("beta_mode_crawlers")
 private val IGNORE_IMAGES = booleanPreferencesKey("ignore_images")
 private val MAX_CONCURRENT_JOBS = intPreferencesKey("max_concurrent_jobs")
+private val SEARCH_COMPACT_VIEW = booleanPreferencesKey("search_compact_view")
+private val LIBRARY_COMPACT_VIEW = booleanPreferencesKey("library_compact_view")
+private val DEFAULT_CHAPTER_DOWNLOAD_FILTER = stringPreferencesKey("default_chapter_download_filter")
+private val DEFAULT_CHAPTER_SORT_TYPE = stringPreferencesKey("default_chapter_sort_type")
+private val DEFAULT_CHAPTER_SORT_ORDER = stringPreferencesKey("default_chapter_sort_order")
+private val DEFAULT_SOURCE_FILTER = stringPreferencesKey("default_source_filter")
 
 class PreferenceRepository private constructor(
     private val context: Context
@@ -70,6 +76,36 @@ class PreferenceRepository private constructor(
             preferences[MAX_CONCURRENT_JOBS] ?: 3
         }
 
+    val searchCompactView: Flow<Boolean> =
+        context.appDataStore.data.map { preferences ->
+            preferences[SEARCH_COMPACT_VIEW] ?: false
+        }
+
+    val libraryCompactView: Flow<Boolean> =
+        context.appDataStore.data.map { preferences ->
+            preferences[LIBRARY_COMPACT_VIEW] ?: false
+        }
+
+    val defaultChapterDownloadFilter: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[DEFAULT_CHAPTER_DOWNLOAD_FILTER] ?: "ALL"
+        }
+
+    val defaultChapterSortType: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[DEFAULT_CHAPTER_SORT_TYPE] ?: "CHAPTER_NUMBER"
+        }
+
+    val defaultChapterSortOrder: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[DEFAULT_CHAPTER_SORT_ORDER] ?: "ASCENDING"
+        }
+
+    val defaultSourceFilter: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[DEFAULT_SOURCE_FILTER] ?: "ALL"
+        }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[ONBOARDING_COMPLETED] = completed.toString()
@@ -115,6 +151,42 @@ class PreferenceRepository private constructor(
     suspend fun setMaxConcurrentJobs(jobs: Int) {
         context.appDataStore.edit { preferences ->
             preferences[MAX_CONCURRENT_JOBS] = jobs
+        }
+    }
+
+    suspend fun setSearchCompactView(compact: Boolean) {
+        context.appDataStore.edit { preferences ->
+            preferences[SEARCH_COMPACT_VIEW] = compact
+        }
+    }
+
+    suspend fun setLibraryCompactView(compact: Boolean) {
+        context.appDataStore.edit { preferences ->
+            preferences[LIBRARY_COMPACT_VIEW] = compact
+        }
+    }
+
+    suspend fun setDefaultChapterDownloadFilter(filter: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[DEFAULT_CHAPTER_DOWNLOAD_FILTER] = filter
+        }
+    }
+
+    suspend fun setDefaultChapterSortType(type: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[DEFAULT_CHAPTER_SORT_TYPE] = type
+        }
+    }
+
+    suspend fun setDefaultChapterSortOrder(order: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[DEFAULT_CHAPTER_SORT_ORDER] = order
+        }
+    }
+
+    suspend fun setDefaultSourceFilter(filter: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[DEFAULT_SOURCE_FILTER] = filter
         }
     }
 }
