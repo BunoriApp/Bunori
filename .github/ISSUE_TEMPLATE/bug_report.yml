@@ -10,43 +10,28 @@ body:
 
         > [!NOTE]
         > If the issue is specific to a particular novel source or crawler,
-        > please report it in [LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources) instead.
+        > please report it in [LNCrawlerSources](https://github.com/LNCrawler/LNCrawlerSources) instead.
 
-  - type: textarea
-    id: description
+  - type: checkboxes
+    id: checks
     attributes:
-      label: What happened?
-      description: Clearly describe the problem you encountered.
-      placeholder: Tell us what went wrong.
-    validations:
-      required: true
+      label: Before you submit
+      options:
+        - label: I searched existing issues and this hasn't been reported already
+          required: true
+        - label: This bug is in LNCrawler itself, not a specific novel source/crawler
+          required: true
 
-  - type: textarea
-    id: steps
+  - type: dropdown
+    id: area
     attributes:
-      label: Steps to reproduce
-      description: Provide the steps required to reproduce the issue.
-      placeholder: |
-        1. Open...
-        2. Select...
-        3. Press...
-        4. Observe...
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-      description: What did you expect to happen?
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual behavior
-      description: What happened instead?
+      label: Where does this happen?
+      options:
+        - App / UI
+        - Downloading or crawling (general, not source-specific)
+        - Export / file format
+        - Installation or setup
+        - Other
     validations:
       required: true
 
@@ -54,19 +39,37 @@ body:
     id: version
     attributes:
       label: LNCrawler version
+      description: Run `lncrawler --version` or check the app's About screen if unsure.
       placeholder: "v1.0.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: What did you do, and what went wrong?
+      description: |
+        Walk through the steps you took, then tell us what you expected vs. what actually happened.
+        This is the most important field — a clear walkthrough saves several rounds of back-and-forth.
+      placeholder: |
+        1. Opened...
+        2. Selected...
+        3. Pressed...
+
+        Expected: ...
+        Actual: ...
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Logs
-      description: Include relevant logs or stack traces.
+      label: Logs / error messages / screenshots
+      description: Paste any console output, stack traces, or attach screenshots. This is often the fastest way for us to spot the issue.
       render: shell
 
   - type: textarea
     id: additional
     attributes:
       label: Additional information
-      description: Anything else that may help diagnose the issue.
+      description: Anything else that may help — OS, environment, whether it's reproducible every time, etc.
