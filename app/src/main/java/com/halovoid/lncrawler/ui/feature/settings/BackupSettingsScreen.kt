@@ -26,54 +26,51 @@ import com.halovoid.lncrawler.ui.core.theme.*
 import com.halovoid.lncrawler.ui.feature.settings.components.BackupFrequencyBottomSheet
 import com.halovoid.lncrawler.ui.feature.settings.components.CreateBackupBottomSheet
 import java.io.File
-import java.util.zip.ZipFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 data class BackupMetadata(
     val lastBackupTime: String,
-    val fileSize: String,
-    val contentsSummary: String,
-    val count: Int
+    val contentsSummary: String
 )
 
 fun getLatestBackupMetadata(context: Context): BackupMetadata {
-    val backupDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "backup")
-    val files = backupDir.listFiles { _, name -> name.endsWith(".lnbak") }?.sortedByDescending { it.lastModified() }
-    if (files.isNullOrEmpty()) {
-        return BackupMetadata("No backup created yet", "N/A", "", 0)
+    val metadataFile = File(context.filesDir, "backup_metadata.json")
+    if (metadataFile.exists()) {
+        try {
+            val json = JSONObject(metadataFile.readText())
+            return BackupMetadata(
+                lastBackupTime = json.optString("lastBackupTime", "No backup created yet"),
+                contentsSummary = json.optString("contentsSummary", "")
+            )
+        } catch (_: Exception) {}
     }
-    val latest = files.first()
-    val timeStr = android.text.format.DateFormat.format("MMM dd, yyyy, h:mm a", latest.lastModified()).toString()
-    val sizeMb = latest.length() / (1024 * 1024.toFloat())
-    val sizeStr = if (sizeMb < 1) "${latest.length() / 1024} KB" else String.format("%.1f MB", sizeMb)
-    
-    var summary = ""
-    try {
-        ZipFile(latest).use { zip ->
-            val entry = zip.getEntry("manifest.json")
-            if (entry != null) {
-                val text = zip.getInputStream(entry).bufferedReader().use { it.readText() }
-                val json = JSONObject(text)
-                val contents = json.optJSONObject("contents")
-                if (contents != null) {
-                    val included = mutableListOf<String>()
-                    if (contents.optBoolean("database", false)) included.add("Database")
-                    if (contents.optBoolean("chapters", false)) included.add("Chapters")
-                    if (contents.optBoolean("covers", false)) included.add("Covers")
-                    if (contents.optBoolean("artifacts", false)) included.add("Artifacts")
-                    summary = included.joinToString(" · ")
-                }
-            }
-        }
-    } catch (_: Exception) {}
 
-    return BackupMetadata(timeStr, sizeStr, summary, files.size)
+    val backupDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "backup")
+    val backupMetaFile = File(backupDir, "backup_metadata.json")
+    if (backupMetaFile.exists()) {
+        try {
+            val json = JSONObject(backupMetaFile.readText())
+            return BackupMetadata(
+                lastBackupTime = json.optString("lastBackupTime", "No backup created yet"),
+                contentsSummary = json.optString("contentsSummary", "")
+            )
+        } catch (_: Exception) {}
+    }
+
+    val backupFile = File(backupDir, "backup.lnbak")
+    if (backupFile.exists()) {
+        val timeStr = android.text.format.DateFormat.format("MMM dd, yyyy, h:mm a", backupFile.lastModified()).toString()
+        return BackupMetadata(timeStr, "")
+    }
+
+    return BackupMetadata("No backup created yet", "")
 }
 
 @Composable
 fun BackupSettingsScreen(
+    viewModel: SettingsViewModel,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -86,7 +83,7 @@ fun BackupSettingsScreen(
     var metadata by remember { mutableStateOf(getLatestBackupMetadata(context)) }
 
     var showCreateBottomSheet by remember { mutableStateOf(false) }
-    var backupFrequency by remember { mutableStateOf("Off") }
+    val backupFrequency by viewModel.backupFrequency.collectAsStateWithLifecycle()
     var showFrequencyBottomSheet by remember { mutableStateOf(false) }
 
     val launchRestorePicker = rememberFileOpenLauncher(mimeTypes = arrayOf("*/*")) { uri ->
@@ -203,18 +200,6 @@ fun BackupSettingsScreen(
                         Text(text = metadata.contentsSummary, style = MaterialTheme.typography.bodySmall, color = BrandAccent)
                     }
                 }
-
-                Column {
-                    Text(text = "Backup Size", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = PrimaryText)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(text = metadata.fileSize, style = MaterialTheme.typography.bodyMedium, color = SecondaryText)
-                }
-
-                Column {
-                    Text(text = "Retained Backups", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = PrimaryText)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(text = "${metadata.count} of 3 rolling backups stored", style = MaterialTheme.typography.bodyMedium, color = SecondaryText)
-                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -239,7 +224,7 @@ fun BackupSettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Keep up to 3 rolling backups",
+                        text = "Automatic backup schedule",
                         style = MaterialTheme.typography.bodyMedium,
                         color = SecondaryText
                     )
@@ -313,7 +298,7 @@ fun BackupSettingsScreen(
         if (showFrequencyBottomSheet) {
             BackupFrequencyBottomSheet(
                 currentFrequency = backupFrequency,
-                onFrequencySelected = { backupFrequency = it },
+                onFrequencySelected = { viewModel.setBackupFrequency(it) },
                 onDismiss = { showFrequencyBottomSheet = false }
             )
         }

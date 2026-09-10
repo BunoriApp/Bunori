@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.lncrawler.BuildConfig
+import com.halovoid.lncrawler.data.scheduler.workers.BackupScheduler
 import com.halovoid.lncrawler.api.loader.AppUpdateManager
 import com.halovoid.lncrawler.api.loader.UpdateDownloader
 import com.halovoid.lncrawler.api.loader.UpdateInstaller
@@ -118,6 +119,12 @@ class SettingsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = "ALL"
+    )
+
+    val backupFrequency: StateFlow<String> = preferenceRepository.backupFrequency.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "Off"
     )
 
     val exportFolderUri: StateFlow<Uri?> = preferenceRepository.exportFolderUri.stateIn(
@@ -295,6 +302,13 @@ class SettingsViewModel(
     fun setDefaultSourceFilter(sourceFilter: String) {
         viewModelScope.launch {
             preferenceRepository.setDefaultSourceFilter(sourceFilter)
+        }
+    }
+
+    fun setBackupFrequency(frequency: String) {
+        viewModelScope.launch {
+            preferenceRepository.setBackupFrequency(frequency)
+            BackupScheduler.scheduleBackupWork(getApplication(), frequency)
         }
     }
 }

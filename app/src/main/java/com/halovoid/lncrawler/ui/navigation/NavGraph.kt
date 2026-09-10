@@ -322,8 +322,16 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             }
-            composable(Screen.BackupSettings.route) {
+            composable(Screen.BackupSettings.route) { backStackEntry ->
+                val supportEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(Screen.Support.route)
+                }
+                val settingsViewModel: SettingsViewModel = viewModel(
+                    viewModelStoreOwner = supportEntry,
+                    factory = remember { ViewModelFactory(application) }
+                )
                 BackupSettingsScreen(
+                    viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }

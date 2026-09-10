@@ -25,6 +25,7 @@ private val DEFAULT_CHAPTER_DOWNLOAD_FILTER = stringPreferencesKey("default_chap
 private val DEFAULT_CHAPTER_SORT_TYPE = stringPreferencesKey("default_chapter_sort_type")
 private val DEFAULT_CHAPTER_SORT_ORDER = stringPreferencesKey("default_chapter_sort_order")
 private val DEFAULT_SOURCE_FILTER = stringPreferencesKey("default_source_filter")
+private val BACKUP_FREQUENCY = stringPreferencesKey("backup_frequency")
 
 class PreferenceRepository private constructor(
     private val context: Context
@@ -104,6 +105,11 @@ class PreferenceRepository private constructor(
     val defaultSourceFilter: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[DEFAULT_SOURCE_FILTER] ?: "ALL"
+        }
+
+    val backupFrequency: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[BACKUP_FREQUENCY] ?: "Off"
         }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
@@ -187,6 +193,12 @@ class PreferenceRepository private constructor(
     suspend fun setDefaultSourceFilter(filter: String) {
         context.appDataStore.edit { preferences ->
             preferences[DEFAULT_SOURCE_FILTER] = filter
+        }
+    }
+
+    suspend fun setBackupFrequency(frequency: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[BACKUP_FREQUENCY] = frequency
         }
     }
 }

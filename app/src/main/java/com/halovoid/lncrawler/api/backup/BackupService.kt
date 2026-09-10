@@ -33,7 +33,7 @@ class BackupService(private val context: Context): JobHandler {
         backupArtifacts: Boolean = false
     ): File? {
         val timestamp = System.currentTimeMillis()
-        val fileName = "backup_$timestamp.lnbak"
+        val fileName = "backup.lnbak"
 
         val tempFile = File(context.cacheDir, fileName)
         FileOutputStream(tempFile).use { fos ->
@@ -42,11 +42,28 @@ class BackupService(private val context: Context): JobHandler {
         val bytes = tempFile.readBytes()
         tempFile.delete()
 
+        val included = mutableListOf<String>()
+        if (backupDatabase) included.add("Database")
+        if (backupChapters) included.add("Chapters")
+        if (backupCovers) included.add("Covers")
+        if (backupArtifacts) included.add("Artifacts")
+        val summary = included.joinToString(" · ")
+        val timeStr = android.text.format.DateFormat.format("MMM dd, yyyy, h:mm a", timestamp).toString()
+
+        val metadataJson = JSONObject().apply {
+            put("lastBackupTime", timeStr)
+            put("contentsSummary", summary)
+        }.toString()
+
+        val metadataFile = File(context.filesDir, "backup_metadata.json")
+        metadataFile.writeText(metadataJson)
+
         val exportUri = PreferenceRepository.getInstance(context).exportFolderUri.firstOrNull()
         if (exportUri != null) {
             try {
                 val storageRepository = StorageRepositoryImpl.getInstance(context)
                 storageRepository.saveFile("backup", fileName, "application/zip", bytes)
+                storageRepository.saveText("backup", "backup_metadata.json", "application/json", metadataJson)
                 return null
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -57,14 +74,7 @@ class BackupService(private val context: Context): JobHandler {
         val backupDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "backup").apply { mkdirs() }
         val fallbackFile = File(backupDir, fileName)
         fallbackFile.writeBytes(bytes)
-
-        // Rolling cleanup: keep max 3 backups
-        val backups = backupDir.listFiles { _, name -> name.endsWith(".lnbak") }?.sortedBy { it.lastModified() }
-        if (backups != null && backups.size > 3) {
-            for (i in 0 until (backups.size - 3)) {
-                backups[i].delete()
-            }
-        }
+        File(backupDir, "backup_metadata.json").writeText(metadataJson)
 
         return fallbackFile
     }
