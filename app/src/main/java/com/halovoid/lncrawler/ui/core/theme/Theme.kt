@@ -1,53 +1,65 @@
 package com.halovoid.lncrawler.ui.core.theme
 
 import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-
-/**
- * Modern Dark color scheme for LNCrawler.
- */
-private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryText, // Text is often the most "primary" element in editorial
-    secondary = BrandAccent,
-    tertiary = ErrorRed,
-    background = DarkBackground,
-    surface = DarkSurface,
-    surfaceVariant = DarkSurfaceVariant,
-    onPrimary = DarkBackground,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = PrimaryText,
-    onSurface = PrimaryText,
-    onSurfaceVariant = SecondaryText,
-    outline = BorderColor,
-    outlineVariant = BorderColor.copy(alpha = 0.5f)
-)
-
-/**
- * Light color scheme (simplified, focusing on Dark theme).
- */
-private val LightColorScheme = lightColorScheme(
-    primary = PrimaryAccent,
-    background = PureWhite,
-    surface = LightGray
-)
+import com.halovoid.lncrawler.data.repository.PreferenceRepository
 
 @Composable
 fun LNCrawlerTheme(
-    darkTheme: Boolean = true, // Default to dark theme as requested
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val context = LocalContext.current
+    val preferenceRepository = remember { PreferenceRepository.getInstance(context) }
+
+    val themeModeStr by preferenceRepository.themeMode.collectAsState(initial = "SYSTEM")
+    val selectedThemeId by preferenceRepository.selectedThemeId.collectAsState(initial = "DEFAULT")
+    val isAmoledMode by preferenceRepository.isAmoledMode.collectAsState(initial = false)
+
+    val themeMode = runCatching { ThemeMode.valueOf(themeModeStr) }.getOrDefault(ThemeMode.SYSTEM)
+    val appTheme = ThemeRegistry.getThemeById(selectedThemeId)
+
+    val isDark = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+
+    val baseColorScheme = when {
+        appTheme.isDynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val dynamic = if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (isDark) {
+                dynamic.copy(
+                    outline = dynamic.outlineVariant.copy(alpha = 0.5f),
+                    outlineVariant = dynamic.surfaceVariant.copy(alpha = 0.35f)
+                )
+            } else {
+                dynamic.copy(
+                    outline = dynamic.outlineVariant.copy(alpha = 0.6f),
+                    outlineVariant = dynamic.outlineVariant.copy(alpha = 0.35f)
+                )
+            }
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        isDark -> appTheme.darkColorScheme
+        else -> appTheme.lightColorScheme
+    }
+
+    val colorScheme = if (isDark && isAmoledMode) {
+        baseColorScheme.copy(
+            background = Color.Black,
+            surface = Color(0xFF080808),
+            surfaceVariant = Color(0xFF141414),
+            outline = Color(0xFF222222),
+            outlineVariant = Color(0xFF161616)
+        )
+    } else {
+        baseColorScheme
     }
 
     MaterialTheme(

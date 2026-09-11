@@ -139,9 +139,12 @@ fun BlockItem(
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
                     onClick = onReloadChapter,
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BrandAccent,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
-                    Text("Reload Chapter", color = Color.White)
+                    Text("Reload Chapter")
                 }
             }
         }
@@ -196,7 +199,9 @@ private fun ReaderImage(block: Block.ImageBlock, modifier: Modifier = Modifier) 
     }
 }
 
+@Composable
 private fun List<InlineSpan>.toAnnotatedString(): AnnotatedString {
+    val linkColor = PrimaryAccent
     val builder = AnnotatedString.Builder()
     fun append(spans: List<InlineSpan>) {
         spans.forEach { span ->
@@ -220,7 +225,7 @@ private fun List<InlineSpan>.toAnnotatedString(): AnnotatedString {
                     append(span.children); builder.pop()
                 }
                 is InlineSpan.Link -> {
-                    builder.pushStyle(SpanStyle(color = PrimaryAccent, textDecoration = TextDecoration.Underline))
+                    builder.pushStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
                     append(span.children); builder.pop()
                 }
             }

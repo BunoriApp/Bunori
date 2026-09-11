@@ -73,6 +73,7 @@ fun MarkdownContent(markdown: String) {
 /**
  * Basic markdown parser for bolding (**text**).
  */
+@Composable
 fun parseBasicMarkdown(text: String): AnnotatedString {
     return buildAnnotatedString {
         var currentIndex = 0

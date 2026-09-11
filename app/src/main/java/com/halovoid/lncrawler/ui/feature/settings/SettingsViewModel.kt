@@ -12,6 +12,7 @@ import com.halovoid.lncrawler.api.loader.UpdateDownloader
 import com.halovoid.lncrawler.api.loader.UpdateInstaller
 import com.halovoid.lncrawler.data.repository.PreferenceRepository
 import com.halovoid.lncrawler.data.repository.UpdateRepository
+import com.halovoid.lncrawler.ui.core.theme.ThemeMode
 import com.halovoid.lncrawler.ui.feature.novel.DownloadFilter
 import com.halovoid.lncrawler.ui.feature.novel.SortOrder
 import com.halovoid.lncrawler.ui.feature.novel.SortType
@@ -125,6 +126,28 @@ class SettingsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = "Off"
+    )
+
+    val themeMode: StateFlow<ThemeMode> = preferenceRepository.themeMode
+        .map { modeName ->
+            runCatching { ThemeMode.valueOf(modeName) }.getOrDefault(ThemeMode.SYSTEM)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ThemeMode.SYSTEM
+        )
+
+    val selectedThemeId: StateFlow<String> = preferenceRepository.selectedThemeId.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "DEFAULT"
+    )
+
+    val isAmoledMode: StateFlow<Boolean> = preferenceRepository.isAmoledMode.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
     )
 
     val exportFolderUri: StateFlow<Uri?> = preferenceRepository.exportFolderUri.stateIn(
@@ -309,6 +332,24 @@ class SettingsViewModel(
         viewModelScope.launch {
             preferenceRepository.setBackupFrequency(frequency)
             BackupScheduler.scheduleBackupWork(getApplication(), frequency)
+        }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            preferenceRepository.setThemeMode(mode.name)
+        }
+    }
+
+    fun setSelectedThemeId(themeId: String) {
+        viewModelScope.launch {
+            preferenceRepository.setSelectedThemeId(themeId)
+        }
+    }
+
+    fun setAmoledMode(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setAmoledMode(enabled)
         }
     }
 }

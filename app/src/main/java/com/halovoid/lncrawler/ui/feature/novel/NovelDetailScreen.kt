@@ -27,6 +27,10 @@ import com.halovoid.lncrawler.ui.feature.downloads.components.DownloadRangeDialo
 import com.halovoid.lncrawler.ui.feature.novel.components.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import kotlinx.coroutines.launch
 
 sealed interface NovelDetailDialogState {
     data object ConfirmDelete : NovelDetailDialogState
@@ -82,6 +86,8 @@ fun NovelDetailScreen(
     }
 
     var descriptionExpanded by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
 
     val requestHistory by viewModel.rootRequests.collectAsStateWithLifecycle()
 
@@ -135,11 +141,36 @@ fun NovelDetailScreen(
         } else {
             val currentNovel = novel!!
             Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
-                LazyColumn(
-                    state = listState,
+                val pullRefreshState = rememberPullToRefreshState()
+                PullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh = {
+                        coroutineScope.launch {
+                            isRefreshing = true
+                            viewModel.fetchNovelMetadata(currentNovel)
+                            isRefreshing = false
+                        }
+                    },
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 32.dp)
+                    state = pullRefreshState,
+                    indicator = {
+                        PullToRefreshDefaults.Indicator(
+                            state = pullRefreshState,
+                            isRefreshing = isRefreshing,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .statusBarsPadding()
+                                .padding(top = 48.dp),
+                            containerColor = DarkSurface,
+                            color = BrandAccent
+                        )
+                    }
                 ) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
                     item {
                         NovelHeroSection(novel = currentNovel)
                     }
@@ -223,8 +254,9 @@ fun NovelDetailScreen(
                         onChapterToggleSelect = { viewModel.toggleChapterSelection(it.id) }
                     )
                 }
+            }
 
-                NovelTopBar(
+            NovelTopBar(
                     novel = currentNovel,
                     isOpaque = isTopBarOpaque,
                     showTitle = showTitleInTopBar,

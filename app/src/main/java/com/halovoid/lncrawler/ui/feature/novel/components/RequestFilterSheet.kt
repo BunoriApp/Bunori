@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DisabledByDefault
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,7 +20,9 @@ import com.halovoid.lncrawler.data.db.entities.RequestStatus
 import com.halovoid.lncrawler.domain.models.Request
 import com.halovoid.lncrawler.ui.core.components.AppBottomSheet
 import com.halovoid.lncrawler.ui.core.components.AppBottomSheetDivider
+import com.halovoid.lncrawler.ui.core.theme.BrandAccent
 import com.halovoid.lncrawler.ui.core.theme.DarkSurface
+import com.halovoid.lncrawler.ui.core.theme.ErrorRed
 import com.halovoid.lncrawler.ui.core.theme.PrimaryText
 import com.halovoid.lncrawler.ui.core.theme.SecondaryText
 import com.halovoid.lncrawler.ui.feature.novel.FilterState
@@ -69,47 +72,26 @@ fun RequestFilterSheet(
 
 @Composable
 fun ThreeStateCheckbox(state: FilterState) {
+    val icon = when (state) {
+        FilterState.NONE -> Icons.Default.CheckBoxOutlineBlank
+        FilterState.INCLUDE -> Icons.Default.CheckBox
+        FilterState.EXCLUDE -> Icons.Default.DisabledByDefault
+    }
+    val tint = when (state) {
+        FilterState.NONE -> SecondaryText
+        FilterState.INCLUDE -> BrandAccent
+        FilterState.EXCLUDE -> ErrorRed
+    }
+
     Box(
         modifier = Modifier.size(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        when (state) {
-            FilterState.NONE -> {
-                Icon(
-                    imageVector = Icons.Default.CheckBoxOutlineBlank,
-                    contentDescription = null,
-                    tint = SecondaryText,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            FilterState.INCLUDE -> {
-                Icon(
-                    imageVector = Icons.Default.CheckBox,
-                    contentDescription = null,
-                    tint = PrimaryText,
-                    modifier = Modifier.size(24.dp)
-                )
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = DarkSurface,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            FilterState.EXCLUDE -> {
-                Icon(
-                    imageVector = Icons.Default.CheckBox,
-                    contentDescription = null,
-                    tint = PrimaryText,
-                    modifier = Modifier.size(24.dp)
-                )
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = null,
-                    tint = DarkSurface,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -39,14 +40,15 @@ fun MoreScreen(
     onNavigateToAdvanced: () -> Unit,
     onNavigateToSupportSettings: () -> Unit,
     onNavigateToBackupSettings: () -> Unit,
-    onNavigateToUpdate: () -> Unit
+    onNavigateToUpdate: () -> Unit,
+    onNavigateToThemeSettings: () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold(
-        containerColor = DarkBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -64,6 +66,7 @@ fun MoreScreen(
                 Image(
                     painter = painterResource(id = R.mipmap.ic_splash_logo),
                     contentDescription = "LNCrawler Logo",
+                    colorFilter = ColorFilter.tint(BrandAccent),
                     modifier = Modifier.size(64.dp)
                 )
             }
@@ -93,9 +96,16 @@ fun MoreScreen(
             SectionHeader(text = "Settings")
             
             SettingsRow(
-                title = "Appearance",
-                subtitle = "Library layout, search view mode, novel detail filters",
+                title = "Theme",
+                subtitle = "Theme mode, color palettes, pure AMOLED",
                 icon = Icons.Outlined.Palette,
+                onClick = onNavigateToThemeSettings
+            )
+
+            SettingsRow(
+                title = "Appearance",
+                subtitle = "Library layout, search view mode, novel detail defaults",
+                icon = Icons.Outlined.DisplaySettings,
                 onClick = onNavigateToAppearance
             )
 

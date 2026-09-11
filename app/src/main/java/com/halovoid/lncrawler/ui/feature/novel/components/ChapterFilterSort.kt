@@ -142,35 +142,27 @@ private fun FilterSection(
 
 @Composable
 private fun TriStateDownloadCheckbox(state: DownloadFilter) {
-    val active = state != DownloadFilter.ALL
-    val color = if (active) PrimaryText else SecondaryText
-    
+    val icon = when (state) {
+        DownloadFilter.ALL -> Icons.Default.CheckBoxOutlineBlank
+        DownloadFilter.DOWNLOADED -> Icons.Default.CheckBox
+        DownloadFilter.NOT_DOWNLOADED -> Icons.Default.DisabledByDefault
+    }
+    val tint = when (state) {
+        DownloadFilter.ALL -> SecondaryText
+        DownloadFilter.DOWNLOADED -> BrandAccent
+        DownloadFilter.NOT_DOWNLOADED -> ErrorRed
+    }
+
     Box(
         modifier = Modifier.size(28.dp),
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = if (active) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+            imageVector = icon,
             contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(28.dp)
+            tint = tint,
+            modifier = Modifier.size(24.dp)
         )
-        
-        if (state == DownloadFilter.DOWNLOADED) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-                tint = DarkSurface,
-                modifier = Modifier.size(18.dp)
-            )
-        } else if (state == DownloadFilter.NOT_DOWNLOADED) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = null,
-                tint = DarkSurface,
-                modifier = Modifier.size(18.dp)
-            )
-        }
     }
 }
 

@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.outlined.Palette
 import com.halovoid.lncrawler.ui.core.components.AppSelectionBottomSheet
 import com.halovoid.lncrawler.ui.core.components.AppTopBar
 import com.halovoid.lncrawler.ui.core.theme.*
@@ -25,7 +26,8 @@ import com.halovoid.lncrawler.ui.feature.novel.SortType
 @Composable
 fun AppearanceSettingsScreen(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToThemeSettings: () -> Unit = {}
 ) {
     val searchCompactView by viewModel.searchCompactView.collectAsStateWithLifecycle()
     val libraryCompactView by viewModel.libraryCompactView.collectAsStateWithLifecycle()
@@ -33,8 +35,19 @@ fun AppearanceSettingsScreen(
     val defaultChapterSortType by viewModel.defaultChapterSortType.collectAsStateWithLifecycle()
     val defaultChapterSortOrder by viewModel.defaultChapterSortOrder.collectAsStateWithLifecycle()
     val defaultSourceFilter by viewModel.defaultSourceFilter.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val selectedThemeId by viewModel.selectedThemeId.collectAsStateWithLifecycle()
 
     var activeDialog by remember { mutableStateOf<AppearanceDialogState?>(null) }
+
+    val currentTheme = remember(selectedThemeId) { ThemeRegistry.getThemeById(selectedThemeId) }
+    val themeModeLabel = remember(themeMode) {
+        when (themeMode) {
+            ThemeMode.SYSTEM -> "System"
+            ThemeMode.LIGHT -> "Light"
+            ThemeMode.DARK -> "Dark"
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -43,7 +56,7 @@ fun AppearanceSettingsScreen(
                 onBack = onBack
             )
         },
-        containerColor = DarkBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -52,6 +65,19 @@ fun AppearanceSettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             Spacer(modifier = Modifier.height(8.dp))
+
+            SectionHeader(text = "Theme & Customization")
+
+            SettingsRow(
+                title = "App Theme",
+                subtitle = "${currentTheme.name} · $themeModeLabel",
+                icon = Icons.Outlined.Palette,
+                onClick = onNavigateToThemeSettings
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
+            Spacer(modifier = Modifier.height(12.dp))
 
             SectionHeader(text = "Layouts")
 

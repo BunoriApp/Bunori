@@ -15,7 +15,7 @@ fun SecurityCheckDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Security, contentDescription = null, tint = PrimaryAccent) },
+        icon = { Icon(Icons.Default.Security, contentDescription = null, tint = BrandAccent) },
         title = { Text("Verify: $novelName", color = PrimaryText) },
         text = {
             Text(
@@ -30,7 +30,10 @@ fun SecurityCheckDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandAccent,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Text("Proceed")
             }

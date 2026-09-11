@@ -50,6 +50,7 @@ import com.halovoid.lncrawler.ui.feature.settings.DownloadPreferencesScreen
 import com.halovoid.lncrawler.ui.feature.settings.MoreScreen
 import com.halovoid.lncrawler.ui.feature.settings.SettingsViewModel
 import com.halovoid.lncrawler.ui.feature.settings.SupportSettingsScreen
+import com.halovoid.lncrawler.ui.feature.settings.ThemeSettingsScreen
 import com.halovoid.lncrawler.ui.feature.settings.UpdateDetailScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -68,6 +69,7 @@ sealed class Screen(val route: String) {
     object Support : Screen("support")
     object DownloadPreferences : Screen("download_preferences")
     object AppearanceSettings : Screen("appearance_settings")
+    object ThemeSettings : Screen("theme_settings")
     object AdvancedSettings : Screen("advanced_settings")
     object SupportSettings : Screen("support_settings")
     object BackupSettings : Screen("backup_settings")
@@ -316,7 +318,23 @@ fun NavGraph(navController: NavHostController) {
                     },
                     onNavigateToUpdate = {
                         navController.navigate(Screen.UpdateDetail.route)
+                    },
+                    onNavigateToThemeSettings = {
+                        navController.navigate(Screen.ThemeSettings.route)
                     }
+                )
+            }
+            composable(Screen.ThemeSettings.route) { backStackEntry ->
+                val supportEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(Screen.Support.route)
+                }
+                val settingsViewModel: SettingsViewModel = viewModel(
+                    viewModelStoreOwner = supportEntry,
+                    factory = remember { ViewModelFactory(application) }
+                )
+                ThemeSettingsScreen(
+                    viewModel = settingsViewModel,
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.BackupSettings.route) { backStackEntry ->
@@ -368,7 +386,10 @@ fun NavGraph(navController: NavHostController) {
                 )
                 AppearanceSettingsScreen(
                     viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToThemeSettings = {
+                        navController.navigate(Screen.ThemeSettings.route)
+                    }
                 )
             }
             composable(Screen.AdvancedSettings.route) { backStackEntry ->

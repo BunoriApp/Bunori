@@ -26,6 +26,9 @@ private val DEFAULT_CHAPTER_SORT_TYPE = stringPreferencesKey("default_chapter_so
 private val DEFAULT_CHAPTER_SORT_ORDER = stringPreferencesKey("default_chapter_sort_order")
 private val DEFAULT_SOURCE_FILTER = stringPreferencesKey("default_source_filter")
 private val BACKUP_FREQUENCY = stringPreferencesKey("backup_frequency")
+private val THEME_MODE = stringPreferencesKey("theme_mode")
+private val SELECTED_THEME_ID = stringPreferencesKey("selected_theme_id")
+private val IS_AMOLED_MODE = booleanPreferencesKey("is_amoled_mode")
 
 class PreferenceRepository private constructor(
     private val context: Context
@@ -110,6 +113,21 @@ class PreferenceRepository private constructor(
     val backupFrequency: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[BACKUP_FREQUENCY] ?: "Off"
+        }
+
+    val themeMode: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[THEME_MODE] ?: "SYSTEM"
+        }
+
+    val selectedThemeId: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[SELECTED_THEME_ID] ?: "DEFAULT"
+        }
+
+    val isAmoledMode: Flow<Boolean> =
+        context.appDataStore.data.map { preferences ->
+            preferences[IS_AMOLED_MODE] ?: false
         }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
@@ -199,6 +217,24 @@ class PreferenceRepository private constructor(
     suspend fun setBackupFrequency(frequency: String) {
         context.appDataStore.edit { preferences ->
             preferences[BACKUP_FREQUENCY] = frequency
+        }
+    }
+
+    suspend fun setThemeMode(mode: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[THEME_MODE] = mode
+        }
+    }
+
+    suspend fun setSelectedThemeId(themeId: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[SELECTED_THEME_ID] = themeId
+        }
+    }
+
+    suspend fun setAmoledMode(enabled: Boolean) {
+        context.appDataStore.edit { preferences ->
+            preferences[IS_AMOLED_MODE] = enabled
         }
     }
 }

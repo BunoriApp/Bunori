@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.halovoid.lncrawler.ui.core.theme.BrandAccent
 import com.halovoid.lncrawler.ui.core.theme.PrimaryAccent
 import com.halovoid.lncrawler.ui.core.theme.SecondaryText
 
@@ -44,7 +45,10 @@ fun ExportWarningDialog(
                 Button(
                     onClick = onDownloadFirst,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BrandAccent,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
                     Text("Download Missing First")
                 }

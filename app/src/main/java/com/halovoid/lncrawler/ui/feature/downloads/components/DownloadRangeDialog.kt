@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.halovoid.lncrawler.ui.core.theme.BrandAccent
 import com.halovoid.lncrawler.ui.core.theme.PrimaryAccent
 import com.halovoid.lncrawler.ui.core.theme.SecondaryText
 
@@ -63,7 +64,10 @@ fun DownloadRangeDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(currentRange) },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandAccent,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Text("Download")
             }

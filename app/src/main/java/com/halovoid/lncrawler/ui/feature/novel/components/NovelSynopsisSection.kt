@@ -38,6 +38,8 @@ fun NovelSynopsisSection(
         label = "ChevronRotation"
     )
 
+    val fadeColor = DarkBackground
+
     Column(
         modifier = Modifier
             .animateContentSize()
@@ -64,8 +66,8 @@ fun NovelSynopsisSection(
                     if (!isExpanded) {
                         drawRect(
                             brush = Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, DarkBackground.copy(alpha = 0.8f)),
-                                startY = size.height * 0.6f,
+                                colors = listOf(Color.Transparent, fadeColor),
+                                startY = size.height * 0.5f,
                                 endY = size.height
                             )
                         )
