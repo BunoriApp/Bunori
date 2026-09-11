@@ -2,6 +2,7 @@ package com.halovoid.lncrawler.api.core.scrapper
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.Cookie
 import okhttp3.CookieJar
@@ -50,11 +51,11 @@ class Scrapper(
     private var userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
     /**
-     * Fetches the content of a URL as a String.
+     * Fetches the content of a URL as a String with automatic retries for transient errors.
      * @param url The target URL.
      * @param headers Optional headers to add to the request.
      * @param body Optional request body for POST requests.
-     * @param attempt DEPRECATED: Retries are now handled by Interceptor.
+     * @param attempt Maximum number of attempts for retryable failures.
      * @param webviewNeeded DEPRECATED: Automatic detection handled by Interceptor.
      * @return The response body as a String, or null if the request fails.
      */
@@ -62,52 +63,68 @@ class Scrapper(
         url: String,
         headers: Map<String, String> = emptyMap(),
         body: RequestBody? = null,
-        attempt: Int = 1,
+        attempt: Int = 3,
         webviewNeeded: Boolean = false
     ): String? = withContext(Dispatchers.IO) {
         if (url.isEmpty()) return@withContext null
 
-        // Sync with global resolver's User-Agent if available
-        globalResolver?.getUserAgent(url)?.let {
-            if (it.isNotEmpty()) userAgent = it
-        }
+        val maxAttempts = attempt.coerceAtLeast(1)
+        var currentAttempt = 1
 
-        val builder = Request.Builder()
-            .url(url)
-            .header("User-Agent", userAgent)
-
-        headers.forEach { (k, v) -> builder.header(k, v) }
-
-        if (body != null) {
-            builder.post(body)
-        }
-
-        val request = builder.build()
-
-        try {
-            client.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string()
-                
-                if (response.isSuccessful) {
-                    if (responseBody.isNullOrEmpty()) {
-                        Log.w("Scrapper", "Empty successful response from $url")
-                    }
-                    responseBody
-                } else {
-                    Log.e("Scrapper", "HTTP Error ${response.code} for $url. Body: $responseBody")
-                    null
-                }
+        while (currentAttempt <= maxAttempts) {
+            // Sync with global resolver's User-Agent if available
+            globalResolver?.getUserAgent(url)?.let {
+                if (it.isNotEmpty()) userAgent = it
             }
-        } catch (e: CloudflareBlockedException) {
-            throw e
-        } catch (e: IOException) {
-            if (e.cause is CloudflareBlockedException) throw e.cause as CloudflareBlockedException
-            Log.e("Scrapper", "IO Error fetching from $url", e)
-            null
-        } catch (e: Exception) {
-            Log.e("Scrapper", "Error fetching from $url", e)
-            null
+
+            val builder = Request.Builder()
+                .url(url)
+                .header("User-Agent", userAgent)
+
+            headers.forEach { (k, v) -> builder.header(k, v) }
+
+            if (body != null) {
+                builder.post(body)
+            }
+
+            val request = builder.build()
+
+            try {
+                client.newCall(request).execute().use { response ->
+                    val responseBody = response.body?.string()
+                    
+                    if (response.isSuccessful) {
+                        if (responseBody.isNullOrEmpty()) {
+                            Log.w("Scrapper", "Empty successful response from $url")
+                        }
+                        return@withContext responseBody
+                    } else if (response.code in listOf(429, 500, 502, 503, 504) && currentAttempt < maxAttempts) {
+                        Log.w("Scrapper", "HTTP ${response.code} for $url. Retrying attempt ${currentAttempt + 1}/$maxAttempts...")
+                        delay(currentAttempt * 1000L)
+                        currentAttempt++
+                    } else {
+                        Log.e("Scrapper", "HTTP Error ${response.code} for $url. Body: $responseBody")
+                        return@withContext null
+                    }
+                }
+            } catch (e: CloudflareBlockedException) {
+                throw e
+            } catch (e: IOException) {
+                if (e.cause is CloudflareBlockedException) throw e.cause as CloudflareBlockedException
+                if (currentAttempt < maxAttempts) {
+                    Log.w("Scrapper", "IO Error fetching from $url. Retrying attempt ${currentAttempt + 1}/$maxAttempts...", e)
+                    delay(currentAttempt * 1000L)
+                    currentAttempt++
+                } else {
+                    Log.e("Scrapper", "IO Error fetching from $url after $maxAttempts attempts", e)
+                    return@withContext null
+                }
+            } catch (e: Exception) {
+                Log.e("Scrapper", "Error fetching from $url", e)
+                return@withContext null
+            }
         }
+        null
     }
 
     /**

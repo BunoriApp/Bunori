@@ -3,9 +3,17 @@ package com.halovoid.lncrawler.api.core.crawler
 import android.net.Uri
 import com.halovoid.lncrawler.api.core.config.CrawlerConfig
 import com.halovoid.lncrawler.api.core.scrapper.Scrapper
+import com.halovoid.lncrawler.domain.models.Chapter
 import com.halovoid.lncrawler.domain.models.Novel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import okhttp3.RequestBody
 import org.jsoup.nodes.Document
+import java.io.IOException
 import kotlin.math.max
 
 /**
@@ -204,6 +212,98 @@ abstract class Crawler {
         content.select("div:not(:has(p))").remove()
 
         return content.html().trim()
+    }
+
+    /**
+     * Helper to fetch chapters across multiple pages, tabs, or subgroups concurrently with concurrency control.
+     * Throws an exception if any group fails, avoiding partial/cut-off chapter lists.
+     */
+    protected suspend fun <T> fetchGroupedChapters(
+        groups: List<T>,
+        concurrency: Int = config.runnerConcurrency,
+        fetchGroup: suspend (group: T) -> List<Chapter>
+    ): List<Chapter> {
+        if (groups.isEmpty()) return emptyList()
+
+        val semaphore = Semaphore(concurrency.coerceAtLeast(1))
+
+        val groupedResults = coroutineScope {
+            groups.map { group ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        fetchGroup(group)
+                    }
+                }
+            }.awaitAll()
+        }
+
+        return groupedResults.flatten()
+    }
+
+    /**
+     * Convenience wrapper around [fetchGroupedChapters] for numbered pages (1..N).
+     * Composes directly on top of [fetchGroupedChapters] using an IntRange.
+     *
+     * @param totalPages The total number of pages to fetch.
+     * @param startPage The first page number (default 1).
+     * @param initialChapters Optional list of chapters already obtained from the first page (e.g. from novel landing page).
+     *                        If provided, startPage will automatically advance to 2 so page 1 is not re-fetched.
+     * @param concurrency The maximum number of concurrent HTTP requests (defaults to config.runnerConcurrency).
+     * @param fetchPage A suspend lambda returning the chapters for a given page index.
+     * @return Ordered, flattened list of chapters. Throws an IOException if any page fails.
+     */
+    protected suspend fun fetchPaginatedChapters(
+        totalPages: Int,
+        startPage: Int = 1,
+        initialChapters: List<Chapter> = emptyList(),
+        concurrency: Int = config.runnerConcurrency,
+        fetchPage: suspend (page: Int) -> List<Chapter>
+    ): List<Chapter> {
+        val actualStart = if (initialChapters.isNotEmpty() && startPage == 1) 2 else startPage
+        if (actualStart > totalPages) return initialChapters
+
+        val pageNumbers = (actualStart..totalPages).toList()
+        return initialChapters + fetchGroupedChapters(pageNumbers, concurrency, fetchPage)
+    }
+
+    /**
+     * Helper to fetch chapters sequentially when pagination is cursor-based or requires following a "Next" page URL.
+     */
+    protected suspend fun fetchCursorChapters(
+        initialUrl: String,
+        maxPages: Int = 1000,
+        fetchNext: suspend (currentUrl: String) -> Pair<List<Chapter>, String?>
+    ): List<Chapter> {
+        val allChapters = mutableListOf<Chapter>()
+        var currentUrl: String? = initialUrl
+        var pageCount = 0
+        val visited = mutableSetOf<String>()
+
+        while (!currentUrl.isNullOrBlank() && pageCount < maxPages) {
+            if (!visited.add(currentUrl)) break // Prevent circular loops
+            pageCount++
+            val (chapters, nextUrl) = fetchNext(currentUrl)
+            allChapters.addAll(chapters)
+            currentUrl = nextUrl
+        }
+
+        return allChapters
+    }
+
+    /**
+     * Sanitizes, deduplicates by URL, and numbers a list of chapters sequentially (1..N).
+     * Automatically assigns scanlationSource if not already provided.
+     */
+    protected fun finalizeChapterList(chapters: List<Chapter>): List<Chapter> {
+        return chapters.distinctBy { it.url }.mapIndexed { index, chapter ->
+            chapter.copy(
+                index = index + 1,
+            ).apply {
+                if (scanlationSource.isBlank() || scanlationSource == "Not Provided") {
+                    scanlationSource = this@Crawler.name
+                }
+            }
+        }
     }
 
     /**

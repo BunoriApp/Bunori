@@ -17,21 +17,7 @@ data class Chapter(
 ) {
     var sourceUrl: String? = null
     var read: Boolean = false
-    var scanlationSource: String = "NotProvided"
-
-    /**
-     * Secondary constructor to maintain binary compatibility with external crawler
-     * DEX bundles that were compiled against the previous 7-parameter signature.
-     */
-    constructor(
-        id: Int,
-        url: String,
-        title: String,
-        index: Int,
-        novelUrl: String,
-        @Suppress("UNUSED_PARAMETER") volumeId: String,
-        fileLocation: String?
-    ) : this(id, url, title, index, novelUrl, fileLocation)
+    var scanlationSource: String = "Not Provided"
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

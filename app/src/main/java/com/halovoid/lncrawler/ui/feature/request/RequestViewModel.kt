@@ -112,16 +112,10 @@ class RequestViewModel(
                     val novel = crawler.getNovelMetadata(url)
                     _novelPreview.value = novel
                     
-                    // Fetch chapters immediately for preview
+                    // Fetch chapters for preview
                     _isChaptersLoading.value = true
                     try {
-                        val fullNovel = try {
-                            crawler.getNovelDetails(url)
-                        } catch (_: Exception) {
-                            null
-                        }
-                        val chapters = fullNovel?.chapters?.takeIf { it.isNotEmpty() }
-                            ?: crawler.getChapterList(url)
+                        val chapters = crawler.getChapterList(url)
                         _novelPreview.value = _novelPreview.value?.copy(
                             chapters = chapters
                         )
