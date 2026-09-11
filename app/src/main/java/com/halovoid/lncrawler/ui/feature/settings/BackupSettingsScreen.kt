@@ -237,6 +237,13 @@ fun BackupSettingsScreen(
                 )
             }
 
+            Text(
+                text = "Note: Automatic backup happens at 5:30 PM based on the schedule you choose.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SecondaryText.copy(alpha = 0.7f),
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp)
+            )
+
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
             Spacer(modifier = Modifier.height(12.dp))

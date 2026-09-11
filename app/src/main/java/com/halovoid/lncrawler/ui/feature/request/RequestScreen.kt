@@ -30,7 +30,7 @@ import com.halovoid.lncrawler.ui.feature.crawler.SyncState
 import com.halovoid.lncrawler.ui.feature.request.components.ManualRequestContent
 import com.halovoid.lncrawler.ui.feature.request.components.RequestActionHandler
 import com.halovoid.lncrawler.ui.feature.request.components.RequestSearchContent
-import com.halovoid.lncrawler.ui.feature.search.GlobalSearchViewModel
+import com.halovoid.lncrawler.ui.feature.search.SearchViewModel
 
 enum class RequestTab {
     SEARCH, CRAWLERS
@@ -60,7 +60,7 @@ fun RequestScreen(
     var isSearchActive by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val globalSearchViewModel: GlobalSearchViewModel = viewModel(
+    val searchViewModel: SearchViewModel = viewModel(
         factory = remember { ViewModelFactory(context.applicationContext as Application) }
     )
     val isCrawlerUpdateAvailable by crawlerViewModel.isUpdateAvailable.collectAsStateWithLifecycle()
@@ -170,7 +170,7 @@ fun RequestScreen(
                     when (selectedTab) {
                         RequestTab.SEARCH -> {
                             RequestSearchContent(
-                                viewModel = globalSearchViewModel,
+                                viewModel = searchViewModel,
                                 requestViewModel = viewModel,
                                 isSearchActive = isSearchActive,
                                 onSearchActiveChange = { active -> isSearchActive = active },

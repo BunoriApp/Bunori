@@ -4,8 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,8 +18,7 @@ import com.halovoid.lncrawler.ui.core.theme.*
 @Composable
 fun AdvancedSettingsScreen(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit,
-    onNavigateToExperimentalSearch: () -> Unit
+    onBack: () -> Unit
 ) {
     val appBeta by viewModel.betaModeApp.collectAsStateWithLifecycle()
     val crawlerBeta by viewModel.betaModeCrawlers.collectAsStateWithLifecycle()
@@ -110,37 +107,6 @@ fun AdvancedSettingsScreen(
                         uncheckedThumbColor = SecondaryText,
                         uncheckedTrackColor = DarkBackground
                     )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            SectionHeader(text = "Experimental Features")
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onNavigateToExperimentalSearch() }
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Experimental Search",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = PrimaryText
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Use the older index-based search interface.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SecondaryText
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = SecondaryText.copy(alpha = 0.5f)
                 )
             }
 

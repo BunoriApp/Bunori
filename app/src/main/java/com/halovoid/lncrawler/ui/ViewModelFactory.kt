@@ -17,7 +17,6 @@ import com.halovoid.lncrawler.ui.feature.onboarding.FolderViewModel
 import com.halovoid.lncrawler.ui.feature.reader.ReaderViewModel
 import com.halovoid.lncrawler.ui.feature.request.RequestDetailViewModel
 import com.halovoid.lncrawler.ui.feature.request.RequestViewModel
-import com.halovoid.lncrawler.ui.feature.search.GlobalSearchViewModel
 import com.halovoid.lncrawler.ui.feature.search.SearchViewModel
 import com.halovoid.lncrawler.ui.feature.settings.SettingsViewModel
 
@@ -30,9 +29,6 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             }
             modelClass.isAssignableFrom(SearchViewModel::class.java) -> {
                 SearchViewModel(application) as T
-            }
-            modelClass.isAssignableFrom(GlobalSearchViewModel::class.java) -> {
-                GlobalSearchViewModel(application) as T
             }
             modelClass.isAssignableFrom(RequestDetailViewModel::class.java) -> {
                 RequestDetailViewModel(application, RequestRepository.getInstance(application)) as T

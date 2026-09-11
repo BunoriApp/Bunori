@@ -29,7 +29,7 @@ object BackupScheduler {
             }
         }
 
-        val initialDelay = calculateInitialDelayTo3PM()
+        val initialDelay = calculateInitialDelayTo530PM()
 
         val constraints = Constraints.Builder()
             .setRequiresBatteryNotLow(true)
@@ -49,11 +49,11 @@ object BackupScheduler {
         )
     }
 
-    private fun calculateInitialDelayTo3PM(): Long {
+    private fun calculateInitialDelayTo530PM(): Long {
         val now = Calendar.getInstance()
         val target = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 15)
-            set(Calendar.MINUTE, 0)
+            set(Calendar.HOUR_OF_DAY, 17)
+            set(Calendar.MINUTE, 30)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }

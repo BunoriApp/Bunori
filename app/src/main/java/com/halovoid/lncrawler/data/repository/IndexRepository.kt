@@ -2,14 +2,12 @@ package com.halovoid.lncrawler.data.repository
 
 import android.util.Log
 import com.halovoid.lncrawler.api.core.network.NetworkClient
-import com.halovoid.lncrawler.domain.models.SearchResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.net.URLEncoder
 
 class IndexRepository(
     private val client: OkHttpClient = NetworkClient.okHttpClient

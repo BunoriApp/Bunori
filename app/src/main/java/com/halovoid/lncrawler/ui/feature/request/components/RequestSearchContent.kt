@@ -22,7 +22,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -34,8 +33,8 @@ import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.domain.models.SearchItem
 import com.halovoid.lncrawler.ui.core.theme.*
 import com.halovoid.lncrawler.ui.feature.request.RequestViewModel
-import com.halovoid.lncrawler.ui.feature.search.GlobalSearchState
-import com.halovoid.lncrawler.ui.feature.search.GlobalSearchViewModel
+import com.halovoid.lncrawler.ui.feature.search.SearchState
+import com.halovoid.lncrawler.ui.feature.search.SearchViewModel
 import com.halovoid.lncrawler.ui.feature.search.SourceSearchStatus
 
 /**
@@ -49,7 +48,7 @@ import com.halovoid.lncrawler.ui.feature.search.SourceSearchStatus
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestSearchContent(
-    viewModel: GlobalSearchViewModel,
+    viewModel: SearchViewModel,
     requestViewModel: RequestViewModel,
     isSearchActive: Boolean,
     onSearchActiveChange: (Boolean) -> Unit,
@@ -64,7 +63,7 @@ fun RequestSearchContent(
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val libraryUrls by requestViewModel.libraryUrls.collectAsStateWithLifecycle()
 
-    val isSearching = searchState is GlobalSearchState.Searching
+    val isSearching = searchState is SearchState.Searching
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
@@ -183,7 +182,7 @@ fun RequestSearchContent(
                 }
             }
 
-            if (isSearchActive && searchState is GlobalSearchState.Searching) {
+            if (isSearchActive && searchState is SearchState.Searching) {
                 Spacer(modifier = Modifier.width(8.dp))
                 IconButton(onClick = { viewModel.setSearchCompactView(!isCompactMode) }) {
                     Icon(
@@ -223,12 +222,12 @@ fun RequestSearchContent(
 
             Box(modifier = Modifier.weight(1f)) {
                 when (val state = searchState) {
-                    is GlobalSearchState.Error -> {
+                    is SearchState.Error -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Error: ${state.message}", color = ErrorRed, modifier = Modifier.padding(16.dp))
                         }
                     }
-                    is GlobalSearchState.Searching -> {
+                    is SearchState.Searching -> {
                         val allDone = state.sourceStates.all { it.value !is SourceSearchStatus.Loading }
                         val allEmpty = state.sourceStates.all {
                             val status = it.value

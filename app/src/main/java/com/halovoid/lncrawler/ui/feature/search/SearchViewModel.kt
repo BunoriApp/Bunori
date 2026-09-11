@@ -3,34 +3,38 @@ package com.halovoid.lncrawler.ui.feature.search
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.halovoid.lncrawler.data.factory.RequestFactory
+import com.halovoid.lncrawler.api.core.crawler.CrawlerFactory
 import com.halovoid.lncrawler.data.repository.PreferenceRepository
-import com.halovoid.lncrawler.data.repository.RequestRepository
-import com.halovoid.lncrawler.data.repository.SearchRepository
-import com.halovoid.lncrawler.data.scheduler.services.SchedulerService
 import com.halovoid.lncrawler.domain.models.SearchItem
-import com.halovoid.lncrawler.domain.models.SearchResponse
+import com.halovoid.lncrawler.ui.core.logging.AppLog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class SearchState {
     object Idle : SearchState()
-    object Loading : SearchState()
-    data class Success(val response: SearchResponse) : SearchState()
+    data class Searching(
+        val query: String,
+        val sourceStates: Map<String, SourceSearchStatus>,
+        val isComplete: Boolean = false,
+        val isEmpty: Boolean = false
+    ) : SearchState()
     data class Error(val message: String) : SearchState()
 }
 
-//NOTE: It is the searchViewModel initially created to cater to experimental search but is now obsolete
-//TODO: Remove this from the codebase as well as application
+sealed class SourceSearchStatus {
+    object Loading : SourceSearchStatus()
+    data class Success(val items: List<SearchItem>) : SourceSearchStatus()
+    data class Error(val message: String) : SourceSearchStatus()
+}
+
 class SearchViewModel(
     application: Application,
-    private val requestRepository: RequestRepository = RequestRepository.getInstance(application),
-    private val searchRepository: SearchRepository = SearchRepository(),
-    private val requestFactory: RequestFactory = RequestFactory(),
     private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
 
@@ -52,38 +56,70 @@ class SearchViewModel(
 
     fun search(query: String) {
         if (query.isBlank()) return
-        
+
         viewModelScope.launch {
-            _searchState.value = SearchState.Loading
-            try {
-                val response = searchRepository.search(query)
-                _searchState.value = SearchState.Success(response)
+            val crawlers = try {
+                CrawlerFactory.getCrawlers()
             } catch (e: Exception) {
-                val isNetworkOrServerIssue = e is java.io.IOException || 
-                    e.message?.contains("failed", ignoreCase = true) == true ||
-                    e.message?.contains("connect", ignoreCase = true) == true ||
-                    e.message?.contains("timeout", ignoreCase = true) == true
-                
-                val userFriendlyMessage = if (isNetworkOrServerIssue) {
-                    "Server is down or under maintenance. Please try again later."
-                } else {
-                    e.message ?: "Server is down or under maintenance. Please try again later."
+                _searchState.value = SearchState.Error(e.message ?: "Failed to retrieve crawlers")
+                return@launch
+            }
+
+            val initialStates = crawlers.associate { it.name to SourceSearchStatus.Loading }
+            _searchState.value = SearchState.Searching(query, initialStates)
+
+            crawlers.forEach { crawler ->
+                viewModelScope.launch {
+                    try {
+                        val results = withContext(Dispatchers.IO) {
+                            crawler.getSearchResults(query)
+                        }
+                        AppLog.d(
+                            "SearchViewModel",
+                            "Crawler '${crawler.name}' returned ${results.size} results for query '$query': ${results.map { "${it.title} (${it.url})" }}"
+                        )
+                        val searchItems = results.map { novel ->
+                            SearchItem(
+                                title = novel.title,
+                                source = novel.crawlerName,
+                                url = novel.url,
+                                description = novel.description ?: "",
+                                score = 0.0,
+                                imageUrl = novel.coverHttpsUrl ?: novel.coverUrl
+                            )
+                        }
+                        updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
+                    } catch (e: Exception) {
+                        AppLog.e("SearchViewModel", "Error searching ${crawler.name}: ${e.message}", e)
+                        updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
+                    }
                 }
-                _searchState.value = SearchState.Error(userFriendlyMessage)
             }
         }
     }
-    
-    fun resetState() {
-        _searchState.value = SearchState.Idle
+
+    private fun updateSourceState(sourceName: String, status: SourceSearchStatus) {
+        val currentState = _searchState.value
+        if (currentState is SearchState.Searching) {
+            val updatedMap = currentState.sourceStates.toMutableMap().apply {
+                put(sourceName, status)
+            }
+
+            val allDone = updatedMap.all { it.value !is SourceSearchStatus.Loading }
+            val allEmpty = updatedMap.all {
+                val stat = it.value
+                stat is SourceSearchStatus.Success && stat.items.isEmpty()
+            }
+
+            _searchState.value = currentState.copy(
+                sourceStates = updatedMap,
+                isComplete = allDone,
+                isEmpty = allEmpty
+            )
+        }
     }
 
-    fun startCrawl(item: SearchItem) {
-        viewModelScope.launch {
-            val request = requestFactory.metadataFromSearchItem(item)
-
-            requestRepository.insertRequests(listOf(request))
-            SchedulerService.startService(getApplication())
-        }
+    fun resetState() {
+        _searchState.value = SearchState.Idle
     }
 }
