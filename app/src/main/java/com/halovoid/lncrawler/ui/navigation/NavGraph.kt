@@ -38,13 +38,13 @@ import com.halovoid.lncrawler.ui.feature.onboarding.SourceSyncScreen
 import com.halovoid.lncrawler.ui.feature.onboarding.WelcomeScreen
 import com.halovoid.lncrawler.ui.feature.reader.ReaderScreen
 import com.halovoid.lncrawler.ui.feature.reader.ReaderViewModel
+import com.halovoid.lncrawler.ui.feature.layout.LayoutSettingsScreen
 import com.halovoid.lncrawler.ui.feature.request.ManualRequestScreen
 import com.halovoid.lncrawler.ui.feature.request.NovelPreviewScreen
 import com.halovoid.lncrawler.ui.feature.request.RequestDetailScreen
 import com.halovoid.lncrawler.ui.feature.request.RequestScreen
 import com.halovoid.lncrawler.ui.feature.request.RequestViewModel
 import com.halovoid.lncrawler.ui.feature.settings.AdvancedSettingsScreen
-import com.halovoid.lncrawler.ui.feature.settings.AppearanceSettingsScreen
 import com.halovoid.lncrawler.ui.feature.settings.BackupSettingsScreen
 import com.halovoid.lncrawler.ui.feature.settings.DownloadPreferencesScreen
 import com.halovoid.lncrawler.ui.feature.settings.MoreScreen
@@ -68,7 +68,7 @@ sealed class Screen(val route: String) {
     object Crawlers : Screen("crawlers")
     object Support : Screen("support")
     object DownloadPreferences : Screen("download_preferences")
-    object AppearanceSettings : Screen("appearance_settings")
+    object LayoutSettings : Screen("layout_settings")
     object ThemeSettings : Screen("theme_settings")
     object AdvancedSettings : Screen("advanced_settings")
     object SupportSettings : Screen("support_settings")
@@ -301,8 +301,8 @@ fun NavGraph(navController: NavHostController) {
                 )
                 MoreScreen(
                     viewModel = settingsViewModel,
-                    onNavigateToAppearance = {
-                        navController.navigate(Screen.AppearanceSettings.route)
+                    onNavigateToLayout = {
+                        navController.navigate(Screen.LayoutSettings.route)
                     },
                     onNavigateToDownloadsPref = {
                         navController.navigate(Screen.DownloadPreferences.route)
@@ -376,7 +376,7 @@ fun NavGraph(navController: NavHostController) {
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable(Screen.AppearanceSettings.route) { backStackEntry ->
+            composable(Screen.LayoutSettings.route) { backStackEntry ->
                 val supportEntry = remember(backStackEntry) {
                     navController.getBackStackEntry(Screen.Support.route)
                 }
@@ -384,12 +384,9 @@ fun NavGraph(navController: NavHostController) {
                     viewModelStoreOwner = supportEntry,
                     factory = remember { ViewModelFactory(application) }
                 )
-                AppearanceSettingsScreen(
+                LayoutSettingsScreen(
                     viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToThemeSettings = {
-                        navController.navigate(Screen.ThemeSettings.route)
-                    }
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.AdvancedSettings.route) { backStackEntry ->

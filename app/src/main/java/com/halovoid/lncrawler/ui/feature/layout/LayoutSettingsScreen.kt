@@ -1,4 +1,4 @@
-package com.halovoid.lncrawler.ui.feature.settings
+package com.halovoid.lncrawler.ui.feature.layout
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,19 +15,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material.icons.outlined.Palette
 import com.halovoid.lncrawler.ui.core.components.AppSelectionBottomSheet
 import com.halovoid.lncrawler.ui.core.components.AppTopBar
 import com.halovoid.lncrawler.ui.core.theme.*
 import com.halovoid.lncrawler.ui.feature.novel.DownloadFilter
 import com.halovoid.lncrawler.ui.feature.novel.SortOrder
 import com.halovoid.lncrawler.ui.feature.novel.SortType
+import com.halovoid.lncrawler.ui.feature.settings.SectionHeader
+import com.halovoid.lncrawler.ui.feature.settings.SettingsRow
+import com.halovoid.lncrawler.ui.feature.settings.SettingsViewModel
 
 @Composable
-fun AppearanceSettingsScreen(
+fun LayoutSettingsScreen(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit,
-    onNavigateToThemeSettings: () -> Unit = {}
+    onBack: () -> Unit
 ) {
     val searchCompactView by viewModel.searchCompactView.collectAsStateWithLifecycle()
     val libraryCompactView by viewModel.libraryCompactView.collectAsStateWithLifecycle()
@@ -35,24 +36,13 @@ fun AppearanceSettingsScreen(
     val defaultChapterSortType by viewModel.defaultChapterSortType.collectAsStateWithLifecycle()
     val defaultChapterSortOrder by viewModel.defaultChapterSortOrder.collectAsStateWithLifecycle()
     val defaultSourceFilter by viewModel.defaultSourceFilter.collectAsStateWithLifecycle()
-    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-    val selectedThemeId by viewModel.selectedThemeId.collectAsStateWithLifecycle()
 
-    var activeDialog by remember { mutableStateOf<AppearanceDialogState?>(null) }
-
-    val currentTheme = remember(selectedThemeId) { ThemeRegistry.getThemeById(selectedThemeId) }
-    val themeModeLabel = remember(themeMode) {
-        when (themeMode) {
-            ThemeMode.SYSTEM -> "System"
-            ThemeMode.LIGHT -> "Light"
-            ThemeMode.DARK -> "Dark"
-        }
-    }
+    var activeDialog by remember { mutableStateOf<LayoutDialogState?>(null) }
 
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "Appearance",
+                title = "Layouts",
                 onBack = onBack
             )
         },
@@ -66,33 +56,20 @@ fun AppearanceSettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            SectionHeader(text = "Theme & Customization")
-
-            SettingsRow(
-                title = "App Theme",
-                subtitle = "${currentTheme.name} · $themeModeLabel",
-                icon = Icons.Outlined.Palette,
-                onClick = onNavigateToThemeSettings
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
-            Spacer(modifier = Modifier.height(12.dp))
-
             SectionHeader(text = "Layouts")
 
             SettingsRow(
                 title = "Search View Mode",
                 subtitle = if (searchCompactView) "Compact View" else "Grid View (Comfortable)",
                 icon = Icons.Outlined.GridView,
-                onClick = { activeDialog = AppearanceDialogState.SearchViewMode }
+                onClick = { activeDialog = LayoutDialogState.SearchViewMode }
             )
 
             SettingsRow(
                 title = "Library View Mode",
                 subtitle = if (libraryCompactView) "Compact View" else "Grid View",
                 icon = Icons.AutoMirrored.Outlined.ViewList,
-                onClick = { activeDialog = AppearanceDialogState.LibraryViewMode }
+                onClick = { activeDialog = LayoutDialogState.LibraryViewMode }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -109,7 +86,7 @@ fun AppearanceSettingsScreen(
                     DownloadFilter.NOT_DOWNLOADED -> "Not Downloaded Only"
                 },
                 icon = Icons.Outlined.FilterList,
-                onClick = { activeDialog = AppearanceDialogState.ChapterFilter }
+                onClick = { activeDialog = LayoutDialogState.ChapterFilter }
             )
 
             SettingsRow(
@@ -119,7 +96,7 @@ fun AppearanceSettingsScreen(
                     SortType.ALPHABETICAL -> "Alphabetically"
                 },
                 icon = Icons.AutoMirrored.Outlined.Sort,
-                onClick = { activeDialog = AppearanceDialogState.ChapterSortType }
+                onClick = { activeDialog = LayoutDialogState.ChapterSortType }
             )
 
             SettingsRow(
@@ -129,21 +106,21 @@ fun AppearanceSettingsScreen(
                     SortOrder.DESCENDING -> "Descending (N to 1)"
                 },
                 icon = Icons.Outlined.SwapVert,
-                onClick = { activeDialog = AppearanceDialogState.ChapterSortOrder }
+                onClick = { activeDialog = LayoutDialogState.ChapterSortOrder }
             )
 
             SettingsRow(
                 title = "Default Scanlator Source Filter",
                 subtitle = if (defaultSourceFilter == "ALL") "All Sources" else defaultSourceFilter,
                 icon = Icons.Outlined.Source,
-                onClick = { activeDialog = AppearanceDialogState.SourceFilter }
+                onClick = { activeDialog = LayoutDialogState.SourceFilter }
             )
 
             Spacer(modifier = Modifier.height(32.dp))
         }
 
         when (activeDialog) {
-            AppearanceDialogState.SearchViewMode -> {
+            LayoutDialogState.SearchViewMode -> {
                 AppSelectionBottomSheet(
                     title = "Search View Mode",
                     options = listOf("Grid View", "Compact View"),
@@ -154,7 +131,7 @@ fun AppearanceSettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
-            AppearanceDialogState.LibraryViewMode -> {
+            LayoutDialogState.LibraryViewMode -> {
                 AppSelectionBottomSheet(
                     title = "Library View Mode",
                     options = listOf("Grid View", "Compact View"),
@@ -165,7 +142,7 @@ fun AppearanceSettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
-            AppearanceDialogState.ChapterFilter -> {
+            LayoutDialogState.ChapterFilter -> {
                 AppSelectionBottomSheet(
                     title = "Default Chapter Filter",
                     options = listOf("All Chapters", "Downloaded Only", "Not Downloaded Only"),
@@ -185,7 +162,7 @@ fun AppearanceSettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
-            AppearanceDialogState.ChapterSortType -> {
+            LayoutDialogState.ChapterSortType -> {
                 AppSelectionBottomSheet(
                     title = "Default Chapter Sort By",
                     options = listOf("By Chapter Number", "Alphabetically"),
@@ -200,7 +177,7 @@ fun AppearanceSettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
-            AppearanceDialogState.ChapterSortOrder -> {
+            LayoutDialogState.ChapterSortOrder -> {
                 AppSelectionBottomSheet(
                     title = "Default Chapter Sort Order",
                     options = listOf("Ascending (1 to N)", "Descending (N to 1)"),
@@ -215,7 +192,7 @@ fun AppearanceSettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
-            AppearanceDialogState.SourceFilter -> {
+            LayoutDialogState.SourceFilter -> {
                 AppSelectionBottomSheet(
                     title = "Default Source Filter",
                     options = listOf("All Sources"),
@@ -231,7 +208,7 @@ fun AppearanceSettingsScreen(
     }
 }
 
-private enum class AppearanceDialogState {
+private enum class LayoutDialogState {
     SearchViewMode,
     LibraryViewMode,
     ChapterFilter,
