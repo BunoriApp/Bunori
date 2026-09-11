@@ -36,7 +36,6 @@ fun NovelDetailsBottomSheet(
                 MetadataSection(
                     mapOf(
                         "Author" to (novel.author ?: "Unknown"),
-                        "Volumes" to novel.volumes.size.toString(),
                         "Chapters" to novel.chapters.size.toString(),
                         "Sources" to sourceDisplay,
                         "Alternative Names" to (novel.alternativeNames ?: "None")

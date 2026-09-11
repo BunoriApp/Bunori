@@ -9,7 +9,6 @@ import com.halovoid.lncrawler.data.repository.ArtifactRepository
 import com.halovoid.lncrawler.data.repository.ChapterRepository
 import com.halovoid.lncrawler.data.repository.NovelRepository
 import com.halovoid.lncrawler.data.repository.StorageRepository
-import com.halovoid.lncrawler.data.repository.VolumeRepository
 import com.halovoid.lncrawler.data.scheduler.jobs.JobHandler
 import com.halovoid.lncrawler.data.scheduler.jobs.JobResult
 import com.halovoid.lncrawler.domain.models.Artifact
@@ -20,7 +19,6 @@ import androidx.core.net.toUri
 class ArtifactHandler(
     private val novelRepository: NovelRepository,
     private val chapterRepository: ChapterRepository,
-    private val volumeRepository: VolumeRepository,
     private val crawlerFactory: CrawlerFactory,
     private val storageRepository: StorageRepository,
     private val generatorFactory: ArtifactGeneratorFactory,
@@ -37,11 +35,10 @@ class ArtifactHandler(
             val novel = novelRepository.getNovelDetails(request.novelUrl)
                 ?: return@withContext JobResult.Failure(Exception("Novel not found in database"))
             val chapters = chapterRepository.getChaptersByNovelUrl(request.novelUrl)
-            val volumes = volumeRepository.getVolumeByNovelUrl(request.novelUrl)
 
             // 2. Select generator and create temp file
             val generator = generatorFactory.getGenerator(format)
-            val tempFile = generator.generate(novel, volumes, chapters, metadata)
+            val tempFile = generator.generate(novel, chapters, metadata)
             val crawler = crawlerFactory.getCrawler(crawlerName)
                 ?: return@withContext JobResult.Failure(Exception("Crawler '$crawlerName' not found"))
 

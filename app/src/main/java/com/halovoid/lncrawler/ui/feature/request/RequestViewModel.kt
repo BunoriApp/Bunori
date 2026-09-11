@@ -122,10 +122,8 @@ class RequestViewModel(
                         }
                         val chapters = fullNovel?.chapters?.takeIf { it.isNotEmpty() }
                             ?: crawler.getChapterList(url)
-                        val volumes = fullNovel?.volumes ?: emptyList()
                         _novelPreview.value = _novelPreview.value?.copy(
-                            chapters = chapters,
-                            volumes = volumes
+                            chapters = chapters
                         )
                     } catch (e: Exception) {
                         AppLog.e("RequestViewModel", "Failed to load preview chapters: ${e.message}")

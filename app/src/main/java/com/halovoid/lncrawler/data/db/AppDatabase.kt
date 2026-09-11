@@ -8,11 +8,9 @@ import com.halovoid.lncrawler.data.db.dao.ArtifactDao
 import com.halovoid.lncrawler.data.db.dao.ChapterDao
 import com.halovoid.lncrawler.data.db.dao.NovelDao
 import com.halovoid.lncrawler.data.db.dao.RequestDao
-import com.halovoid.lncrawler.data.db.dao.VolumeDao
 import com.halovoid.lncrawler.data.db.entities.ChapterEntity
 import com.halovoid.lncrawler.data.db.entities.NovelEntity
 import com.halovoid.lncrawler.data.db.entities.RequestEntity
-import com.halovoid.lncrawler.data.db.entities.VolumeEntity
 import com.halovoid.lncrawler.data.db.entities.ArtifactEntity
 import com.halovoid.lncrawler.data.db.migrations.DatabaseMigrations
 
@@ -22,14 +20,13 @@ import com.halovoid.lncrawler.data.db.migrations.DatabaseMigrations
  * Part of the Data layer, responsible for local persistence.
  */
 @Database(
-    entities = [NovelEntity::class, ChapterEntity::class, VolumeEntity::class, RequestEntity::class, ArtifactEntity::class],
-    version = 16,
+    entities = [NovelEntity::class, ChapterEntity::class, RequestEntity::class, ArtifactEntity::class],
+    version = 18,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun novelDao(): NovelDao
     abstract fun chapterDao(): ChapterDao
-    abstract fun volumeDao(): VolumeDao
     abstract fun requestDao(): RequestDao
     abstract fun artifactDao(): ArtifactDao
 
@@ -54,7 +51,10 @@ abstract class AppDatabase : RoomDatabase() {
                         DatabaseMigrations.MIGRATION_12_13,
                         DatabaseMigrations.MIGRATION_13_14,
                         DatabaseMigrations.MIGRATION_14_15,
-                        DatabaseMigrations.MIGRATION_15_16
+                        DatabaseMigrations.MIGRATION_15_16,
+                        DatabaseMigrations.MIGRATION_16_17,
+                        DatabaseMigrations.MIGRATION_17_18,
+                        DatabaseMigrations.MIGRATION_16_18
                     )
                     .fallbackToDestructiveMigration(true)
                     .build()

@@ -5,7 +5,6 @@ import com.halovoid.lncrawler.data.repository.StorageRepository
 import com.halovoid.lncrawler.data.scheduler.RequestMetadata
 import com.halovoid.lncrawler.domain.models.Chapter
 import com.halovoid.lncrawler.domain.models.Novel
-import com.halovoid.lncrawler.domain.models.Volume
 import android.net.Uri
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
@@ -63,7 +62,6 @@ class EpubGenerator(
             |h3 { text-align: center; font-weight: normal; }
             |.synopsis { margin-top: 2em; font-style: italic; }
             |.footer { margin-top: 4em; font-size: 0.8em; border-top: 1px solid #ccc; padding-top: 1em; }
-            |#volume h1 { margin-top: 40%; font-size: 3em; text-align: center; }
             |#chapter h4 { opacity: 0.75; margin-bottom: 0; }
             |img { max-width: 100%; height: auto; }
         """.trimMargin()
@@ -183,15 +181,6 @@ class EpubGenerator(
         return  wrapXHTML("Intro Page", content)
     }
 
-    private fun buildVolumePage(volume: Volume): String {
-        val content = """
-            |<div id="volume">
-            |    <h1>${"Volume ${volume.volumeIndex}"}</h1>
-            |</div>
-        """.trimMargin()
-        return wrapXHTML("Volumes ${volume.volumeIndex}", content)
-    }
-
     private fun buildChapterPage(chapter: Chapter, htmlContent: String): String {
         val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
         val content = """
@@ -296,7 +285,6 @@ class EpubGenerator(
 
     override suspend fun generate(
         novel: Novel,
-        volumes: List<Volume>,
         chapters: List<Chapter>,
         metadata: RequestMetadata
     ): File = withContext(Dispatchers.IO) {
@@ -359,49 +347,20 @@ class EpubGenerator(
         addItem(EpubItem(styleFileName, epubStyleCSS.toByteArray(), "text/css", "style"))
         addItem(EpubItem("intro.xhtml", buildIntroPage(novel).toByteArray(), "application/xhtml+xml", "intro"))
 
-        // 2. Build Chapters and Volumes
-        if (volumes.isNotEmpty()) {
-            volumes.sortedBy { it.volumeIndex }.forEach { volume ->
-                addItem(EpubItem(
-                    "volume_${volume.volumeIndex}.xhtml",
-                    buildVolumePage(volume).toByteArray(),
-                    "application/xhtml+xml",
-                    "volume_${volume.volumeIndex}"
-                ))
+        // 2. Build Chapters
+        chapters.sortedBy { it.index }.forEach { chapter ->
+            ensureActive()
+            val rawContent = chapter.fileLocation?.let { loc ->
+                storageRepository.readText(loc.toUri())
+            } ?: "<p><em>Content not available</em></p>"
+            val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem)
 
-                chapters.filter { it.volumeId == volume.id }
-                    .sortedBy { it.index }
-                    .forEach { chapter ->
-                        ensureActive()
-                        val rawContent = chapter.fileLocation?.let { loc ->
-                            storageRepository.readText(loc.toUri())
-                        } ?: "<p><em>Content not available</em></p>"
-                        val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem)
-
-                        addItem(EpubItem(
-                            "chapter_${chapter.id}_${chapter.index.toString().padStart(5, '0')}.xhtml",
-                            buildChapterPage(chapter, content).toByteArray(),
-                            "application/xhtml+xml",
-                            "chapter_${chapter.index}"
-                        ))
-                    }
-            }
-        } else {
-            // No volumes, just add chapters
-            chapters.sortedBy { it.index }.forEach { chapter ->
-                ensureActive()
-                val rawContent = chapter.fileLocation?.let { loc ->
-                    storageRepository.readText(loc.toUri())
-                } ?: "<p><em>Content not available</em></p>"
-                val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem)
-
-                addItem(EpubItem(
-                    "chapter_${chapter.id}_${chapter.index.toString().padStart(5, '0')}.xhtml",
-                    buildChapterPage(chapter, content).toByteArray(),
-                    "application/xhtml+xml",
-                    "chapter_${chapter.index}"
-                ))
-            }
+            addItem(EpubItem(
+                "chapter_${chapter.id}_${chapter.index.toString().padStart(5, '0')}.xhtml",
+                buildChapterPage(chapter, content).toByteArray(),
+                "application/xhtml+xml",
+                "chapter_${chapter.index}"
+            ))
         }
 
         // 3. Generate nav item
@@ -421,7 +380,7 @@ class EpubGenerator(
         items.find { it.id == "cover" }?.let { orderedItems.add(it) }
         items.find { it.id == "intro" }?.let { orderedItems.add(it) }
         orderedItems.add(navItem)
-        items.filter { it.id.startsWith("volume_") || it.id.startsWith("chapter_") || it.id.startsWith("image_") }
+        items.filter { it.id.startsWith("chapter_") || it.id.startsWith("image_") }
             .forEach { orderedItems.add(it) }
 
         // Final items for OPF and NCX should be the ordered ones

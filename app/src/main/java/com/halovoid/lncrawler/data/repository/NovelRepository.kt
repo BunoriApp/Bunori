@@ -26,7 +26,6 @@ class NovelRepository private constructor(context: Context) {
     private val db = AppDatabase.getDatabase(context)
     /** Data Access Object for novel-related database operations. */
     private val novelDao = db.novelDao()
-    private val volumeDao = db.volumeDao()
     private val chapterDao = db.chapterDao()
 
     companion object {
@@ -51,13 +50,9 @@ class NovelRepository private constructor(context: Context) {
                 flowOf(emptyList())
             } else {
                 val flows = novelEntities.map { novelEntity ->
-                    combine(
-                        chapterDao.getChaptersFlow(novelEntity.url),
-                        volumeDao.getVolumesForNovelFlow(novelEntity.url)
-                    ) { chapterEntities, volumeEntities ->
+                    chapterDao.getChaptersFlow(novelEntity.url).map { chapterEntities ->
                         novelEntity.toDomain().copy(
-                            chapters = chapterEntities.map { it.toDomain() },
-                            volumes = volumeEntities.map { it.toDomain() }
+                            chapters = chapterEntities.map { it.toDomain() }
                         )
                     }
                 }
@@ -95,10 +90,7 @@ class NovelRepository private constructor(context: Context) {
         
         novelDao.upsertNovel(novelToSave.toEntity())
         
-        // Save volumes and chapters if present
-        if (novel.volumes.isNotEmpty()) {
-            volumeDao.insertVolumes(novel.volumes.map { it.toEntity() })
-        }
+        // Save chapters if present
         if (novel.chapters.isNotEmpty()) {
             chapterDao.insertChapters(novel.chapters.map { it.toEntity() })
         }

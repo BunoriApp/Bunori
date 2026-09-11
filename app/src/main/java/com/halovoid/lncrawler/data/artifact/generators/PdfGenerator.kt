@@ -17,7 +17,6 @@ import com.halovoid.lncrawler.data.repository.StorageRepository
 import com.halovoid.lncrawler.data.scheduler.RequestMetadata
 import com.halovoid.lncrawler.domain.models.Chapter
 import com.halovoid.lncrawler.domain.models.Novel
-import com.halovoid.lncrawler.domain.models.Volume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -33,14 +32,8 @@ private sealed class ContentBlock {
     data class Image(val bitmap: Bitmap) : ContentBlock()
 }
 
-/** The book's linear structure, mirroring how EpubGenerator orders volumes/chapters. */
-private sealed class DocSection {
-    data class VolumeDivider(val volume: Volume) : DocSection()
-    data class ChapterSection(val chapter: Chapter) : DocSection()
-}
-
 /** A single Table-of-Contents row. `pageNumber` starts at 0 and is filled in after the dry run. */
-private data class TocEntry(val label: String, val isVolume: Boolean, var pageNumber: Int = 0)
+private data class TocEntry(val label: String, var pageNumber: Int = 0)
 
 /**
  * Handles page creation, margins, and vertical-cursor bookkeeping for a paginated PDF.
@@ -356,7 +349,6 @@ class PdfGenerator(
 
     override suspend fun generate(
         novel: Novel,
-        volumes: List<Volume>,
         chapters: List<Chapter>,
         metadata: RequestMetadata
     ): File = withContext(Dispatchers.IO) {
@@ -370,9 +362,7 @@ class PdfGenerator(
         val creditPaint = TextPaint().apply { isAntiAlias = true; textSize = 10f; color = Color.LTGRAY; }
         val tocTitlePaint = TextPaint().apply { isAntiAlias = true; textSize = 21f; color = Color.BLACK; isFakeBoldText = true }
         val tocEntryPaint = TextPaint().apply { isAntiAlias = true; textSize = 12.5f; color = Color.rgb(40, 40, 40) }
-        val tocVolumePaint = TextPaint().apply { isAntiAlias = true; textSize = 13.5f; color = Color.BLACK; isFakeBoldText = true }
         val tocPageNumPaint = TextPaint(tocEntryPaint).apply { color = Color.GRAY; textAlign = Paint.Align.RIGHT }
-        val volumeHeadingPaint = TextPaint().apply { isAntiAlias = true; textSize = 27f; color = Color.BLACK; isFakeBoldText = true }
         val chapterHeadingPaint = TextPaint().apply { isAntiAlias = true; textSize = 18f; color = Color.BLACK; isFakeBoldText = true }
         val bodyPaint = TextPaint().apply { isAntiAlias = true; textSize = 11.5f; color = Color.rgb(25, 25, 25) }
         val footerPaint = TextPaint().apply { isAntiAlias = true; textSize = 9.5f; color = Color.GRAY; textAlign = Paint.Align.CENTER }
@@ -381,44 +371,25 @@ class PdfGenerator(
 
         val printableWidthPx = (PAGE_WIDTH - MARGIN_X * 2).toInt()
 
-        // --- Reading order, mirroring EpubGenerator ------------------------------------------
-        val sections = mutableListOf<DocSection>()
-        if (volumes.isNotEmpty()) {
-            volumes.sortedBy { it.volumeIndex }.forEach { volume ->
-                sections.add(DocSection.VolumeDivider(volume))
-                chapters.filter { it.volumeId == volume.id }.sortedBy { it.index }
-                    .forEach { sections.add(DocSection.ChapterSection(it)) }
-            }
-        } else {
-            chapters.sortedBy { it.index }.forEach { sections.add(DocSection.ChapterSection(it)) }
-        }
+        // --- Reading order: chapters sorted by index -----------------------------------------
+        val sortedChapters = chapters.sortedBy { it.index }
 
         // --- Build every chapter's content blocks once (downloads + text measurement) --------
         val imageCache = mutableMapOf<String, Bitmap?>()
         val chapterBlocks = mutableMapOf<Any, List<ContentBlock>>()
-        for (section in sections) {
+        for (chapter in sortedChapters) {
             ensureActive()
-            if (section is DocSection.ChapterSection) {
-                val chapter = section.chapter
-                val rawContent = chapter.fileLocation?.let { loc -> storageRepository.readText(loc.toUri()) }
-                    ?: "<p><em>Content not available</em></p>"
-                chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache)
-            }
+            val rawContent = chapter.fileLocation?.let { loc -> storageRepository.readText(loc.toUri()) }
+                ?: "<p><em>Content not available</em></p>"
+            chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache)
         }
 
         val coverBitmap = loadCoverBitmap(novel, printableWidthPx * 2)
 
-        val tocEntries = sections.map { section ->
-            when (section) {
-                is DocSection.VolumeDivider -> TocEntry("Volume ${section.volume.volumeIndex}", isVolume = true)
-                is DocSection.ChapterSection -> TocEntry(
-                    section.chapter.title.ifBlank { "Chapter ${section.chapter.index}" },
-                    isVolume = false
-                )
-            }
+        val tocEntries = sortedChapters.map { chapter ->
+            TocEntry(chapter.title.ifBlank { "Chapter ${chapter.index}" })
         }
         val tocRowHeight = tocEntryPaint.fontSpacing + 8f
-        val tocVolumeRowHeight = tocVolumePaint.fontSpacing + 16f
 
         fun renderCoverPage(writer: PagedPdfWriter) {
             writer.startNewPage()
@@ -456,30 +427,18 @@ class PdfGenerator(
             writer.startNewPage()
             writer.drawCenteredText("Table of Contents", tocTitlePaint, bottomPadding = 20f)
             entries.forEach { entry ->
-                if (entry.isVolume) {
-                    writer.drawTocEntry(entry.label, "", tocVolumePaint, tocPageNumPaint, tocVolumeRowHeight)
-                } else {
-                    writer.drawTocEntry("    " + entry.label, entry.pageNumber.toString(), tocEntryPaint, tocPageNumPaint, tocRowHeight)
-                }
+                writer.drawTocEntry(entry.label, entry.pageNumber.toString(), tocEntryPaint, tocPageNumPaint, tocRowHeight)
             }
         }
 
-        fun renderSection(writer: PagedPdfWriter, section: DocSection) {
+        fun renderChapter(writer: PagedPdfWriter, chapter: Chapter) {
             writer.startNewPage()
-            when (section) {
-                is DocSection.VolumeDivider -> {
-                    writer.addVerticalSpace(writer.printableHeight * 0.35f)
-                    writer.drawCenteredText("Volume ${section.volume.volumeIndex}", volumeHeadingPaint)
-                }
-                is DocSection.ChapterSection -> {
-                    val displayTitle = section.chapter.title.ifBlank { "Chapter ${section.chapter.index}" }
-                    writer.drawCenteredText(displayTitle, chapterHeadingPaint, bottomPadding = 20f)
-                    chapterBlocks[section.chapter.id]?.forEach { block ->
-                        when (block) {
-                            is ContentBlock.Text -> writer.drawTextBlockPaginated(block.layout, spacingAfter = 10f)
-                            is ContentBlock.Image -> writer.drawImageBlock(block.bitmap, spacingAfter = 10f)
-                        }
-                    }
+            val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
+            writer.drawCenteredText(displayTitle, chapterHeadingPaint, bottomPadding = 20f)
+            chapterBlocks[chapter.id]?.forEach { block ->
+                when (block) {
+                    is ContentBlock.Text -> writer.drawTextBlockPaginated(block.layout, spacingAfter = 10f)
+                    is ContentBlock.Image -> writer.drawImageBlock(block.bitmap, spacingAfter = 10f)
                 }
             }
         }
@@ -489,9 +448,9 @@ class PdfGenerator(
         renderCoverPage(dryWriter)
         renderInfoPage(dryWriter)
         renderToc(dryWriter, tocEntries) // placeholder numbers; only used to consume the right page count
-        sections.forEachIndexed { index, section ->
+        sortedChapters.forEachIndexed { index, chapter ->
             ensureActive()
-            renderSection(dryWriter, section)
+            renderChapter(dryWriter, chapter)
             tocEntries[index].pageNumber = dryWriter.pageNumber
         }
         val totalPages = dryWriter.pageNumber
@@ -512,9 +471,9 @@ class PdfGenerator(
         renderCoverPage(writer)
         renderInfoPage(writer)
         renderToc(writer, tocEntries)
-        sections.forEach { section ->
+        sortedChapters.forEach { chapter ->
             ensureActive()
-            renderSection(writer, section)
+            renderChapter(writer, chapter)
         }
         writer.finishCurrentPage()
 

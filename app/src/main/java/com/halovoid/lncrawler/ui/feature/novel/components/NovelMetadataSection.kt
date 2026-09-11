@@ -31,7 +31,6 @@ fun NovelMetadataTable(novel: Novel, onClick: () -> Unit = {}) {
         MetadataSection(
             mapOf(
                 "Author" to (novel.author ?: "Unknown"),
-                "Volumes" to novel.volumes.size.toString(),
                 "Chapters" to novel.chapters.size.toString(),
                 "Sources" to sourceDisplay
             )

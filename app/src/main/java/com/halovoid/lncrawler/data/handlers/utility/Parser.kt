@@ -13,7 +13,6 @@ val Request.parsedMetadata: RequestMetadata
             RequestMetadata(
                 crawlerName = json.optString("crawlerName", null),
                 artifactFormat = json.optString("artifactFormat", null),
-                volumeId = json.optString("volumeId", null),
                 chapterId = json.optInt("chapterId", -1).takeIf { it != -1 },
                 format = json.optString("format", null),
                 startIndex = json.optInt("startIndex", -1).takeIf { it != -1 },
@@ -32,7 +31,6 @@ val RequestEntity.parsedMetadata: RequestMetadata
             RequestMetadata(
                 crawlerName = json.optString("crawlerName", null),
                 artifactFormat = json.optString("artifactFormat", null),
-                volumeId = json.optString("volumeId", null),
                 chapterId = json.optInt("chapterId", -1).takeIf { it != -1 },
                 format = json.optString("format", null),
                 startIndex = json.optInt("startIndex", -1).takeIf { it != -1 },

@@ -113,7 +113,6 @@ class SchedulerService : Service() {
         // 1. Initializing Repositories
         val novelRepository = NovelRepository.getInstance(this)
         val chapterRepository = ChapterRepository.getInstance(this)
-        val volumeRepository = VolumeRepository.getInstance(this)
         val preferenceRepository = PreferenceRepository.getInstance(this)
         val storageRepository = StorageRepositoryImpl.getInstance(this)
         val artifactRepository = ArtifactRepository.getInstance(this)
@@ -142,10 +141,10 @@ class SchedulerService : Service() {
             requestDao, scrapper, chapterRepository, storageRepository, crawlerFactory
         ))
         registry.register(RequestType.NOVEL_METADATA, NovelMetadataHandler(
-            crawlerFactory, novelRepository, volumeRepository, chapterRepository, storageRepository, requestDao
+            crawlerFactory, novelRepository, chapterRepository, storageRepository, requestDao
         ))
         registry.register(RequestType.ARTIFACT, ArtifactHandler(
-            novelRepository, chapterRepository, volumeRepository,
+            novelRepository, chapterRepository,
             crawlerFactory, storageRepository, generatorFactory, artifactRepository,
             requestDao
         ))

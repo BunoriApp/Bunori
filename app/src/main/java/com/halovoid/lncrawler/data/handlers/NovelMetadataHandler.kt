@@ -11,18 +11,16 @@ import com.halovoid.lncrawler.data.handlers.utility.parsedMetadata
 import com.halovoid.lncrawler.data.repository.ChapterRepository
 import com.halovoid.lncrawler.data.repository.NovelRepository
 import com.halovoid.lncrawler.data.repository.StorageRepository
-import com.halovoid.lncrawler.data.repository.VolumeRepository
 import com.halovoid.lncrawler.data.scheduler.jobs.JobHandler
 import com.halovoid.lncrawler.data.scheduler.jobs.JobResult
 
 /**
  * Handler for [RequestType.NOVEL_METADATA] requests.
- * Responsible for refreshing novel metadata, volumes, and chapter lists from the source.
+ * Responsible for refreshing novel metadata and chapter lists from the source.
  */
 class NovelMetadataHandler(
     private val crawlerFactory: CrawlerFactory,
     private val novelRepository: NovelRepository,
-    private val volumeRepository: VolumeRepository,
     private val chapterRepository: ChapterRepository,
     private val storageRepository: StorageRepository,
     private val requestDao: RequestDao
@@ -43,7 +41,7 @@ class NovelMetadataHandler(
             // 2. Refresh cover image if available
             val coverUri = downloadAndSaveCover(novel.coverUrl, crawler, novel.url)
 
-            // 3. Prepare the updated novel domain model (formats titles, assigns volumes)
+            // 3. Prepare the updated novel domain model (formats titles)
             val updatedNovel = crawler.prepareNovel(novel).let {
                 val coverLocalUrl = if (coverUri != null) coverUri.toString() else it.coverUrl
                 it.copy(
@@ -76,7 +74,6 @@ class NovelMetadataHandler(
 
             // 5. Persist the updated data to the database
             novelRepository.saveNovelMetadata(updatedNovel)
-            volumeRepository.insertVolumes(updatedNovel.volumes)
             chapterRepository.insertChapters(mergedChapters)
 
             // Metadata for totalProgressUpdate is not changed in this request

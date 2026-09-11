@@ -13,23 +13,15 @@ import androidx.room.PrimaryKey
             parentColumns = ["url"],
             childColumns = ["novelUrl"],
             onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = VolumeEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["volumeId"],
-            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [
-        Index("novelUrl"),
-        Index("volumeId")
+        Index("novelUrl")
     ]
 )
 data class ChapterEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val novelUrl: String,
-    val volumeId: String,
     val url: String,
     val sourceUrl: String? = null,
     val scanlationSource: String = "NotProvided",

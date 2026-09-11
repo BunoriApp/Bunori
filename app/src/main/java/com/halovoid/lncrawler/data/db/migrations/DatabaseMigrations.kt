@@ -135,4 +135,82 @@ object DatabaseMigrations {
             }
         }
     }
+
+    val MIGRATION_16_17 = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("PRAGMA foreign_keys = OFF")
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `chapters_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `novelUrl` TEXT NOT NULL, 
+                    `volumeId` TEXT NOT NULL, 
+                    `url` TEXT NOT NULL, 
+                    `sourceUrl` TEXT, 
+                    `scanlationSource` TEXT NOT NULL, 
+                    `title` TEXT NOT NULL, 
+                    `index` INTEGER NOT NULL, 
+                    `fileLocation` TEXT, 
+                    `read` INTEGER NOT NULL, 
+                    FOREIGN KEY(`novelUrl`) REFERENCES `novels`(`url`) ON UPDATE NO ACTION ON DELETE CASCADE 
+                )
+            """.trimIndent())
+            db.execSQL("INSERT INTO chapters_new (id, novelUrl, volumeId, url, sourceUrl, scanlationSource, title, `index`, fileLocation, read) SELECT id, novelUrl, volumeId, url, sourceUrl, scanlationSource, title, `index`, fileLocation, read FROM chapters")
+            db.execSQL("DROP TABLE chapters")
+            db.execSQL("ALTER TABLE chapters_new RENAME TO chapters")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_chapters_novelUrl` ON `chapters` (`novelUrl`)")
+            db.execSQL("PRAGMA foreign_keys = ON")
+        }
+    }
+
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("PRAGMA foreign_keys = OFF")
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `chapters_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `novelUrl` TEXT NOT NULL, 
+                    `url` TEXT NOT NULL, 
+                    `sourceUrl` TEXT, 
+                    `scanlationSource` TEXT NOT NULL, 
+                    `title` TEXT NOT NULL, 
+                    `index` INTEGER NOT NULL, 
+                    `fileLocation` TEXT, 
+                    `read` INTEGER NOT NULL, 
+                    FOREIGN KEY(`novelUrl`) REFERENCES `novels`(`url`) ON UPDATE NO ACTION ON DELETE CASCADE 
+                )
+            """.trimIndent())
+            db.execSQL("INSERT INTO chapters_new (id, novelUrl, url, sourceUrl, scanlationSource, title, `index`, fileLocation, read) SELECT id, novelUrl, url, sourceUrl, scanlationSource, title, `index`, fileLocation, read FROM chapters")
+            db.execSQL("DROP TABLE chapters")
+            db.execSQL("ALTER TABLE chapters_new RENAME TO chapters")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_chapters_novelUrl` ON `chapters` (`novelUrl`)")
+            db.execSQL("DROP TABLE IF EXISTS `volumes`")
+            db.execSQL("PRAGMA foreign_keys = ON")
+        }
+    }
+
+    val MIGRATION_16_18 = object : Migration(16, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("PRAGMA foreign_keys = OFF")
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `chapters_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `novelUrl` TEXT NOT NULL, 
+                    `url` TEXT NOT NULL, 
+                    `sourceUrl` TEXT, 
+                    `scanlationSource` TEXT NOT NULL, 
+                    `title` TEXT NOT NULL, 
+                    `index` INTEGER NOT NULL, 
+                    `fileLocation` TEXT, 
+                    `read` INTEGER NOT NULL, 
+                    FOREIGN KEY(`novelUrl`) REFERENCES `novels`(`url`) ON UPDATE NO ACTION ON DELETE CASCADE 
+                )
+            """.trimIndent())
+            db.execSQL("INSERT INTO chapters_new (id, novelUrl, url, sourceUrl, scanlationSource, title, `index`, fileLocation, read) SELECT id, novelUrl, url, sourceUrl, scanlationSource, title, `index`, fileLocation, read FROM chapters")
+            db.execSQL("DROP TABLE chapters")
+            db.execSQL("ALTER TABLE chapters_new RENAME TO chapters")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_chapters_novelUrl` ON `chapters` (`novelUrl`)")
+            db.execSQL("DROP TABLE IF EXISTS `volumes`")
+            db.execSQL("PRAGMA foreign_keys = ON")
+        }
+    }
 }

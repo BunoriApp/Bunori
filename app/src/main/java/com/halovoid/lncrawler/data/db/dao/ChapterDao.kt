@@ -13,9 +13,6 @@ interface ChapterDao {
     @Query("SELECT * FROM chapters WHERE novelUrl = :url")
     fun getChapterFromNovel(url: String): List<ChapterEntity>
 
-    @Query("SELECT * FROM chapters WHERE novelUrl = :url AND volumeId = :id")
-    fun getChapterFromNovelAndVolume(url: String, id: String): List<ChapterEntity>
-
     @Query("SELECT * FROM chapters WHERE novelUrl = :url")
     fun getChaptersFlow(url: String): Flow<List<ChapterEntity>>
 

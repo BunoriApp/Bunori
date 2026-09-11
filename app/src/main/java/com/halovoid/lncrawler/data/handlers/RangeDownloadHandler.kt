@@ -14,8 +14,8 @@ import org.json.JSONObject
 
 /**
  * Handler for [RequestType.RANGE_DOWNLOAD] requests.
- * Spawns CHAPTER requests directly for a specific range without using VOLUME requests.
- * This simplifies the UI and ensures chapter lists are visible in the request details.
+ * Spawns CHAPTER requests directly for a specific range.
+ * This ensures chapter lists are visible in the request details.
  */
 class RangeDownloadHandler(
     private val chapterRepository: ChapterRepository,

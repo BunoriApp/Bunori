@@ -2,10 +2,8 @@ package com.halovoid.lncrawler.data.db.mappers
 
 import com.halovoid.lncrawler.data.db.entities.ChapterEntity
 import com.halovoid.lncrawler.data.db.entities.NovelEntity
-import com.halovoid.lncrawler.data.db.entities.VolumeEntity
 import com.halovoid.lncrawler.domain.models.Chapter
 import com.halovoid.lncrawler.domain.models.Novel
-import com.halovoid.lncrawler.domain.models.Volume
 
 fun NovelEntity.toDomain(): Novel = Novel(
     url = url,
@@ -16,7 +14,6 @@ fun NovelEntity.toDomain(): Novel = Novel(
     crawlerName = crawlerName,
     alternativeNames = alternativeNames,
     chapters = emptyList(), // Chapters are usually loaded separately
-    volumes = emptyList(),   // Volumes are usually loaded separately
     titleHash = titleHash,
     coverHttpsUrl = coverHttpsUrl
 )
@@ -42,7 +39,6 @@ fun ChapterEntity.toDomain(): Chapter = Chapter(
     title = title,
     index = index,
     novelUrl = novelUrl,
-    volumeId = volumeId,
     fileLocation = fileLocation
 ).apply {
     sourceUrl = this@toDomain.sourceUrl
@@ -58,21 +54,6 @@ fun Chapter.toEntity(): ChapterEntity = ChapterEntity(
     title = title,
     index = index,
     novelUrl = novelUrl,
-    volumeId = volumeId,
     fileLocation = fileLocation,
     read = read
-)
-
-// --- Volume Mappings ---
-
-fun VolumeEntity.toDomain(): Volume = Volume(
-    id = id,
-    volumeIndex = volumeIndex,
-    novelUrl = novelUrl
-)
-
-fun Volume.toEntity(): VolumeEntity = VolumeEntity(
-    id = id,
-    volumeIndex = volumeIndex,
-    novelUrl = novelUrl
 )

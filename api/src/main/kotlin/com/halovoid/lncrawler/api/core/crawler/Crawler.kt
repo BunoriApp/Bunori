@@ -4,10 +4,8 @@ import android.net.Uri
 import com.halovoid.lncrawler.api.core.config.CrawlerConfig
 import com.halovoid.lncrawler.api.core.scrapper.Scrapper
 import com.halovoid.lncrawler.domain.models.Novel
-import com.halovoid.lncrawler.domain.models.Volume
 import okhttp3.RequestBody
 import org.jsoup.nodes.Document
-import kotlin.math.ceil
 import kotlin.math.max
 
 /**
@@ -37,10 +35,6 @@ abstract class Crawler {
 
     /** Language of the novels on this site (e.g., "en") */
     open val language: String = "en"
-
-    /** Volume size limit for how many chapters to go in one volume
-     */
-    open val chapterPerVolume: Int = 100
 
     /** Opens a webview on phone to extract all the cookies and website headers
      * This is only required if the crawler can't crawl the website normally and needs
@@ -132,7 +126,7 @@ abstract class Crawler {
     }
     /**
      * Prepares a novel by formatting its title and author names,
-     * and organizing chapters into volumes.
+     * and formatting chapter titles.
      */
     open fun prepareNovel(novel: Novel): Novel {
         val formattedTitle = formatTitle(novel.title)
@@ -142,15 +136,11 @@ abstract class Crawler {
             ?.filter { it.isNotBlank() }
             ?.joinToString(", ")
 
-        val volumes = createVolumes(novel)
-
-        // Enforce formatting and volume assignment on domain chapters without re-indexing
+        // Enforce formatting on domain chapters without re-indexing
         val chapters = novel.chapters.map { chapter ->
-            val volumeIndex = ((chapter.index - 1).coerceAtLeast(0) / chapterPerVolume) + 1
             chapter.copy(
                 title = formatTitle(chapter.title).ifBlank { "Chapter ${chapter.index}" },
-                index = chapter.index,
-                volumeId = "${novel.url}_vol_${volumeIndex}"
+                index = chapter.index
             ).apply {
                 sourceUrl = chapter.sourceUrl ?: chapter.url
                 scanlationSource = chapter.scanlationSource
@@ -160,28 +150,8 @@ abstract class Crawler {
         return novel.copy(
             title = formattedTitle,
             author = formattedAuthor,
-            volumes = volumes,
             chapters = chapters
         )
-    }
-
-    fun createVolumes(novel: Novel): List<Volume> {
-        val totalChapters = novel.chapters.size
-
-        if (totalChapters == 0) {
-            return emptyList()
-        }
-
-        val totalVolumes =
-            ceil(totalChapters.toDouble() / chapterPerVolume).toInt()
-
-        return (1..totalVolumes).map { volumeIndex ->
-            Volume(
-                id = "${novel.url}_vol_${volumeIndex}",
-                volumeIndex = volumeIndex,
-                novelUrl = novel.url
-            )
-        }
     }
 
     /**

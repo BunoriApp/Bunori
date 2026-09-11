@@ -13,12 +13,25 @@ data class Chapter(
     val title: String,
     val index: Int,
     val novelUrl: String,
-    val volumeId: String,
-    val fileLocation: String?
+    val fileLocation: String? = null
 ) {
     var sourceUrl: String? = null
     var read: Boolean = false
     var scanlationSource: String = "NotProvided"
+
+    /**
+     * Secondary constructor to maintain binary compatibility with external crawler
+     * DEX bundles that were compiled against the previous 7-parameter signature.
+     */
+    constructor(
+        id: Int,
+        url: String,
+        title: String,
+        index: Int,
+        novelUrl: String,
+        @Suppress("UNUSED_PARAMETER") volumeId: String,
+        fileLocation: String?
+    ) : this(id, url, title, index, novelUrl, fileLocation)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -31,7 +44,6 @@ data class Chapter(
         if (title != other.title) return false
         if (index != other.index) return false
         if (novelUrl != other.novelUrl) return false
-        if (volumeId != other.volumeId) return false
         if (fileLocation != other.fileLocation) return false
         if (sourceUrl != other.sourceUrl) return false
         if (read != other.read) return false
@@ -46,8 +58,7 @@ data class Chapter(
         result = 31 * result + title.hashCode()
         result = 31 * result + index.hashCode()
         result = 31 * result + novelUrl.hashCode()
-        result = 31 * result + volumeId.hashCode()
-        result = 31 * result + fileLocation.hashCode()
+        result = 31 * result + (fileLocation?.hashCode() ?: 0)
         result = 31 * result + (sourceUrl?.hashCode() ?: 0)
         result = 31 * result + read.hashCode()
         result = 31 * result + scanlationSource.hashCode()

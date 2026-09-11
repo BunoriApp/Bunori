@@ -10,7 +10,6 @@ import com.halovoid.lncrawler.data.repository.ArtifactRepository
 import com.halovoid.lncrawler.data.repository.ChapterRepository
 import com.halovoid.lncrawler.data.repository.NovelRepository
 import com.halovoid.lncrawler.data.repository.PreferenceRepository
-import com.halovoid.lncrawler.data.repository.VolumeRepository
 import com.halovoid.lncrawler.data.scheduler.services.SchedulerService
 import com.halovoid.lncrawler.data.repository.RequestRepository
 import com.halovoid.lncrawler.data.repository.StorageRepositoryImpl
@@ -70,7 +69,6 @@ class NovelDetailViewModel(
     private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
     private val novelRepository = NovelRepository.getInstance(application)
-    private val volumeRepository = VolumeRepository.getInstance(application)
 
     private val artifactRepository = ArtifactRepository.getInstance(application)
     private val chapterRepository = ChapterRepository.getInstance(application)
@@ -84,11 +82,9 @@ class NovelDetailViewModel(
         .flatMapLatest { url ->
             combine(
                 novelRepository.getNovelByUrlFlow(url),
-                volumeRepository.getVolumeByNovelUrlFlow(url),
                 chapterRepository.getChaptersFlow(url)
-            ) { details, volumes, chapters ->
+            ) { details, chapters ->
                 details?.copy(
-                    volumes = volumes,
                     chapters = chapters
                 )
             }

@@ -122,28 +122,6 @@ class RequestFactory {
         )
     }
 
-    fun downloadVolume(novel: Novel, volumeIndex: Int, start: Int, end: Int, totalCount: Int): RequestEntity {
-        val metadata = JSONObject().apply {
-            put("crawlerName", novel.crawlerName)
-            put("startIndex", start)
-            put("endIndex", end)
-        }.toString()
-
-        return RequestEntity(
-            id = "${novel.url}_download_vol_${volumeIndex}",
-            type = RequestType.RANGE_DOWNLOAD,
-            novelUrl = novel.url,
-            name = "Download: ${novel.title} Vol $volumeIndex",
-            metadata = metadata,
-            parentNovel = novel.url,
-            url = novel.url,
-            status = RequestStatus.PENDING,
-            rstatus = RequestStatus.PENDING,
-            completedAt = null,
-            progressTotal = totalCount
-        )
-    }
-
     fun chapter(novel: Novel, chapter: Chapter): RequestEntity {
         val metadata = JSONObject().apply {
             put("chapterId", chapter.id)
