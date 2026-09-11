@@ -216,18 +216,6 @@ class NovelDetailViewModel(
                         if (currentRange.start == 1f && currentRange.endInclusive == 1f) {
                             _chapterRange.value = 1f..currentNovel.chapters.size.toFloat()
                         }
-                    } else {
-                        val url = currentNovel.url
-                        if (!_requestedUrls.contains(url)) {
-                            val hasMetadataRequest = requestRepository.requestDao.getRequestById("${url}_metadata")?.let {
-                                it.rstatus == RequestStatus.PENDING || it.rstatus == RequestStatus.RUNNING
-                            } ?: false
-                            
-                            if (!hasMetadataRequest) {
-                                _requestedUrls.add(url)
-                                fetchNovelMetadata(currentNovel)
-                            }
-                        }
                     }
                 }
             }

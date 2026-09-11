@@ -9,11 +9,13 @@ import com.halovoid.lncrawler.data.factory.RequestFactory
 import com.halovoid.lncrawler.data.repository.IndexRepository
 import com.halovoid.lncrawler.data.repository.NovelRepository
 import com.halovoid.lncrawler.data.repository.RequestRepository
+import com.halovoid.lncrawler.domain.models.Chapter
 import com.halovoid.lncrawler.domain.models.Novel
 import com.halovoid.lncrawler.domain.usecase.SaveNovelResult
 import com.halovoid.lncrawler.domain.usecase.SaveNovelUseCase
 import com.halovoid.lncrawler.domain.usecase.StartNovelCrawlUseCase
 import com.halovoid.lncrawler.ui.core.logging.AppLog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -37,6 +39,18 @@ class RequestViewModel(
 
     private val _novelPreview = MutableStateFlow<Novel?>(null)
     val novelPreview: StateFlow<Novel?> = _novelPreview.asStateFlow()
+
+    private val _isChaptersLoading = MutableStateFlow(false)
+    val isChaptersLoading: StateFlow<Boolean> = _isChaptersLoading.asStateFlow()
+
+    private val _readingChapter = MutableStateFlow<Chapter?>(null)
+    val readingChapter: StateFlow<Chapter?> = _readingChapter.asStateFlow()
+
+    private val _chapterContent = MutableStateFlow<String?>(null)
+    val chapterContent: StateFlow<String?> = _chapterContent.asStateFlow()
+
+    private val _isChapterContentLoading = MutableStateFlow(false)
+    val isChapterContentLoading: StateFlow<Boolean> = _isChapterContentLoading.asStateFlow()
 
     private val _previewUrl = MutableStateFlow<String?>(null)
     val previewUrl: StateFlow<String?> = _previewUrl.asStateFlow()
@@ -97,6 +111,27 @@ class RequestViewModel(
                 if (crawler != null) {
                     val novel = crawler.getNovelMetadata(url)
                     _novelPreview.value = novel
+                    
+                    // Fetch chapters immediately for preview
+                    _isChaptersLoading.value = true
+                    try {
+                        val fullNovel = try {
+                            crawler.getNovelDetails(url)
+                        } catch (_: Exception) {
+                            null
+                        }
+                        val chapters = fullNovel?.chapters?.takeIf { it.isNotEmpty() }
+                            ?: crawler.getChapterList(url)
+                        val volumes = fullNovel?.volumes ?: emptyList()
+                        _novelPreview.value = _novelPreview.value?.copy(
+                            chapters = chapters,
+                            volumes = volumes
+                        )
+                    } catch (e: Exception) {
+                        AppLog.e("RequestViewModel", "Failed to load preview chapters: ${e.message}")
+                    } finally {
+                        _isChaptersLoading.value = false
+                    }
                 } else {
                     _error.value = "URL not supported"
                 }
@@ -108,11 +143,37 @@ class RequestViewModel(
         }
     }
 
+    fun openChapter(chapter: Chapter, crawlerName: String) {
+        _readingChapter.value = chapter
+        _isChapterContentLoading.value = true
+        _chapterContent.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val crawler = CrawlerFactory.getCrawler(crawlerName)
+                val url = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url
+                val content = crawler?.getChapterContent(url)
+                _chapterContent.value = content ?: "<p>Couldn't load this chapter. Check your connection and try again.</p>"
+            } catch (e: Exception) {
+                _chapterContent.value = "<p>Failed to load chapter: ${e.message}</p>"
+            } finally {
+                _isChapterContentLoading.value = false
+            }
+        }
+    }
+
+    fun closeChapter() {
+        _readingChapter.value = null
+        _chapterContent.value = null
+        _isChapterContentLoading.value = false
+    }
+
     fun clearPreview() {
         _novelPreview.value = null
         _previewUrl.value = null
         _error.value = null
         _similarNovels.value = emptyList()
+        _isChaptersLoading.value = false
+        closeChapter()
     }
 
     fun addNovelDirectly(novel: Novel) {
@@ -126,7 +187,7 @@ class RequestViewModel(
                     is SaveNovelResult.Saved -> {
                         _similarNovels.value = emptyList()
                         _addSuccess.emit(Unit)
-                        _uiEvents.send(RequestUiEvent.NavigateBack)
+                        _uiEvents.send(RequestUiEvent.NavigateToDetail(novel.crawlerName, novel.url))
                     }
                 }
             } catch (e: Exception) {
@@ -144,7 +205,7 @@ class RequestViewModel(
                 saveNovelUseCase.saveDirectly(novel)
                 _similarNovels.value = emptyList()
                 _addSuccess.emit(Unit)
-                _uiEvents.send(RequestUiEvent.NavigateBack)
+                _uiEvents.send(RequestUiEvent.NavigateToDetail(novel.crawlerName, novel.url))
             } catch (e: Exception) {
                 _error.value = "Failed to add to library: ${e.message}"
             } finally {
