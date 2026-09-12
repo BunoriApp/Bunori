@@ -25,5 +25,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Bunori"
 include(":app")
-include(":api")
 include(":extension-api")

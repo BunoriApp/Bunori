@@ -17,9 +17,13 @@ import kotlinx.serialization.Serializable
 data class ExtensionMetadata(
     val id: String,
     val name: String,
-    val version: Int,
+    val version: String = "1.0.0",
     val apiVersion: Int = 1,
     val lang: String = "en",
     val baseUrl: String,
-    val iconUrl: String? = null
+    val iconUrl: String? = null,
+    val webviewNeeded: Boolean = false,
+    val runnerConcurrency: Int = 3,
+    val runnerCooldown: Long = 1000L,
+    val maxAttempts: Int = 3
 )

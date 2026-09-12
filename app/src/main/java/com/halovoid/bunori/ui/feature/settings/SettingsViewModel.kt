@@ -12,6 +12,7 @@ import com.halovoid.bunori.api.loader.UpdateDownloader
 import com.halovoid.bunori.api.loader.UpdateInstaller
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.UpdateRepository
+import com.halovoid.bunori.extension.manager.ExtensionManager
 import com.halovoid.bunori.ui.core.theme.ThemeMode
 import com.halovoid.bunori.ui.feature.novel.DownloadFilter
 import com.halovoid.bunori.ui.feature.novel.SortOrder
@@ -60,6 +61,12 @@ class SettingsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false
+    )
+
+    val extensionRepoUrl: StateFlow<String> = preferenceRepository.extensionRepoUrl.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ""
     )
 
     val ignoreImages: StateFlow<Boolean> = preferenceRepository.ignoreImages.stateIn(
@@ -350,6 +357,24 @@ class SettingsViewModel(
     fun setAmoledMode(enabled: Boolean) {
         viewModelScope.launch {
             preferenceRepository.setAmoledMode(enabled)
+        }
+    }
+
+    fun setExtensionRepoUrl(url: String) {
+        viewModelScope.launch {
+            preferenceRepository.setExtensionRepoUrl(url)
+        }
+    }
+
+    fun installExtensionFromUri(uri: Uri, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val extensionManager = ExtensionManager.getInstance(getApplication())
+            val result = extensionManager.installFromUri(uri)
+            result.onSuccess { loaded ->
+                onResult(true, "Installed ${loaded.manifest.name}")
+            }.onFailure { err ->
+                onResult(false, "Failed to install: ${err.message}")
+            }
         }
     }
 }

@@ -1,7 +1,5 @@
 package com.halovoid.bunori.extension.api
 
-import com.halovoid.bunori.extension.api.bridge.HtmlElementDto
-import com.halovoid.bunori.extension.api.bridge.HttpResponseDto
 import com.halovoid.bunori.extension.api.models.ChapterDto
 import com.halovoid.bunori.extension.api.models.ExtensionMetadata
 import com.halovoid.bunori.extension.api.models.ListingDto
@@ -20,7 +18,7 @@ class ExtensionDtoTest {
         val meta = ExtensionMetadata(
             id = "novelfull",
             name = "NovelFull",
-            version = 1,
+            version = "1.0.0",
             apiVersion = 1,
             lang = "en",
             baseUrl = "https://novelfull.com"
@@ -93,26 +91,67 @@ class ExtensionDtoTest {
     }
 
     @Test
-    fun testBridgeDtos() {
-        val httpResponse = HttpResponseDto(
-            statusCode = 200,
-            body = "<html><body><h1>Hello</h1></body></html>",
-            headers = mapOf("content-type" to "text/html")
-        )
-        val httpJson = ExtensionJson.json.encodeToString(httpResponse)
-        val decodedHttp = ExtensionJson.json.decodeFromString<HttpResponseDto>(httpJson)
-        assertEquals(200, decodedHttp.statusCode)
-        assertEquals("text/html", decodedHttp.headers["content-type"])
+    fun testRepoEntrySerializationAndParsing() {
+        val jsonArray = """
+            [
+                {
+                    "id": "novelfull",
+                    "name": "Novel Full",
+                    "version": "1.0.0",
+                    "apiVersion": 1,
+                    "lang": "en",
+                    "baseUrl": "https://novelfull.com",
+                    "entryClass": "com.halovoid.bunorisources.crawler.NovelFull",
+                    "bextUrl": "novelfull.bext",
+                    "size": 12345
+                }
+            ]
+        """.trimIndent()
 
-        val htmlElement = HtmlElementDto(
-            text = "Hello",
-            html = "<h1>Hello</h1>",
-            outerHtml = "<div><h1>Hello</h1></div>",
-            attributes = mapOf("class" to "greeting")
-        )
-        val htmlJson = ExtensionJson.json.encodeToString(htmlElement)
-        val decodedHtml = ExtensionJson.json.decodeFromString<HtmlElementDto>(htmlJson)
-        assertEquals("Hello", decodedHtml.text)
-        assertEquals("greeting", decodedHtml.attributes["class"])
+        val entriesFromArray = com.halovoid.bunori.extension.api.models.ExtensionRepoEntry.parseIndex(jsonArray)
+        assertEquals(1, entriesFromArray.size)
+        assertEquals("novelfull", entriesFromArray[0].id)
+        assertEquals("Novel Full", entriesFromArray[0].name)
+        assertEquals("1.0.0", entriesFromArray[0].version)
+        assertEquals("novelfull.bext", entriesFromArray[0].bextUrl)
+
+        val jsonObject = """
+            {
+                "repoName": "Bunori Extensions",
+                "version": 1,
+                "extensions": [
+                    {
+                        "id": "novelbins",
+                        "name": "Novel Bins",
+                        "version": "2.1.0",
+                        "apiVersion": 1,
+                        "lang": "en",
+                        "baseUrl": "https://novelbins.com",
+                        "entryClass": "com.halovoid.bunorisources.crawler.NovelBins",
+                        "bextUrl": "novelbins.bext"
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val entriesFromObject = com.halovoid.bunori.extension.api.models.ExtensionRepoEntry.parseIndex(jsonObject)
+        assertEquals(1, entriesFromObject.size)
+        assertEquals("novelbins", entriesFromObject[0].id)
+        assertEquals("2.1.0", entriesFromObject[0].version)
+        assertEquals("novelbins.bext", entriesFromObject[0].bextUrl)
+    }
+
+    @Test
+    fun testSemVerComparison() {
+        val cmp = com.halovoid.bunori.extension.api.models.ExtensionRepoEntry.Companion
+        org.junit.Assert.assertTrue(cmp.isVersionNewer("1.0.1", "1.0.0"))
+        org.junit.Assert.assertTrue(cmp.isVersionNewer("1.1.0", "1.0.9"))
+        org.junit.Assert.assertTrue(cmp.isVersionNewer("2.0.0", "1.9.9"))
+        org.junit.Assert.assertTrue(cmp.isVersionNewer("1.0.0", null))
+        org.junit.Assert.assertFalse(cmp.isVersionNewer("1.0.0", "1.0.0"))
+        org.junit.Assert.assertFalse(cmp.isVersionNewer("1.0.0", "1.0.1"))
+        org.junit.Assert.assertFalse(cmp.isVersionNewer("1.0.9", "1.1.0"))
     }
 }
+
+

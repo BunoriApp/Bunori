@@ -26,6 +26,9 @@ class BunoriApplication : Application() {
         // Load local sources as early as possible
         applicationScope.launch {
             SourceLoader(this@BunoriApplication).loadLocalSources()
+            com.halovoid.bunori.extension.manager.ExtensionManager.getInstance(this@BunoriApplication)
+                .loadInstalledExtensions()
         }
+
     }
 }

@@ -1,4 +1,6 @@
 plugins {
+    id("java-library")
+    id("maven-publish")
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.serialization)
 }
@@ -6,6 +8,7 @@ plugins {
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
+    withSourcesJar()
 }
 
 kotlin {
@@ -15,8 +18,23 @@ kotlin {
 }
 
 dependencies {
-    implementation(libs.kotlinjson)
-    implementation(libs.kotlinx.coroutines.core)
+    api(libs.kotlinjson)
+    api(libs.kotlinx.coroutines.core)
+    api(libs.jsoup)
+    api(libs.okhttp)
 
     testImplementation(libs.junit)
 }
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+            groupId = "com.halovoid.bunori"
+            artifactId = "extension-api"
+            version = "1.0.0"
+        }
+    }
+}
+
+

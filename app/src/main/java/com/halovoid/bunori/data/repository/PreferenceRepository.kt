@@ -29,6 +29,8 @@ private val BACKUP_FREQUENCY = stringPreferencesKey("backup_frequency")
 private val THEME_MODE = stringPreferencesKey("theme_mode")
 private val SELECTED_THEME_ID = stringPreferencesKey("selected_theme_id")
 private val IS_AMOLED_MODE = booleanPreferencesKey("is_amoled_mode")
+private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
+const val DEFAULT_EXTENSION_REPO_URL = "https://github.com/Binit06/LNCrawlerSources/releases/download/repo/index.json"
 
 class PreferenceRepository private constructor(
     private val context: Context
@@ -237,4 +239,16 @@ class PreferenceRepository private constructor(
             preferences[IS_AMOLED_MODE] = enabled
         }
     }
+
+    val extensionRepoUrl: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[EXTENSION_REPO_URL] ?: DEFAULT_EXTENSION_REPO_URL
+        }
+
+    suspend fun setExtensionRepoUrl(url: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[EXTENSION_REPO_URL] = url
+        }
+    }
 }
+
