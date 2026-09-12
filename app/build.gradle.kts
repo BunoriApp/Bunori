@@ -1,6 +1,3 @@
-import java.util.Properties
-import java.io.FileInputStream
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -10,13 +7,13 @@ plugins {
 }
 
 android {
-    namespace = "com.halovoid.lncrawler"
+    namespace = "com.halovoid.bunori"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.halovoid.lncrawler"
+        applicationId = "com.halovoid.bunori"
         minSdk = 26
         targetSdk = 35
         versionCode = 9

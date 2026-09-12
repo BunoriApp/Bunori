@@ -1,0 +1,486 @@
+package com.halovoid.bunori.data.artifact.generators
+
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.pdf.PdfDocument
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.text.TextUtils
+import androidx.core.net.toUri
+import com.halovoid.bunori.data.artifact.ArtifactGenerator
+import com.halovoid.bunori.data.repository.StorageRepository
+import com.halovoid.bunori.data.scheduler.RequestMetadata
+import com.halovoid.bunori.domain.models.Chapter
+import com.halovoid.bunori.domain.models.Novel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+
+/**
+ * A single piece of chapter content, in reading order. Text between images becomes one
+ * [Text] block (its own [StaticLayout]); each <img> becomes an atomic [Image] block.
+ */
+private sealed class ContentBlock {
+    data class Text(val layout: StaticLayout) : ContentBlock()
+    data class Image(val bitmap: Bitmap) : ContentBlock()
+}
+
+/** A single Table-of-Contents row. `pageNumber` starts at 0 and is filled in after the dry run. */
+private data class TocEntry(val label: String, var pageNumber: Int = 0)
+
+/**
+ * Handles page creation, margins, and vertical-cursor bookkeeping for a paginated PDF.
+ *
+ * Every draw* method works in two modes, controlled by [dryRun]:
+ *  - dryRun = true: no [PdfDocument] page is created and nothing is drawn; only [pageNumber]
+ *    and the vertical cursor advance. Used to measure where content will land before
+ *    we know it (e.g. so the Table of Contents can show correct page numbers).
+ *  - dryRun = false: identical logic, but also creates real pages and draws onto their canvas.
+ *
+ * Calling the same sequence of draw* calls with the same content in both modes is guaranteed
+ * to produce the same pagination, since layout is purely a function of content + page geometry.
+ */
+private class PagedPdfWriter(
+    private val document: PdfDocument?,
+    private val pageWidth: Int,
+    private val pageHeight: Int,
+    private val marginX: Float,
+    private val marginTop: Float,
+    private val marginBottom: Float,
+    val dryRun: Boolean,
+    private val onPageStarted: ((Canvas, Int) -> Unit)? = null
+) {
+    var pageNumber = 0
+        private set
+    var cursorY = 0f
+        private set
+
+    private var currentPdfPage: PdfDocument.Page? = null
+    var canvas: Canvas? = null
+        private set
+
+    val printableWidth: Float = pageWidth - marginX * 2
+    val printableHeight: Float = pageHeight - marginTop - marginBottom
+
+    fun startNewPage() {
+        finishCurrentPage()
+        pageNumber++
+        cursorY = 0f
+        if (!dryRun) {
+            val info = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
+            val pdfPage = document!!.startPage(info)
+            currentPdfPage = pdfPage
+            canvas = pdfPage.canvas
+            onPageStarted?.invoke(pdfPage.canvas, pageNumber)
+        }
+    }
+
+    fun finishCurrentPage() {
+        if (!dryRun) {
+            currentPdfPage?.let { document!!.finishPage(it) }
+        }
+        currentPdfPage = null
+        canvas = null
+    }
+
+    private fun ensurePage() {
+        if (pageNumber == 0) startNewPage()
+    }
+
+    fun availableHeight(): Float = printableHeight - cursorY
+
+    fun addVerticalSpace(space: Float) {
+        ensurePage()
+        if (availableHeight() < space) startNewPage() else cursorY += space
+    }
+
+    fun drawHorizontalRule(paint: Paint, spacingAfter: Float = 0f) {
+        ensurePage()
+        if (availableHeight() < 1f) startNewPage()
+        if (!dryRun) {
+            val y = marginTop + cursorY
+            canvas!!.drawLine(marginX, y, marginX + printableWidth, y, paint)
+        }
+        cursorY += 1f + spacingAfter
+    }
+
+    /** Draws (or measures) a block of text centered horizontally, wrapping if needed. */
+    fun drawCenteredText(text: String, paint: TextPaint, topPadding: Float = 0f, bottomPadding: Float = 0f) {
+        if (text.isBlank()) return
+        ensurePage()
+        val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, printableWidth.toInt())
+            .setAlignment(Layout.Alignment.ALIGN_CENTER)
+            .build()
+        val height = layout.height.toFloat()
+        if (availableHeight() < height + topPadding) startNewPage()
+        cursorY += topPadding
+        if (!dryRun) {
+            canvas!!.save()
+            canvas!!.translate(marginX, marginTop + cursorY)
+            layout.draw(canvas!!)
+            canvas!!.restore()
+        }
+        cursorY += height + bottomPadding
+    }
+
+    /** Draws (or measures) an image, scaled to fit the page width and a max-height fraction. */
+    fun drawImageBlock(bitmap: Bitmap, spacingAfter: Float, maxHeightFraction: Float = 0.9f) {
+        ensurePage()
+        val aspect = bitmap.height.toFloat() / bitmap.width.toFloat()
+        var drawWidth = printableWidth
+        var drawHeight = drawWidth * aspect
+        val maxHeight = printableHeight * maxHeightFraction
+        if (drawHeight > maxHeight) {
+            drawHeight = maxHeight
+            drawWidth = drawHeight / aspect
+        }
+        if (cursorY > 0f && availableHeight() < drawHeight) startNewPage()
+        if (!dryRun) {
+            val xOffset = marginX + (printableWidth - drawWidth) / 2f
+            val rect = RectF(xOffset, marginTop + cursorY, xOffset + drawWidth, marginTop + cursorY + drawHeight)
+            canvas!!.drawBitmap(bitmap, null, rect, null)
+        }
+        cursorY += drawHeight + spacingAfter
+    }
+
+    /**
+     * Draws (or measures) a [StaticLayout] that may span multiple pages, breaking only at
+     * line boundaries so text never gets clipped mid-line.
+     */
+    fun drawTextBlockPaginated(layout: StaticLayout, spacingAfter: Float = 0f) {
+        ensurePage()
+        val lineCount = layout.lineCount
+        var lineIdx = 0
+        while (lineIdx < lineCount) {
+            if (availableHeight() <= 2f) {
+                startNewPage()
+                continue
+            }
+            val availablePx = availableHeight()
+            val segmentTop = layout.getLineTop(lineIdx)
+            var endLine = lineIdx - 1
+            for (i in lineIdx until lineCount) {
+                val bottom = layout.getLineBottom(i)
+                if ((bottom - segmentTop) > availablePx) break
+                endLine = i
+            }
+            if (endLine < lineIdx) {
+                if (cursorY <= 0.01f) {
+                    // A single line is taller than a whole page (extremely unlikely) - draw it
+                    // anyway rather than looping forever.
+                    endLine = lineIdx
+                } else {
+                    startNewPage()
+                    continue
+                }
+            }
+            val clipTop = segmentTop
+            val clipBottom = layout.getLineBottom(endLine)
+            if (!dryRun) {
+                canvas!!.save()
+                canvas!!.translate(marginX, marginTop + cursorY - clipTop)
+                canvas!!.clipRect(0, clipTop, printableWidth.toInt(), clipBottom)
+                layout.draw(canvas!!)
+                canvas!!.restore()
+            }
+            cursorY += (clipBottom - clipTop)
+            lineIdx = endLine + 1
+        }
+        cursorY += spacingAfter
+    }
+
+    /** One Table-of-Contents row: an ellipsized title on the left, a page number on the right. */
+    fun drawTocEntry(title: String, pageLabel: String, titlePaint: TextPaint, numberPaint: TextPaint, rowHeight: Float) {
+        ensurePage()
+        if (availableHeight() < rowHeight) startNewPage()
+        if (!dryRun) {
+            val baselineY = marginTop + cursorY + rowHeight - 9f
+            val numberWidth = if (pageLabel.isEmpty()) 0f else numberPaint.measureText(pageLabel)
+            val maxTitleWidth = (printableWidth - numberWidth - 16f).coerceAtLeast(20f)
+            val ellipsized = TextUtils.ellipsize(title, titlePaint, maxTitleWidth, TextUtils.TruncateAt.END)
+            canvas!!.drawText(ellipsized.toString(), marginX, baselineY, titlePaint)
+            if (pageLabel.isNotEmpty()) {
+                canvas!!.drawText(pageLabel, marginX + printableWidth, baselineY, numberPaint)
+            }
+        }
+        cursorY += rowHeight
+    }
+}
+
+class PdfGenerator(
+    private val storageRepository: StorageRepository
+) : ArtifactGenerator {
+    override val format: String = "PDF"
+
+    private companion object {
+        const val PAGE_WIDTH = 595   // A4 width in points
+        const val PAGE_HEIGHT = 842  // A4 height in points
+        const val MARGIN_X = 46f
+        const val MARGIN_TOP = 58f
+        const val MARGIN_BOTTOM = 56f
+        const val PROJECT_NAME = "LN Crawler"
+    }
+
+    private val imgTagRegex = Regex("""<img[^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*>""", RegexOption.IGNORE_CASE)
+
+    // ---------------------------------------------------------------------------------------
+    // Image loading
+    // ---------------------------------------------------------------------------------------
+
+    private suspend fun downloadBytes(src: String): ByteArray? {
+        return try {
+            if (src.startsWith("http://", ignoreCase = true) || src.startsWith("https://", ignoreCase = true)) {
+                val request = okhttp3.Request.Builder().url(src).build()
+                com.halovoid.bunori.api.core.network.NetworkClient.okHttpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) response.body?.bytes() else null
+                }
+            } else {
+                storageRepository.openInputStream(src.toUri())?.use { it.readBytes() }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /** Decodes a bitmap downsampled to roughly [reqWidthPx] wide, to avoid huge memory use. */
+    private fun decodeSampledBitmap(bytes: ByteArray, reqWidthPx: Int): Bitmap? {
+        return try {
+            val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
+            var sampleSize = 1
+            var halfWidth = boundsOptions.outWidth / 2
+            while (halfWidth / sampleSize >= reqWidthPx) sampleSize *= 2
+            val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private suspend fun downloadBitmap(src: String, reqWidthPx: Int): Bitmap? {
+        val bytes = downloadBytes(src) ?: return null
+        return decodeSampledBitmap(bytes, reqWidthPx)
+    }
+
+    private suspend fun loadCoverBitmap(novel: Novel, reqWidthPx: Int): Bitmap? {
+        novel.coverUrl?.takeIf { it.isNotBlank() }?.let { url ->
+            try {
+                storageRepository.openInputStream(url.toUri())?.use { input ->
+                    val bytes = input.readBytes()
+                    decodeSampledBitmap(bytes, reqWidthPx)?.let { return it }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        novel.coverHttpsUrl?.takeIf { it.isNotBlank() }?.let { url ->
+            downloadBitmap(url, reqWidthPx)?.let { return it }
+        }
+        return null
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // HTML -> content blocks
+    // ---------------------------------------------------------------------------------------
+
+    private fun cleanHtmlSegment(html: String): String {
+        return html
+            .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+            .replace(Regex("</p>", RegexOption.IGNORE_CASE), "\n\n")
+            .replace(Regex("<[^>]*>"), "")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .trim()
+    }
+
+    private fun buildTextBlockOrNull(segment: String, paint: TextPaint, width: Int): ContentBlock.Text? {
+        val cleaned = cleanHtmlSegment(segment)
+        if (cleaned.isBlank()) return null
+        val layout = StaticLayout.Builder.obtain(cleaned, 0, cleaned.length, paint, width)
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setLineSpacing(2f, 1.2f)
+            .build()
+        return ContentBlock.Text(layout)
+    }
+
+    /** Splits chapter HTML into ordered text/image blocks, downloading each distinct image once. */
+    private suspend fun buildChapterBlocks(
+        html: String,
+        bodyPaint: TextPaint,
+        printableWidthPx: Int,
+        imageCache: MutableMap<String, Bitmap?>
+    ): List<ContentBlock> {
+        val blocks = mutableListOf<ContentBlock>()
+        var lastIndex = 0
+        for (match in imgTagRegex.findAll(html)) {
+            val textSegment = html.substring(lastIndex, match.range.first)
+            buildTextBlockOrNull(textSegment, bodyPaint, printableWidthPx)?.let { blocks.add(it) }
+
+            val src = match.groupValues[1]
+            val bitmap = if (imageCache.containsKey(src)) {
+                imageCache[src]
+            } else {
+                downloadBitmap(src, printableWidthPx * 2).also { imageCache[src] = it }
+            }
+            if (bitmap != null) blocks.add(ContentBlock.Image(bitmap))
+
+            lastIndex = match.range.last + 1
+        }
+        buildTextBlockOrNull(html.substring(lastIndex), bodyPaint, printableWidthPx)?.let { blocks.add(it) }
+        return blocks
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Generation
+    // ---------------------------------------------------------------------------------------
+
+    override suspend fun generate(
+        novel: Novel,
+        chapters: List<Chapter>,
+        metadata: RequestMetadata
+    ): File = withContext(Dispatchers.IO) {
+
+        // --- Paints --------------------------------------------------------------------------
+        val coverTitlePaint = TextPaint().apply { isAntiAlias = true; textSize = 26f; color = Color.BLACK; isFakeBoldText = true }
+        val coverAuthorPaint = TextPaint().apply { isAntiAlias = true; textSize = 15f; color = Color.DKGRAY }
+        val infoAuthorPaint = TextPaint().apply { isAntiAlias = true; textSize = 14f; color = Color.DKGRAY }
+        val synopsisPaint = TextPaint().apply { isAntiAlias = true; textSize = 12f; color = Color.rgb(50, 50, 50) }
+        val sourcePaint = TextPaint().apply { isAntiAlias = true; textSize = 10f; color = Color.GRAY }
+        val creditPaint = TextPaint().apply { isAntiAlias = true; textSize = 10f; color = Color.LTGRAY; }
+        val tocTitlePaint = TextPaint().apply { isAntiAlias = true; textSize = 21f; color = Color.BLACK; isFakeBoldText = true }
+        val tocEntryPaint = TextPaint().apply { isAntiAlias = true; textSize = 12.5f; color = Color.rgb(40, 40, 40) }
+        val tocPageNumPaint = TextPaint(tocEntryPaint).apply { color = Color.GRAY; textAlign = Paint.Align.RIGHT }
+        val chapterHeadingPaint = TextPaint().apply { isAntiAlias = true; textSize = 18f; color = Color.BLACK; isFakeBoldText = true }
+        val bodyPaint = TextPaint().apply { isAntiAlias = true; textSize = 11.5f; color = Color.rgb(25, 25, 25) }
+        val footerPaint = TextPaint().apply { isAntiAlias = true; textSize = 9.5f; color = Color.GRAY; textAlign = Paint.Align.CENTER }
+        val headerPaint = TextPaint().apply { isAntiAlias = true; textSize = 9f; color = Color.LTGRAY }
+        val rulePaint = Paint().apply { color = Color.LTGRAY; strokeWidth = 1f }
+
+        val printableWidthPx = (PAGE_WIDTH - MARGIN_X * 2).toInt()
+
+        // --- Reading order: chapters sorted by index -----------------------------------------
+        val sortedChapters = chapters.sortedBy { it.index }
+
+        // --- Build every chapter's content blocks once (downloads + text measurement) --------
+        val imageCache = mutableMapOf<String, Bitmap?>()
+        val chapterBlocks = mutableMapOf<Any, List<ContentBlock>>()
+        for (chapter in sortedChapters) {
+            ensureActive()
+            val rawContent = chapter.fileLocation?.let { loc -> storageRepository.readText(loc.toUri()) }
+                ?: "<p><em>Content not available</em></p>"
+            chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache)
+        }
+
+        val coverBitmap = loadCoverBitmap(novel, printableWidthPx * 2)
+
+        val tocEntries = sortedChapters.map { chapter ->
+            TocEntry(chapter.title.ifBlank { "Chapter ${chapter.index}" })
+        }
+        val tocRowHeight = tocEntryPaint.fontSpacing + 8f
+
+        fun renderCoverPage(writer: PagedPdfWriter) {
+            writer.startNewPage()
+            if (coverBitmap != null) {
+                writer.drawImageBlock(coverBitmap, spacingAfter = 22f, maxHeightFraction = 0.62f)
+                writer.drawCenteredText(novel.title, coverTitlePaint, bottomPadding = 6f)
+                novel.author?.let { writer.drawCenteredText(it, coverAuthorPaint) }
+            } else {
+                writer.addVerticalSpace(160f)
+                writer.drawCenteredText(novel.title, coverTitlePaint, bottomPadding = 12f)
+                writer.drawHorizontalRule(rulePaint, spacingAfter = 12f)
+                novel.author?.let { writer.drawCenteredText(it, coverAuthorPaint) }
+            }
+        }
+
+        fun renderInfoPage(writer: PagedPdfWriter) {
+            writer.startNewPage()
+            novel.author?.let { writer.drawCenteredText("by $it", infoAuthorPaint, bottomPadding = 22f) }
+            novel.description?.let { desc ->
+                val clean = desc.replace(Regex("<[^>]*>"), "").trim()
+                if (clean.isNotBlank()) {
+                    val layout = StaticLayout.Builder.obtain(clean, 0, clean.length, synopsisPaint, printableWidthPx)
+                        .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                        .setLineSpacing(2f, 1.25f)
+                        .build()
+                    writer.drawTextBlockPaginated(layout, spacingAfter = 26f)
+                }
+            }
+            writer.drawHorizontalRule(rulePaint, spacingAfter = 10f)
+            writer.drawCenteredText("Source: ${novel.url}", sourcePaint, bottomPadding = 4f)
+            writer.drawCenteredText("Generated by $PROJECT_NAME", creditPaint)
+        }
+
+        fun renderToc(writer: PagedPdfWriter, entries: List<TocEntry>) {
+            writer.startNewPage()
+            writer.drawCenteredText("Table of Contents", tocTitlePaint, bottomPadding = 20f)
+            entries.forEach { entry ->
+                writer.drawTocEntry(entry.label, entry.pageNumber.toString(), tocEntryPaint, tocPageNumPaint, tocRowHeight)
+            }
+        }
+
+        fun renderChapter(writer: PagedPdfWriter, chapter: Chapter) {
+            writer.startNewPage()
+            val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
+            writer.drawCenteredText(displayTitle, chapterHeadingPaint, bottomPadding = 20f)
+            chapterBlocks[chapter.id]?.forEach { block ->
+                when (block) {
+                    is ContentBlock.Text -> writer.drawTextBlockPaginated(block.layout, spacingAfter = 10f)
+                    is ContentBlock.Image -> writer.drawImageBlock(block.bitmap, spacingAfter = 10f)
+                }
+            }
+        }
+
+        // --- Pass 1: dry run to learn each section's real page number and the doc's length ---
+        val dryWriter = PagedPdfWriter(null, PAGE_WIDTH, PAGE_HEIGHT, MARGIN_X, MARGIN_TOP, MARGIN_BOTTOM, dryRun = true)
+        renderCoverPage(dryWriter)
+        renderInfoPage(dryWriter)
+        renderToc(dryWriter, tocEntries) // placeholder numbers; only used to consume the right page count
+        sortedChapters.forEachIndexed { index, chapter ->
+            ensureActive()
+            renderChapter(dryWriter, chapter)
+            tocEntries[index].pageNumber = dryWriter.pageNumber
+        }
+        val totalPages = dryWriter.pageNumber
+        dryWriter.finishCurrentPage()
+
+        // --- Pass 2: real render, now that every TOC entry has the correct page number -------
+        val document = PdfDocument()
+        val onPageStarted: (Canvas, Int) -> Unit = { canvas, pageNum ->
+            if (pageNum > 1) {
+                canvas.drawText(novel.title, MARGIN_X, MARGIN_TOP - 22f, headerPaint)
+                val ruleY = PAGE_HEIGHT - MARGIN_BOTTOM + 14f
+                canvas.drawLine(MARGIN_X, ruleY, PAGE_WIDTH - MARGIN_X, ruleY, rulePaint)
+                canvas.drawText("$pageNum / $totalPages", PAGE_WIDTH / 2f, ruleY + 18f, footerPaint)
+            }
+        }
+        val writer = PagedPdfWriter(document, PAGE_WIDTH, PAGE_HEIGHT, MARGIN_X, MARGIN_TOP, MARGIN_BOTTOM, dryRun = false, onPageStarted = onPageStarted)
+
+        renderCoverPage(writer)
+        renderInfoPage(writer)
+        renderToc(writer, tocEntries)
+        sortedChapters.forEach { chapter ->
+            ensureActive()
+            renderChapter(writer, chapter)
+        }
+        writer.finishCurrentPage()
+
+        val tempFile = File(storageRepository.getCacheDir(), "${novel.title.replace(" ", "_")}.pdf")
+        FileOutputStream(tempFile).use { out -> document.writeTo(out) }
+        document.close()
+
+        tempFile
+    }
+}

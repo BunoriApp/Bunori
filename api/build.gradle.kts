@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.halovoid.lncrawler.api"
+    namespace = "com.halovoid.bunori.api"
     compileSdk = 37
 
     defaultConfig {
@@ -44,7 +44,7 @@ afterEvaluate {
             register<MavenPublication>("release") {
                 from(components["release"])
 
-                groupId = "com.halovoid.lncrawler"
+                groupId = "com.halovoid.bunori"
                 artifactId = "api"
                 version = "1.0.0"
             }

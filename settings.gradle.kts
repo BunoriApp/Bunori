@@ -23,6 +23,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LNCrawler"
+rootProject.name = "Bunori"
 include(":app")
 include(":api")

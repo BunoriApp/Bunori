@@ -128,7 +128,7 @@ jobs:
             --ks-key-alias "${{ secrets.ALIAS }}" \
             --ks-pass pass:"${{ secrets.KEY_STORE_PASSWORD }}" \
             --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
-            --out LNCrawler.apk \
+            --out Bunori.apk \
             "$UNSIGNED_APK"
 
           rm release.jks
@@ -136,7 +136,7 @@ jobs:
       - name: Create Github Release
         uses: softprops/action-gh-release@v2
         with:
-          files: LNCrawler.apk
+          files: Bunori.apk
           tag_name: v${{ needs.check-version.outputs.new_version }}
           name: Release v${{ needs.check-version.outputs.new_version }}
           draft: true
