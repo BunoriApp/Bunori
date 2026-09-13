@@ -54,14 +54,37 @@ class SearchViewModel(
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState.asStateFlow()
 
-    fun search(query: String) {
+    private val _selectedSource = MutableStateFlow<String?>(null)
+    val selectedSource: StateFlow<String?> = _selectedSource.asStateFlow()
+
+    fun setSelectedSource(source: String?) {
+        _selectedSource.value = source
+    }
+
+    val failedExtensions: StateFlow<List<String>> =
+        com.halovoid.bunori.extension.manager.ExtensionManager.getInstance(application).failedExtensions
+
+    fun search(query: String, targetSource: String? = _selectedSource.value) {
         if (query.isBlank()) return
 
         viewModelScope.launch {
-            val crawlers = try {
+            val allCrawlers = try {
                 CrawlerFactory.getCrawlers()
             } catch (e: Exception) {
                 _searchState.value = SearchState.Error(e.message ?: "Failed to retrieve crawlers")
+                return@launch
+            }
+
+            val crawlers = if (!targetSource.isNullOrBlank()) {
+                allCrawlers.filter { it.name.equals(targetSource, ignoreCase = true) }
+            } else {
+                allCrawlers
+            }
+
+            if (crawlers.isEmpty()) {
+                _searchState.value = SearchState.Error(
+                    if (!targetSource.isNullOrBlank()) "Source '$targetSource' not found" else "No sources available"
+                )
                 return@launch
             }
 

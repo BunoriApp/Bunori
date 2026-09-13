@@ -40,7 +40,8 @@ fun MoreScreen(
     onNavigateToSupportSettings: () -> Unit,
     onNavigateToBackupSettings: () -> Unit,
     onNavigateToUpdate: () -> Unit,
-    onNavigateToThemeSettings: () -> Unit = {}
+    onNavigateToThemeSettings: () -> Unit = {},
+    onNavigateToExtensionSettings: () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
@@ -114,6 +115,13 @@ fun MoreScreen(
                 icon = Icons.Outlined.Download,
                 onClick = onNavigateToDownloadsPref
             )
+
+            SettingsRow(
+                title = "Extensions",
+                subtitle = "Repository URL, install local extension packages",
+                icon = Icons.Outlined.Extension,
+                onClick = onNavigateToExtensionSettings
+            )
             
             SettingsRow(
                 title = "Advanced",
@@ -163,13 +171,13 @@ fun MoreScreen(
             SettingsRow(
                 title = "What's New",
                 subtitle = "View latest release notes",
-                onClick = { uriHandler.openUri("https://github.com/Binit06/LNCrawler/releases") }
+                onClick = { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler/releases") }
             )
             
             SettingsRow(
                 title = "Open Source License",
                 subtitle = "MIT License",
-                onClick = { uriHandler.openUri("https://github.com/Binit06/LNCrawler/blob/main/LICENSE") }
+                onClick = { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler/blob/main/LICENSE") }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -182,7 +190,7 @@ fun MoreScreen(
                 title = "GitHub Issues",
                 subtitle = "Report bugs or request new features",
                 iconPainter = painterResource(id = R.drawable.ic_github),
-                onClick = { uriHandler.openUri("https://github.com/Binit06/LNCrawler/issues") }
+                onClick = { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler/issues") }
             )
 
             SettingsRow(
@@ -208,7 +216,7 @@ fun MoreScreen(
                 Spacer(modifier = Modifier.width(20.dp))
                 SocialIcon(
                     painter = painterResource(id = R.drawable.ic_github),
-                    onClick = { uriHandler.openUri("https://github.com/Binit06/LNCrawler") }
+                    onClick = { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler") }
                 )
                 Spacer(modifier = Modifier.width(20.dp))
                 SocialIcon(

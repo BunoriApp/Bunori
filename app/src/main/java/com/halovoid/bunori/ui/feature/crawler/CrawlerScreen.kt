@@ -1,10 +1,6 @@
 package com.halovoid.bunori.ui.feature.crawler
 
 import android.content.Intent
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,20 +14,18 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,7 +33,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
-import com.halovoid.bunori.ui.core.components.MutedEmptyState
+import com.halovoid.bunori.ui.core.components.SourceIcon
 import com.halovoid.bunori.ui.core.theme.*
 import kotlinx.coroutines.flow.collectLatest
 
@@ -48,22 +42,16 @@ import kotlinx.coroutines.flow.collectLatest
 fun CrawlerScreen(
     viewModel: CrawlerViewModel,
     onBack: () -> Unit = {},
-    showHeader: Boolean = true
+    showHeader: Boolean = true,
+    searchQuery: String = "",
+    onNavigateToExtensionSettings: (() -> Unit)? = null,
+    onNavigateToExtensionInfo: ((String) -> Unit)? = null
 ) {
     val extensionItems by viewModel.extensionItems.collectAsStateWithLifecycle()
     val catalogState by viewModel.catalogState.collectAsStateWithLifecycle()
-    val updatesCount by viewModel.updatesCount.collectAsStateWithLifecycle()
-    val currentRepoUrl by viewModel.repoUrl.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var showRepoDialog by remember { mutableStateOf(false) }
-
-    // File picker for sideloading .bext packages
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.installFromUri(it) }
-    }
+    var selectedItemForDetails by remember { mutableStateOf<ExtensionUiItem?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.messageFlow.collectLatest { msg ->
@@ -71,91 +59,172 @@ fun CrawlerScreen(
         }
     }
 
-    if (showRepoDialog) {
-        RepoUrlDialog(
-            initialUrl = currentRepoUrl,
-            onDismiss = { showRepoDialog = false },
-            onSave = { newUrl ->
-                viewModel.setRepoUrl(newUrl)
-                showRepoDialog = false
+    if (selectedItemForDetails != null) {
+        val detailItem = selectedItemForDetails!!
+        ExtensionDetailDialog(
+            item = detailItem,
+            onDismiss = { selectedItemForDetails = null },
+            onUninstall = {
+                selectedItemForDetails = null
+                viewModel.uninstallExtension(detailItem.id)
             }
         )
     }
 
     @Composable
     fun ExtensionListContent(modifier: Modifier = Modifier) {
-        val updates = remember(extensionItems) {
-            extensionItems.filter { it.hasUpdate }.sortedBy { it.name.lowercase() }
-        }
-        val installed = remember(extensionItems) {
-            extensionItems.filter { it.isInstalled && !it.hasUpdate }.sortedBy { it.name.lowercase() }
-        }
-        val available = remember(extensionItems) {
-            extensionItems.filter { !it.isInstalled }.sortedBy { it.name.lowercase() }
-        }
-
-        Column(
-            modifier = modifier.fillMaxSize()
-        ) {
-            // Error banner for catalog fetching
-            if (catalogState is CatalogState.Error) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    color = ErrorRed.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(10.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(12.dp)
-                            .fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = (catalogState as CatalogState.Error).message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ErrorRed,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        TextButton(onClick = { viewModel.refreshCatalog() }) {
-                            Text("Retry", color = ErrorRed, fontWeight = FontWeight.Bold)
-                        }
-                    }
+        val filteredItems = remember(extensionItems, searchQuery) {
+            if (searchQuery.isBlank()) {
+                extensionItems
+            } else {
+                val q = searchQuery.trim().lowercase()
+                extensionItems.filter {
+                    it.name.lowercase().contains(q) ||
+                    it.lang.lowercase().contains(q) ||
+                    it.baseUrl.lowercase().contains(q)
                 }
             }
+        }
 
-            if (extensionItems.isEmpty() && catalogState !is CatalogState.Loading) {
-                MutedEmptyState(
-                    title = "No Extensions Found",
-                    description = "No extensions found in the repository. Check repository settings in Advanced Settings or pull to refresh.",
-                    icon = Icons.Default.Extension,
-                    modifier = Modifier.weight(1f)
-                )
-            } else if (extensionItems.isEmpty() && catalogState is CatalogState.Loading) {
+        val installing = remember(filteredItems) {
+            filteredItems.filter { it.isActionInProgress }.sortedBy { it.name.lowercase() }
+        }
+        val updates = remember(filteredItems) {
+            filteredItems.filter { it.hasUpdate && !it.isActionInProgress }.sortedBy { it.name.lowercase() }
+        }
+        val installed = remember(filteredItems) {
+            filteredItems.filter { it.isInstalled && !it.hasUpdate && !it.isActionInProgress }.sortedBy { it.name.lowercase() }
+        }
+        val available = remember(filteredItems) {
+            filteredItems.filter { !it.isInstalled && !it.hasUpdate && !it.isActionInProgress }.sortedBy { it.name.lowercase() }
+        }
+
+        // Group available extensions: "Multi" first if present, then alphabetical language groups
+        val availableGroups = remember(available) {
+            available.groupBy { item ->
+                when (item.lang.lowercase()) {
+                    "all", "multi" -> "Multi"
+                    "en" -> "English"
+                    else -> item.lang.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                }
+            }.toList().sortedWith(compareBy { (group, _) ->
+                if (group == "Multi") "0" else "1_$group"
+            })
+        }
+
+        Box(modifier = modifier.fillMaxSize()) {
+            if (extensionItems.isEmpty() && catalogState is CatalogState.Loading) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = BrandAccent)
                 }
+            } else if (filteredItems.isEmpty()) {
+                // Empty state without fetch failed errors - prompt to visit extension settings
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(64.dp),
+                            shape = CircleShape,
+                            color = DarkSurfaceVariant
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Extension,
+                                contentDescription = null,
+                                modifier = Modifier.padding(16.dp),
+                                tint = SecondaryText
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = if (searchQuery.isNotEmpty()) "No results found" else "No extensions found",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryText
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (searchQuery.isNotEmpty())
+                                "Try searching with a different keyword"
+                            else
+                                "Add the source from the extension settings",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SecondaryText,
+                            textAlign = TextAlign.Center
+                        )
+                        if (searchQuery.isEmpty() && onNavigateToExtensionSettings != null) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = onNavigateToExtensionSettings,
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandAccent),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Extension settings", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
-                    // 1. UPDATES SECTION (Shown only if updates are available)
+                    // 0. INSTALLING & UPDATING SECTION
+                    if (installing.isNotEmpty()) {
+                        item(key = "section_header_installing") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Installing",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BrandAccent
+                                )
+                                Surface(
+                                    color = BrandAccent.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = "${installing.size}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BrandAccent,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        items(installing, key = { "installing_${it.id}" }) { item ->
+                            ExtensionRow(
+                                item = item,
+                                onActionClick = {},
+                                onItemClick = {}
+                            )
+                        }
+                    }
+
+                    // 1. UPDATES PENDING SECTION
                     if (updates.isNotEmpty()) {
                         item(key = "section_header_updates") {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 4.dp, end = 4.dp, bottom = 4.dp),
+                                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
@@ -164,7 +233,7 @@ fun CrawlerScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "Updates",
+                                        text = "Updates pending",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = BrandAccent
@@ -183,43 +252,42 @@ fun CrawlerScreen(
                                     }
                                 }
 
-                                if (updates.size > 1) {
-                                    TextButton(
-                                        onClick = { viewModel.updateAll() },
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = "Update All",
-                                            color = BrandAccent,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp
-                                        )
-                                    }
+                                TextButton(
+                                    onClick = { viewModel.updateAll() },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "Update all",
+                                        color = BrandAccent,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
                                 }
                             }
                         }
 
                         items(updates, key = { "update_${it.id}" }) { item ->
-                            ExtensionItemCard(
+                            ExtensionRow(
                                 item = item,
-                                onInstall = { item.repoEntry?.let { viewModel.installExtension(it) } },
-                                onUpdate = { item.repoEntry?.let { viewModel.installExtension(it) } },
-                                onUninstall = { viewModel.uninstallExtension(item.id) }
+                                onActionClick = { item.repoEntry?.let { viewModel.installExtension(it) } },
+                                onItemClick = {
+                                    if (onNavigateToExtensionInfo != null) {
+                                        onNavigateToExtensionInfo(item.id)
+                                    } else {
+                                        selectedItemForDetails = item
+                                    }
+                                }
                             )
-                        }
-
-                        item(key = "spacer_updates") {
-                            Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
 
-                    // 2. INSTALLED SECTION (Shown only for installed items with NO updates)
+                    // 2. INSTALLED SECTION
                     if (installed.isNotEmpty()) {
                         item(key = "section_header_installed") {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 4.dp, bottom = 4.dp),
+                                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
@@ -245,57 +313,65 @@ fun CrawlerScreen(
                         }
 
                         items(installed, key = { "installed_${it.id}" }) { item ->
-                            ExtensionItemCard(
+                            ExtensionRow(
                                 item = item,
-                                onInstall = { item.repoEntry?.let { viewModel.installExtension(it) } },
-                                onUpdate = {},
-                                onUninstall = { viewModel.uninstallExtension(item.id) }
+                                onActionClick = {
+                                    if (onNavigateToExtensionInfo != null) {
+                                        onNavigateToExtensionInfo(item.id)
+                                    } else {
+                                        selectedItemForDetails = item
+                                    }
+                                },
+                                onItemClick = {
+                                    if (onNavigateToExtensionInfo != null) {
+                                        onNavigateToExtensionInfo(item.id)
+                                    } else {
+                                        selectedItemForDetails = item
+                                    }
+                                }
                             )
-                        }
-
-                        item(key = "spacer_installed") {
-                            Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
 
-                    // 3. AVAILABLE SECTION (All remaining downloadable extensions)
-                    if (available.isNotEmpty()) {
-                        item(key = "section_header_available") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 4.dp, bottom = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "Available",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = SecondaryText
-                                )
-                                Surface(
-                                    color = DarkSurfaceVariant,
-                                    shape = RoundedCornerShape(12.dp)
+                    // 3. MULTI & AVAILABLE LANGUAGE SECTIONS
+                    if (availableGroups.isNotEmpty()) {
+                        availableGroups.forEach { (groupTitle, groupItems) ->
+                            item(key = "section_header_avail_$groupTitle") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "${available.size}",
-                                        style = MaterialTheme.typography.labelSmall,
+                                        text = groupTitle,
+                                        style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = SecondaryText,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        color = SecondaryText
                                     )
+                                    Surface(
+                                        color = DarkSurfaceVariant,
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text(
+                                            text = "${groupItems.size}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SecondaryText,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
-                        }
 
-                        items(available, key = { "available_${it.id}" }) { item ->
-                            ExtensionItemCard(
-                                item = item,
-                                onInstall = { item.repoEntry?.let { viewModel.installExtension(it) } },
-                                onUpdate = {},
-                                onUninstall = {}
-                            )
+                            items(groupItems, key = { "avail_${it.id}" }) { item ->
+                                ExtensionRow(
+                                    item = item,
+                                    onActionClick = { item.repoEntry?.let { viewModel.installExtension(it) } },
+                                    onItemClick = { selectedItemForDetails = item }
+                                )
+                            }
                         }
                     }
                 }
@@ -348,7 +424,6 @@ fun CrawlerScreen(
                         )
                     }
 
-                    // Refresh catalog
                     if (catalogState is CatalogState.Loading) {
                         CircularProgressIndicator(
                             modifier = Modifier
@@ -367,118 +442,13 @@ fun CrawlerScreen(
                         }
                     }
 
-                    // Overflow menu for advanced extension options
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More Options",
-                                tint = SecondaryText
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            modifier = Modifier.background(DarkSurface)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Install from File (.bext)", color = PrimaryText) },
-                                onClick = {
-                                    showMenu = false
-                                    filePickerLauncher.launch("*/*")
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.FolderOpen,
-                                        contentDescription = null,
-                                        tint = BrandAccent
-                                    )
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Repository URL", color = PrimaryText) },
-                                onClick = {
-                                    showMenu = false
-                                    showRepoDialog = true
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Link,
-                                        contentDescription = null,
-                                        tint = BrandAccent
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-
-                ExtensionListContent()
-            }
-        }
-    } else {
-        // Embedded within RequestScreen (Browse tab)
-        Scaffold(
-            containerColor = Color.Transparent,
-            snackbarHost = { SnackbarHost(snackbarHostState) }
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                var showMenu by remember { mutableStateOf(false) }
-
-                // Secondary action bar for embedded tab
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "${extensionItems.count { it.isInstalled }} installed",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SecondaryText
-                    )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (catalogState is CatalogState.Loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .padding(horizontal = 8.dp)
-                                    .size(16.dp),
-                                color = BrandAccent,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            IconButton(
-                                onClick = { viewModel.refreshCatalog() },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Refresh",
-                                    tint = BrandAccent,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
+                    if (onNavigateToExtensionSettings != null) {
                         Box {
-                            IconButton(
-                                onClick = { showMenu = true },
-                                modifier = Modifier.size(36.dp)
-                            ) {
+                            IconButton(onClick = { showMenu = true }) {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
                                     contentDescription = "More Options",
-                                    tint = SecondaryText,
-                                    modifier = Modifier.size(18.dp)
+                                    tint = SecondaryText
                                 )
                             }
                             DropdownMenu(
@@ -487,28 +457,14 @@ fun CrawlerScreen(
                                 modifier = Modifier.background(DarkSurface)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Install from File (.bext)", color = PrimaryText) },
+                                    text = { Text("Extension settings", color = PrimaryText) },
                                     onClick = {
                                         showMenu = false
-                                        filePickerLauncher.launch("*/*")
+                                        onNavigateToExtensionSettings()
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Default.FolderOpen,
-                                            contentDescription = null,
-                                            tint = BrandAccent
-                                        )
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Repository URL", color = PrimaryText) },
-                                    onClick = {
-                                        showMenu = false
-                                        showRepoDialog = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Link,
+                                            imageVector = Icons.Outlined.Settings,
                                             contentDescription = null,
                                             tint = BrandAccent
                                         )
@@ -522,174 +478,245 @@ fun CrawlerScreen(
                 ExtensionListContent()
             }
         }
+    } else {
+        Scaffold(
+            containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { innerPadding ->
+            ExtensionListContent(modifier = Modifier.padding(innerPadding))
+        }
     }
 }
 
 @Composable
-fun ExtensionItemCard(
+fun ExtensionRow(
     item: ExtensionUiItem,
-    onInstall: () -> Unit,
-    onUpdate: () -> Unit,
-    onUninstall: () -> Unit
+    onActionClick: () -> Unit,
+    onItemClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = DarkSurface,
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (item.hasUpdate) BrandAccent.copy(alpha = 0.4f) else BorderColor.copy(alpha = 0.5f)
-        )
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(enabled = !item.isActionInProgress, onClick = onItemClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        // Extension icon: 42dp rounded with image loading and fallback
+        SourceIcon(
+            model = item.iconModel,
+            fallbackText = item.name,
+            size = 42.dp,
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = 6.dp
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Name and metadata
+        Column(
+            modifier = Modifier.weight(1f)
         ) {
-            // Icon
-            Surface(
-                modifier = Modifier.size(42.dp),
-                color = DarkSurfaceVariant,
-                shape = RoundedCornerShape(10.dp)
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = PrimaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            val langText = if (item.lang.equals("all", ignoreCase = true)) "Multi" else item.lang.uppercase()
+            val versionText = when {
+                item.hasUpdate -> "v${item.installedVersion} → v${item.repoVersion}"
+                item.installedVersion != null -> "v${item.installedVersion}"
+                item.repoVersion != null -> "v${item.repoVersion}"
+                else -> "v1.0.0"
+            }
+            val is18Plus = item.name.contains("18+") || item.baseUrl.contains("18+")
+            val ageRatingText = if (is18Plus) " • 18+" else ""
+            val statusPrefix = if (item.isActionInProgress) {
+                if (item.isInstalled) "Updating • " else "Installing • "
+            } else ""
+            val metadata = "$statusPrefix$langText • $versionText$ageRatingText"
+
+            Text(
+                text = metadata,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (item.isActionInProgress || item.hasUpdate) BrandAccent else SecondaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Action icon / button
+        if (item.isActionInProgress) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp,
+                color = BrandAccent
+            )
+        } else if (item.hasUpdate) {
+            Button(
+                onClick = onActionClick,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                modifier = Modifier.height(32.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandAccent,
+                    contentColor = Color.White
+                )
+            ) {
+                Text(
+                    text = "Update",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        } else if (item.isInstalled) {
+            IconButton(
+                onClick = onActionClick,
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Extension,
-                    contentDescription = null,
-                    modifier = Modifier.padding(10.dp),
-                    tint = if (item.isInstalled) BrandAccent else SecondaryText.copy(alpha = 0.5f)
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = "Extension Settings",
+                    tint = SecondaryText,
+                    modifier = Modifier.size(20.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Details
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = item.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = PrimaryText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    // Language Chip
-                    Surface(
-                        color = DarkSurfaceVariant,
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = item.lang.uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryText,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val versionText = when {
-                        item.hasUpdate -> "v${item.installedVersion} → v${item.repoVersion}"
-                        item.installedVersion != null -> "v${item.installedVersion}"
-                        item.repoVersion != null -> "v${item.repoVersion}"
-                        else -> "v1"
-                    }
-
-                    Text(
-                        text = versionText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (item.hasUpdate) BrandAccent else SecondaryText
-                    )
-
-                    if (item.baseUrl.isNotEmpty()) {
-                        Text(
-                            text = " • ",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SecondaryText
-                        )
-                        Text(
-                            text = item.baseUrl.removePrefix("https://").removePrefix("http://"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SecondaryText,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Action Buttons
-            if (item.isActionInProgress) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = BrandAccent,
-                    strokeWidth = 2.dp
+        } else {
+            IconButton(
+                onClick = onActionClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = "Download Extension",
+                    tint = SecondaryText,
+                    modifier = Modifier.size(22.dp)
                 )
-            } else if (item.hasUpdate) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onUninstall,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "Uninstall",
-                            tint = SecondaryText,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Button(
-                        onClick = onUpdate,
-                        colors = ButtonDefaults.buttonColors(containerColor = BrandAccent),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(34.dp)
-                    ) {
-                        Text("Update", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                }
-            } else if (item.isInstalled) {
-                IconButton(
-                    onClick = onUninstall,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Uninstall",
-                        tint = SecondaryText,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            } else {
-                Button(
-                    onClick = onInstall,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkSurfaceVariant,
-                        contentColor = BrandAccent
-                    ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(34.dp)
-                ) {
-                    Text("Install", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
             }
         }
     }
 }
 
+@Composable
+fun ExtensionDetailDialog(
+    item: ExtensionUiItem,
+    onDismiss: () -> Unit,
+    onUninstall: () -> Unit
+) {
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SourceIcon(
+                    model = item.iconModel,
+                    fallbackText = item.name,
+                    size = 42.dp,
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = 6.dp
+                )
+                Column {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryText
+                    )
+                    val ver = item.installedVersion ?: item.repoVersion ?: "1.0.0"
+                    Text(
+                        text = "v$ver • ${item.lang.uppercase()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SecondaryText
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (item.baseUrl.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, item.baseUrl.toUri())
+                                context.startActivity(intent)
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Website",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = SecondaryText
+                            )
+                            Text(
+                                text = item.baseUrl,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = BrandAccent,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = "Open Website",
+                            tint = SecondaryText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                if (item.isInstalled) {
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.5f))
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onUninstall()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ErrorRed.copy(alpha = 0.15f),
+                            contentColor = ErrorRed
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Uninstall", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = PrimaryText)
+            }
+        }
+    )
+}
+
+// Deprecated fallback preserved for backward compatibility
 @Composable
 fun RepoUrlDialog(
     initialUrl: String,
@@ -704,7 +731,7 @@ fun RepoUrlDialog(
         text = {
             Column {
                 Text(
-                    text = "Specify the raw URL to the repository index.json.",
+                    text = "Specify the repository URL (e.g. index.min.json).",
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryText
                 )
@@ -726,9 +753,7 @@ fun RepoUrlDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { onSave(urlText.trim()) }
-            ) {
+            TextButton(onClick = { onSave(urlText.trim()) }) {
                 Text("Save")
             }
         },

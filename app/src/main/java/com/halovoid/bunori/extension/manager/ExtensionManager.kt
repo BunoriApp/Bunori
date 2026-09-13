@@ -32,6 +32,9 @@ class ExtensionManager private constructor(private val context: Context) {
     private val _installedExtensions = MutableStateFlow<Map<String, LoadedExtension>>(emptyMap())
     val installedExtensions: StateFlow<Map<String, LoadedExtension>> = _installedExtensions.asStateFlow()
 
+    private val _failedExtensions = MutableStateFlow<List<String>>(emptyList())
+    val failedExtensions: StateFlow<List<String>> = _failedExtensions.asStateFlow()
+
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -62,6 +65,7 @@ class ExtensionManager private constructor(private val context: Context) {
      */
     suspend fun loadInstalledExtensions() = withContext(Dispatchers.IO) {
         val loaded = mutableMapOf<String, LoadedExtension>()
+        val failed = mutableListOf<String>()
         val dirs = extensionsDir.listFiles { file -> file.isDirectory } ?: emptyArray()
 
         for (dir in dirs) {
@@ -73,10 +77,12 @@ class ExtensionManager private constructor(private val context: Context) {
                     Log.i(TAG, "Loaded extension on startup: ${loadedExt.manifest.name}")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to load extension from ${bextFile.absolutePath}", e)
+                    failed.add(dir.name)
                 }
             }
         }
 
+        _failedExtensions.value = failed
         _installedExtensions.value = loaded
         syncWithCrawlerFactory(loaded)
     }
@@ -93,7 +99,7 @@ class ExtensionManager private constructor(private val context: Context) {
             } else {
                 val request = Request.Builder()
                     .url(repoUrl)
-                    .header("User-Agent", "Bunori/1.0")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     .build()
 
                 val response = httpClient.newCall(request).execute()
@@ -134,7 +140,7 @@ class ExtensionManager private constructor(private val context: Context) {
             } else {
                 val request = Request.Builder()
                     .url(entry.bextUrl)
-                    .header("User-Agent", "Bunori/1.0")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     .build()
 
                 val response = httpClient.newCall(request).execute()
@@ -227,19 +233,24 @@ class ExtensionManager private constructor(private val context: Context) {
      */
     suspend fun uninstall(extensionId: String): Boolean = withContext(Dispatchers.IO) {
         val current = _installedExtensions.value.toMutableMap()
-        val loaded = current.remove(extensionId) ?: return@withContext false
+        val loaded = current.remove(extensionId)
 
         _installedExtensions.value = current
+        _failedExtensions.value = _failedExtensions.value - extensionId
         syncWithCrawlerFactory(current)
 
-        // Delete installed directory
+        // Delete installed directory (including read-only dex files and package.bext)
         val targetDir = File(extensionsDir, extensionId)
         if (targetDir.exists()) {
-            val dexFile = File(targetDir, BextUtils.DEX_FILE_NAME)
-            if (dexFile.exists()) {
-                dexFile.delete()
+            try {
+                targetDir.walkBottomUp().forEach { file ->
+                    file.setWritable(true)
+                    file.delete()
+                }
+                targetDir.deleteRecursively()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error cleaning directory for $extensionId: ${e.message}")
             }
-            targetDir.deleteRecursively()
         }
 
         Log.i(TAG, "Uninstalled extension: $extensionId")
@@ -290,7 +301,7 @@ class ExtensionManager private constructor(private val context: Context) {
     }
 
     private fun syncWithCrawlerFactory(extensions: Map<String, LoadedExtension>) {
-        val adapters = extensions.values.map { ExtensionCrawlerAdapter(it.extension) }
+        val adapters = extensions.values.map { ExtensionCrawlerAdapter(it.extension, it.iconFile) }
         CrawlerFactory.registerCrawlers(adapters)
     }
 

@@ -12,13 +12,20 @@ import kotlinx.coroutines.withContext
  * instances across the Bunori application (Search, Novel Detail, Reader, Downloads, etc.).
  */
 class ExtensionCrawlerAdapter(
-    val extension: IExtension
+    val extension: IExtension,
+    override val iconFile: java.io.File? = null
 ) : Crawler() {
 
+    override val id: String = extension.metadata.id
     override val name: String = extension.metadata.name
     override val baseUrl: String = extension.metadata.baseUrl
     override val language: String = extension.metadata.lang
     override val webviewNeeded: Boolean = extension.metadata.webviewNeeded
+    override val iconUrl: String?
+        get() = extension.metadata.iconUrl ?: run {
+            val host = try { java.net.URI(baseUrl).host ?: baseUrl } catch (_: Exception) { baseUrl }
+            "https://www.google.com/s2/favicons?domain=$host&sz=128"
+        }
 
     override val config: com.halovoid.bunori.api.core.config.CrawlerConfig
         get() = com.halovoid.bunori.api.core.config.CrawlerConfig(
@@ -77,12 +84,14 @@ class ExtensionCrawlerAdapter(
             description = novelDto.description,
             chapters = novelDto.chapters.mapIndexed { idx, chDto ->
                 Chapter(
-                    id = if (chDto.index > 0) chDto.index else idx + 1,
+                    id = 0,
                     url = chDto.url,
                     title = chDto.title,
                     index = if (chDto.index > 0) chDto.index else idx + 1,
                     novelUrl = novelDto.url
-                )
+                ).apply {
+                    scanlationSource = chDto.scanlation?.takeIf { it.isNotBlank() } ?: extension.metadata.name
+                }
             },
             crawlerName = extension.metadata.name,
             coverHttpsUrl = novelDto.coverUrl
@@ -93,12 +102,14 @@ class ExtensionCrawlerAdapter(
         val novelDto = extension.getNovelDetails(novelUrl)
         novelDto.chapters.mapIndexed { idx, chDto ->
             Chapter(
-                id = if (chDto.index > 0) chDto.index else idx + 1,
+                id = 0,
                 url = chDto.url,
                 title = chDto.title,
                 index = if (chDto.index > 0) chDto.index else idx + 1,
                 novelUrl = novelUrl
-            )
+            ).apply {
+                scanlationSource = chDto.scanlation?.takeIf { it.isNotBlank() } ?: extension.metadata.name
+            }
         }
     }
 

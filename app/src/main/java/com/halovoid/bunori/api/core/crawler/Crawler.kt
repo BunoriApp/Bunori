@@ -37,11 +37,19 @@ abstract class Crawler {
     /** The display name of the source (e.g., "NovelBin") */
     abstract val name: String
 
+    /** Unique identifier of the crawler source */
+    open val id: String
+        get() = name.lowercase().replace(" ", "").replace("-", "")
+
     /** The base URL of the source (e.g., "https://novelbins.com") */
     abstract val baseUrl: String
 
     /** Language of the novels on this site (e.g., "en") */
     open val language: String = "en"
+
+    /** Optional icon URL or local file for the source */
+    open val iconUrl: String? = null
+    open val iconFile: java.io.File? = null
 
     /** Opens a webview on phone to extract all the cookies and website headers
      * This is only required if the crawler can't crawl the website normally and needs

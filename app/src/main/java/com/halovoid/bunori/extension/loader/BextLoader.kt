@@ -70,12 +70,17 @@ class BextLoader(
 
         // 2. Write icon if present
         var iconFile: File? = null
-        pkg.iconBytes?.let { bytes ->
+        if (pkg.iconBytes != null) {
             val file = File(targetDir, "icon.png")
             FileOutputStream(file).use { fos ->
-                fos.write(bytes)
+                fos.write(pkg.iconBytes)
             }
             iconFile = file
+        } else {
+            val existing = File(targetDir, "icon.png")
+            if (existing.exists() && existing.length() > 0) {
+                iconFile = existing
+            }
         }
 
         // 3. Initialize DexClassLoader

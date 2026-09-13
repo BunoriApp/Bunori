@@ -14,13 +14,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.halovoid.bunori.data.db.entities.RequestType
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
+import com.halovoid.bunori.ui.feature.crawler.ExtensionInfoScreen
 import com.halovoid.bunori.ui.feature.downloads.DownloadScreen
 import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
 import com.halovoid.bunori.ui.feature.library.LibraryScreen
@@ -44,9 +47,12 @@ import com.halovoid.bunori.ui.feature.request.NovelPreviewScreen
 import com.halovoid.bunori.ui.feature.request.RequestDetailScreen
 import com.halovoid.bunori.ui.feature.request.RequestScreen
 import com.halovoid.bunori.ui.feature.request.RequestViewModel
+import com.halovoid.bunori.ui.feature.search.SearchScreen
+import com.halovoid.bunori.ui.feature.search.SearchViewModel
 import com.halovoid.bunori.ui.feature.settings.AdvancedSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.BackupSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.DownloadPreferencesScreen
+import com.halovoid.bunori.ui.feature.settings.ExtensionSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.MoreScreen
 import com.halovoid.bunori.ui.feature.settings.SettingsViewModel
 import com.halovoid.bunori.ui.feature.settings.SupportSettingsScreen
@@ -63,13 +69,25 @@ sealed class Screen(val route: String) {
     object FolderSelection: Screen("folder_selection")
     object SourceSync: Screen("source_sync")
     object Request : Screen("request")
+    object Search : Screen("search?source={source}") {
+        fun createRoute(source: String? = null) = if (source != null) {
+            "search?source=${URLEncoder.encode(source, "UTF-8")}"
+        } else {
+            "search"
+        }
+    }
     object Library : Screen("library")
+    object History : Screen("history")
     object Downloads : Screen("downloads")
     object Crawlers : Screen("crawlers")
     object Support : Screen("support")
     object DownloadPreferences : Screen("download_preferences")
     object LayoutSettings : Screen("layout_settings")
     object ThemeSettings : Screen("theme_settings")
+    object ExtensionSettings : Screen("extension_settings")
+    object ExtensionInfo : Screen("extension_info/{extensionId}") {
+        fun createRoute(extensionId: String) = "extension_info/${URLEncoder.encode(extensionId, "UTF-8")}"
+    }
     object AdvancedSettings : Screen("advanced_settings")
     object SupportSettings : Screen("support_settings")
     object BackupSettings : Screen("backup_settings")
@@ -111,7 +129,7 @@ fun NavGraph(navController: NavHostController) {
         val onboardingCompleted = preferenceRepository.isOnboardingCompleted.first()
 
         startRoute = if (onboardingCompleted && folderUri != null) {
-            Screen.Request.route
+            Screen.Library.route
         } else if (!onboardingCompleted) {
             Screen.Welcome.route
         } else {
@@ -230,6 +248,59 @@ fun NavGraph(navController: NavHostController) {
                     },
                     onNavigateToRequest = {
                         navController.navigate(Screen.ManualRequest.route)
+                    },
+                    onNavigateToSearch = { sourceName ->
+                        navController.navigate(Screen.Search.createRoute(sourceName))
+                    },
+                    onNavigateToExtensionSettings = {
+                        navController.navigate(Screen.ExtensionSettings.route)
+                    },
+                    onNavigateToExtensionInfo = { extensionId ->
+                        navController.navigate(Screen.ExtensionInfo.createRoute(extensionId))
+                    }
+                )
+            }
+            composable(
+                route = Screen.Search.route,
+                arguments = listOf(
+                    navArgument("source") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val sourceParam = backStackEntry.arguments?.getString("source")?.let {
+                    try { URLDecoder.decode(it, "UTF-8") } catch (e: Exception) { it }
+                }
+                val parentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(navController.graph.id)
+                }
+                val requestViewModel: RequestViewModel = viewModel(
+                    viewModelStoreOwner = parentEntry,
+                    factory = remember { ViewModelFactory(application) }
+                )
+                val searchViewModel: SearchViewModel = viewModel(
+                    factory = remember { ViewModelFactory(application) }
+                )
+                SearchScreen(
+                    viewModel = searchViewModel,
+                    requestViewModel = requestViewModel,
+                    initialSource = sourceParam,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToRequest = {
+                        navController.navigate(Screen.ManualRequest.route)
+                    },
+                    onNavigateToPreview = {
+                        navController.navigate(Screen.NovelPreview.route)
+                    },
+                    onNavigateToDetail = { crawlerName, novelUrl ->
+                        navController.navigate(
+                            Screen.NovelDetail.createRoute(
+                                crawlerName,
+                                novelUrl
+                            )
+                        )
                     }
                 )
             }
@@ -277,11 +348,43 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             }
+            composable(Screen.History.route) {
+                val downloadViewModel: DownloadViewModel = viewModel(
+                    factory = remember { ViewModelFactory(application) }
+                )
+                DownloadScreen(
+                    viewModel = downloadViewModel,
+                    onRequestClick = { requestId: String ->
+                        navController.navigate(Screen.RequestDetail.createRoute(requestId))
+                    },
+                    onGroupClick = { type: RequestType ->
+                        navController.navigate(Screen.GroupedRequests.createRoute("ALL", "all", type.name))
+                    }
+                )
+            }
             composable(Screen.Crawlers.route) {
                 val crawlerViewModel: CrawlerViewModel = viewModel(
                     factory = remember { ViewModelFactory(application) }
                 )
                 CrawlerScreen(
+                    viewModel = crawlerViewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToExtensionSettings = {
+                        navController.navigate(Screen.ExtensionSettings.route)
+                    },
+                    onNavigateToExtensionInfo = { extensionId ->
+                        navController.navigate(Screen.ExtensionInfo.createRoute(extensionId))
+                    }
+                )
+            }
+            composable(Screen.ExtensionInfo.route) { backStackEntry ->
+                val encodedId = backStackEntry.arguments?.getString("extensionId") ?: ""
+                val extensionId = URLDecoder.decode(encodedId, "UTF-8")
+                val crawlerViewModel: CrawlerViewModel = viewModel(
+                    factory = remember { ViewModelFactory(application) }
+                )
+                ExtensionInfoScreen(
+                    extensionId = extensionId,
                     viewModel = crawlerViewModel,
                     onBack = { navController.popBackStack() }
                 )
@@ -326,6 +429,9 @@ fun NavGraph(navController: NavHostController) {
                     },
                     onNavigateToThemeSettings = {
                         navController.navigate(Screen.ThemeSettings.route)
+                    },
+                    onNavigateToExtensionSettings = {
+                        navController.navigate(Screen.ExtensionSettings.route)
                     }
                 )
             }
@@ -390,6 +496,19 @@ fun NavGraph(navController: NavHostController) {
                     factory = remember { ViewModelFactory(application) }
                 )
                 LayoutSettingsScreen(
+                    viewModel = settingsViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.ExtensionSettings.route) { backStackEntry ->
+                val supportEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(Screen.Support.route)
+                }
+                val settingsViewModel: SettingsViewModel = viewModel(
+                    viewModelStoreOwner = supportEntry,
+                    factory = remember { ViewModelFactory(application) }
+                )
+                ExtensionSettingsScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )

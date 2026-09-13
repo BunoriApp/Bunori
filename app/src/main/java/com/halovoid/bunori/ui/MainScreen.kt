@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.filled.DownloadForOffline
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.outlined.DownloadForOffline
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.*
@@ -33,7 +33,8 @@ import com.halovoid.bunori.ui.core.theme.*
 
 /**
  * The primary entry point Composable for the UI.
- * Manages the [NavGraph] within a Scaffold with a [NavigationBar].
+ * Manages the [NavGraph] within a Scaffold with a persistent [NavigationBar]:
+ * Library | Browse | Downloads | More.
  */
 @Composable
 fun MainScreen() {
@@ -43,9 +44,9 @@ fun MainScreen() {
 
     val mainTabs = remember {
         listOf(
-            TabInfo(Screen.Request, "Browse", Icons.Outlined.Explore, Icons.Filled.Explore),
             TabInfo(Screen.Library, "Library", Icons.AutoMirrored.Outlined.LibraryBooks, Icons.AutoMirrored.Filled.LibraryBooks),
-            TabInfo(Screen.Downloads, "Downloads", Icons.Outlined.DownloadForOffline, Icons.Filled.DownloadForOffline),
+            TabInfo(Screen.Request, "Browse", Icons.Outlined.Explore, Icons.Filled.Explore),
+            TabInfo(Screen.Downloads, "Downloads", Icons.Outlined.Download, Icons.Filled.Download),
             TabInfo(Screen.Support, "More", Icons.Outlined.MoreHoriz, Icons.Filled.MoreHoriz)
         )
     }
@@ -139,14 +140,14 @@ private fun BunoriNavigationBar(
                         text = tab.label,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) PrimaryText else SecondaryText
+                        color = if (isSelected) BrandAccent else SecondaryText
                     ) 
                 },
                 selected = isSelected,
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = PrimaryText,
+                    selectedIconColor = BrandAccent,
                     unselectedIconColor = SecondaryText,
-                    selectedTextColor = PrimaryText,
+                    selectedTextColor = BrandAccent,
                     unselectedTextColor = SecondaryText,
                     indicatorColor = BrandAccent.copy(alpha = 0.2f)
                 ),
@@ -173,7 +174,7 @@ fun AnimatedTabIcon(
     val infiniteTransition = rememberInfiniteTransition(label = "TabAnimation")
     
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.2f else 1f,
+        targetValue = if (isSelected) 1.15f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -194,7 +195,7 @@ fun AnimatedTabIcon(
     )
 
     val bounce by animateDpAsState(
-        targetValue = if (isSelected && label == "Downloads") (-3).dp else 0.dp,
+        targetValue = if (isSelected && (label == "Updates" || label == "History")) (-3).dp else 0.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy),
         label = "Bounce"
     )
@@ -214,7 +215,7 @@ fun AnimatedTabIcon(
             .scale(scale)
             .rotate(if (label == "Browse") rotation else tilt)
             .offset(y = when(label) {
-                "Downloads" -> bounce
+                "Updates", "History" -> bounce
                 "More" -> if (isSelected) waveOffset.dp else 0.dp
                 else -> 0.dp
             }),

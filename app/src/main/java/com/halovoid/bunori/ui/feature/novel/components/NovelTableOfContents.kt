@@ -108,7 +108,7 @@ fun ChapterRow(
                 fontWeight = FontWeight.SemiBold
             )
             val hasTitle = chapter.title.isNotBlank()
-            val hasSource = chapter.scanlationSource.isNotBlank() && chapter.scanlationSource != "NotProvided"
+            val hasSource = chapter.scanlationSource.isNotBlank() && chapter.scanlationSource != "NotProvided" && chapter.scanlationSource != "Not Provided"
 
             if (hasTitle || hasSource) {
                 Row(

@@ -16,7 +16,7 @@ import com.halovoid.bunori.ui.core.theme.*
 
 @Composable
 fun NovelMetadataTable(novel: Novel, onClick: () -> Unit = {}) {
-    val sources = novel.chapters.map { it.scanlationSource }.filter { it.isNotBlank() && it != "NotProvided" }.distinct()
+    val sources = novel.chapters.map { it.scanlationSource }.filter { it.isNotBlank() && it != "NotProvided" && it != "Not Provided" }.distinct()
     val sourceDisplay = if (sources.isNotEmpty()) sources.joinToString(", ") else novel.crawlerName
 
     Column(

@@ -23,7 +23,7 @@ class SourceLoader(private val context: Context) {
     private val preferenceRepository = PreferenceRepository.getInstance(context)
     private val client = NetworkClient.okHttpClient
 
-    private val GITHUB_API_URL = "https://api.github.com/repos/Binit06/LNCrawlerSources/releases/latest"
+    private val GITHUB_API_URL = "https://api.github.com/repos/LNCrawler/BunoriSources/releases/latest"
     private val AGGREGATOR_CLASS = "com.halovoid.lncrawlersources.CrawlerSourceAggregator"
 
     data class ReleaseInfo(val tagName: String, val downloadUrl: String)
@@ -144,9 +144,9 @@ class SourceLoader(private val context: Context) {
 
     suspend fun fetchLatestReleaseInfo(enableBeta: Boolean = false): ReleaseInfo = withContext(Dispatchers.IO) {
         val url = if (enableBeta) {
-            "https://api.github.com/repos/Binit06/LNCrawlerSources/releases"
+            "https://api.github.com/repos/LNCrawler/BunoriSources/releases"
         } else {
-            "https://api.github.com/repos/Binit06/LNCrawlerSources/releases/latest"
+            "https://api.github.com/repos/LNCrawler/BunoriSources/releases/latest"
         }
         val request = Request.Builder().url(url).build()
         client.newCall(request).execute().use { response ->

@@ -601,7 +601,7 @@ private fun ChapterPreviewRow(
                 fontWeight = FontWeight.SemiBold
             )
             val hasTitle = chapter.title.isNotBlank() && chapter.title != "Chapter ${chapter.index}"
-            val hasSource = chapter.scanlationSource.isNotBlank() && chapter.scanlationSource != "NotProvided"
+            val hasSource = chapter.scanlationSource.isNotBlank() && chapter.scanlationSource != "NotProvided" && chapter.scanlationSource != "Not Provided"
 
             if (hasTitle || hasSource) {
                 Row(

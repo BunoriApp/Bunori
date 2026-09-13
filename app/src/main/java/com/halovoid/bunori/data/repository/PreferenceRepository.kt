@@ -30,7 +30,7 @@ private val THEME_MODE = stringPreferencesKey("theme_mode")
 private val SELECTED_THEME_ID = stringPreferencesKey("selected_theme_id")
 private val IS_AMOLED_MODE = booleanPreferencesKey("is_amoled_mode")
 private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
-const val DEFAULT_EXTENSION_REPO_URL = "https://github.com/Binit06/LNCrawlerSources/releases/download/repo/index.json"
+const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/BunoriSources/index.min.json"
 
 class PreferenceRepository private constructor(
     private val context: Context
@@ -242,13 +242,30 @@ class PreferenceRepository private constructor(
 
     val extensionRepoUrl: Flow<String> =
         context.appDataStore.data.map { preferences ->
-            preferences[EXTENSION_REPO_URL] ?: DEFAULT_EXTENSION_REPO_URL
+            val stored = preferences[EXTENSION_REPO_URL]
+            if (stored.isNullOrBlank() || isDeprecatedRepoUrl(stored)) {
+                DEFAULT_EXTENSION_REPO_URL
+            } else {
+                stored
+            }
         }
 
     suspend fun setExtensionRepoUrl(url: String) {
         context.appDataStore.edit { preferences ->
-            preferences[EXTENSION_REPO_URL] = url
+            val trimmed = url.trim()
+            if (trimmed.isEmpty() || trimmed == DEFAULT_EXTENSION_REPO_URL || isDeprecatedRepoUrl(trimmed)) {
+                preferences.remove(EXTENSION_REPO_URL)
+            } else {
+                preferences[EXTENSION_REPO_URL] = trimmed
+            }
         }
     }
+}
+
+private fun isDeprecatedRepoUrl(url: String): Boolean {
+    return url.contains("Binit06") ||
+           url.contains("/releases/download/") ||
+           url.endsWith("/repo/index.json") ||
+           url.endsWith("/repo/index.min.json")
 }
 

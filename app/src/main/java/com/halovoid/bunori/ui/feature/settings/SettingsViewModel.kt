@@ -66,7 +66,7 @@ class SettingsViewModel(
     val extensionRepoUrl: StateFlow<String> = preferenceRepository.extensionRepoUrl.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = ""
+        initialValue = com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
     )
 
     val ignoreImages: StateFlow<Boolean> = preferenceRepository.ignoreImages.stateIn(

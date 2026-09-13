@@ -83,10 +83,21 @@ object BextUtils {
             validateManifest(resolvedManifest)
         }
 
-        // Extract icon if manifest specifies iconPath
-        resolvedManifest.iconPath?.let { iconPath ->
-            val normalizedPath = iconPath.removePrefix("/")
-            iconBytes = extraFiles[normalizedPath]
+        // Extract icon if manifest specifies iconPath, or search extraFiles for bundled icons
+        val candidatePath = resolvedManifest.iconPath?.removePrefix("/")?.replace('\\', '/')
+        if (candidatePath != null) {
+            iconBytes = extraFiles[candidatePath]
+        }
+        if (iconBytes == null) {
+            iconBytes = extraFiles["assets/icon.png"]
+                ?: extraFiles["icon.png"]
+                ?: extraFiles["assets/icon.webp"]
+                ?: extraFiles["icon.webp"]
+                ?: extraFiles["assets/icon.jpg"]
+                ?: extraFiles["icon.jpg"]
+                ?: extraFiles.entries.firstOrNull { (k, _) ->
+                    k.startsWith("assets/icon") || k.startsWith("icon.")
+                }?.value
         }
 
         return BextPackage(

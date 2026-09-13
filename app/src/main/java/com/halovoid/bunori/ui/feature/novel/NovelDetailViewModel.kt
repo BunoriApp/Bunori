@@ -108,7 +108,12 @@ class NovelDetailViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val availableSources: StateFlow<List<String>> = novel
         .filterNotNull()
-        .map { nov -> nov.chapters.map { it.scanlationSource }.distinct() }
+        .map { nov ->
+            nov.chapters.map { it.scanlationSource }
+                .map { if (it.isBlank() || it == "NotProvided" || it == "Not Provided") nov.crawlerName else it }
+                .distinct()
+                .ifEmpty { listOf(nov.crawlerName) }
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

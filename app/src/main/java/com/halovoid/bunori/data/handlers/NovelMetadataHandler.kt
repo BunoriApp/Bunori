@@ -56,18 +56,25 @@ class NovelMetadataHandler(
 
             val mergedChapters = updatedNovel.chapters.map { chapter ->
                 val existing = existingChapterMap[chapter.url]
+                val effectiveScanlation = chapter.scanlationSource.takeIf {
+                    it.isNotBlank() && it != "NotProvided" && it != "Not Provided"
+                } ?: existing?.scanlationSource?.takeIf {
+                    it.isNotBlank() && it != "NotProvided" && it != "Not Provided"
+                } ?: updatedNovel.crawlerName
+
                 if (existing != null) {
                     chapter.copy(
                         id = existing.id,
                         fileLocation = existing.fileLocation
                     ).apply {
                         sourceUrl = existing.sourceUrl ?: chapter.url
-                        scanlationSource = chapter.scanlationSource
+                        scanlationSource = effectiveScanlation
                         read = existing.read
                     }
                 } else {
-                    chapter.apply {
+                    chapter.copy(id = 0).apply {
                         sourceUrl = sourceUrl ?: url
+                        scanlationSource = effectiveScanlation
                     }
                 }
             }

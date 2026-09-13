@@ -18,7 +18,7 @@ fun NovelDetailsBottomSheet(
     novel: Novel,
     onDismiss: () -> Unit
 ) {
-    val sources = novel.chapters.map { it.scanlationSource }.filter { it.isNotBlank() && it != "NotProvided" }.distinct()
+    val sources = novel.chapters.map { it.scanlationSource }.filter { it.isNotBlank() && it != "NotProvided" && it != "Not Provided" }.distinct()
     val sourceDisplay = if (sources.isNotEmpty()) sources.joinToString(", ") else novel.crawlerName
 
     AppBottomSheet(

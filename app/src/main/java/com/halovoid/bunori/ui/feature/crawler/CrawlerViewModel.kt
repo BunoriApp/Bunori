@@ -52,7 +52,27 @@ data class ExtensionUiItem(
     val isActionInProgress: Boolean = false,
     val repoEntry: ExtensionRepoEntry? = null,
     val loadedExtension: LoadedExtension? = null
-)
+) {
+    val iconModel: Any?
+        get() {
+            if (loadedExtension?.iconFile != null && loadedExtension.iconFile.exists()) {
+                return loadedExtension.iconFile
+            }
+            val extIconUrl = loadedExtension?.extension?.metadata?.iconUrl
+            if (!extIconUrl.isNullOrBlank()) {
+                return extIconUrl
+            }
+            val repoIconUrl = repoEntry?.iconUrl
+            if (!repoIconUrl.isNullOrBlank()) {
+                return repoIconUrl
+            }
+            val targetBaseUrl = baseUrl.ifBlank { repoEntry?.baseUrl ?: "" }
+            if (targetBaseUrl.isNotBlank()) {
+                return targetBaseUrl
+            }
+            return null
+        }
+}
 
 class CrawlerViewModel(
     application: Application,
@@ -63,6 +83,7 @@ class CrawlerViewModel(
     private val sourceLoader = SourceLoader(application)
 
     val crawlers: StateFlow<List<Crawler>> = CrawlerFactory.crawlersFlow
+    val failedExtensions: StateFlow<List<String>> = extensionManager.failedExtensions
 
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
@@ -80,7 +101,7 @@ class CrawlerViewModel(
     val messageFlow: SharedFlow<String> = _messageFlow.asSharedFlow()
 
     val repoUrl: StateFlow<String> = preferenceRepository.extensionRepoUrl
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL)
 
     val isUpdateAvailable: StateFlow<Boolean> = UpdateRepository.getInstance(application)
         .isCrawlerUpdateAvailable

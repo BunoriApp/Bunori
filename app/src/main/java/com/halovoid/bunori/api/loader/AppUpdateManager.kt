@@ -8,7 +8,7 @@ import org.json.JSONObject
 
 class AppUpdateManager {
     private val client = NetworkClient.okHttpClient
-    private val GITHUB_API_URL = "https://api.github.com/repos/Binit06/LNCrawler/releases/latest"
+    private val GITHUB_API_URL = "https://api.github.com/repos/LNCrawler/LNCrawler/releases/latest"
 
     data class AppReleaseInfo(
         val tagName: String,
@@ -20,9 +20,9 @@ class AppUpdateManager {
 
     suspend fun fetchLatestAppRelease(enableBeta: Boolean = false): AppReleaseInfo = withContext(Dispatchers.IO) {
         val url = if (enableBeta) {
-            "https://api.github.com/repos/Binit06/LNCrawler/releases"
+            "https://api.github.com/repos/LNCrawler/LNCrawler/releases"
         } else {
-            "https://api.github.com/repos/Binit06/LNCrawler/releases/latest"
+            "https://api.github.com/repos/LNCrawler/LNCrawler/releases/latest"
         }
         val request = Request.Builder().url(url).build()
         client.newCall(request).execute().use { response ->

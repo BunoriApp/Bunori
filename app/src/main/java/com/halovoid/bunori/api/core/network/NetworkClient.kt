@@ -21,9 +21,14 @@ object NetworkClient {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .header("User-Agent", "Bunori")
-                    .build()
+                val originalRequest = chain.request()
+                val request = if (originalRequest.header("User-Agent").isNullOrBlank()) {
+                    originalRequest.newBuilder()
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .build()
+                } else {
+                    originalRequest
+                }
                 chain.proceed(request)
             }
             .build()
