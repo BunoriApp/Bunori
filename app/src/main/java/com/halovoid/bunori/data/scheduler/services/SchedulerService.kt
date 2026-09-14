@@ -19,8 +19,8 @@ import com.halovoid.bunori.api.core.network.CloudflareInterceptor
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.api.loader.SourceLoader
 import com.halovoid.bunori.data.db.AppDatabase
-import com.halovoid.bunori.data.db.dao.RequestDao
-import com.halovoid.bunori.data.db.entities.RequestEntity
+import com.halovoid.bunori.data.db.dao.BatchDao
+import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.RequestStatus
 import com.halovoid.bunori.data.db.entities.RequestType
 import com.halovoid.bunori.data.handlers.ArtifactHandler
@@ -45,37 +45,24 @@ private data class NotificationConfig(
     val isIndeterminate: Boolean
 )
 
-private fun RequestEntity.toNotificationConfig(): NotificationConfig {
-    val title = when (this.type) {
-        RequestType.RANGE_DOWNLOAD -> "Downloading Chapters"
-        RequestType.ARTIFACT -> "Creating Artifact"
-        RequestType.NOVEL_METADATA -> "Refreshing Novel"
-        else -> "LN Crawler Task"
-    }
-
-    return NotificationConfig(
-        title = title,
-        content = this.name,
-        progressCurrent = this.progressSuccess,
-        progressTotal = this.progressTotal,
-        isIndeterminate = this.progressTotal <= 0
-    )
-}
 class SchedulerService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private lateinit var scheduler: JobScheduler
-    private lateinit var requestDao: RequestDao
+    private lateinit var batchDao: BatchDao
+    private lateinit var taskDao: TaskDao
 
     companion object {
-        private const val CHANNEL_ID = "scheduler_channel"
-        private const val NOTIFICATION_ID = 1
-        private const val ACTION_START = "ACTION_START"
-        private const val ACTION_STOP = "ACTION_STOP"
+        const val CHANNEL_ID = "scheduler_channel"
+        const val NOTIFICATION_ID = 1
+        const val ACTION_START = "ACTION_START"
+        const val ACTION_STOP = "ACTION_STOP"
+        const val ACTION_CANCEL_JOB = "ACTION_CANCEL_JOB"
+        const val ACTION_PAUSE_JOB = "ACTION_PAUSE_JOB"
+        const val ACTION_RESUME_JOB = "ACTION_RESUME_JOB"
+        const val ACTION_REPLAY_JOB = "ACTION_REPLAY_JOB"
 
-        private const val ACTION_CANCEL_JOB = "ACTION_CANCEL_JOB"
-
-        private const val EXTRA_REQUEST_ID = "EXTRA_REQUEST_ID"
+        const val EXTRA_JOB_ID = "EXTRA_JOB_ID"
 
         fun startService(context: Context) {
             val intent = Intent(context, SchedulerService::class.java).apply {
@@ -95,85 +82,105 @@ class SchedulerService : Service() {
             context.startService(intent)
         }
 
-        fun cancelJob(context: Context, requestId: String) {
+        fun cancelJob(context: Context, jobId: String) {
             val intent = Intent(context, SchedulerService::class.java).apply {
                 action = ACTION_CANCEL_JOB
-                putExtra(EXTRA_REQUEST_ID, requestId)
+                putExtra(EXTRA_JOB_ID, jobId)
             }
             context.startService(intent)
+        }
+
+        fun pauseJob(context: Context, jobId: String) {
+            val intent = Intent(context, SchedulerService::class.java).apply {
+                action = ACTION_PAUSE_JOB
+                putExtra(EXTRA_JOB_ID, jobId)
+            }
+            context.startService(intent)
+        }
+
+        fun resumeJob(context: Context, jobId: String) {
+            val intent = Intent(context, SchedulerService::class.java).apply {
+                action = ACTION_RESUME_JOB
+                putExtra(EXTRA_JOB_ID, jobId)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun replayJob(context: Context, jobId: String) {
+            val intent = Intent(context, SchedulerService::class.java).apply {
+                action = ACTION_REPLAY_JOB
+                putExtra(EXTRA_JOB_ID, jobId)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         }
     }
 
     override fun onCreate() {
         super.onCreate()
         val db = AppDatabase.getDatabase(this)
-        requestDao = db.requestDao()
-        val chapterDao = db.chapterDao()
+        batchDao = db.batchDao()
+        taskDao = db.taskDao()
 
-        // 1. Initializing Repositories
         val novelRepository = NovelRepository.getInstance(this)
         val chapterRepository = ChapterRepository.getInstance(this)
         val preferenceRepository = PreferenceRepository.getInstance(this)
         val storageRepository = StorageRepositoryImpl.getInstance(this)
         val artifactRepository = ArtifactRepository.getInstance(this)
 
-        // 2. Initialize Artifact System
         val epubGenerator = EpubGenerator(storageRepository)
         val pdfGenerator = PdfGenerator(storageRepository)
-        val generators = listOf<ArtifactGenerator>(epubGenerator, pdfGenerator)
-        val generatorFactory = ArtifactGeneratorFactory(generators)
+        val generatorFactory = ArtifactGeneratorFactory(listOf(epubGenerator, pdfGenerator))
 
-        // 3. Initialize Handler and Registry
         val registry = JobHandlerRegistry()
         val crawlerFactory = CrawlerFactory
-        
-        // Initialize OkHttpClient with Cloudflare Interceptor
+
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(CloudflareInterceptor(CloudflareResolverImpl.getInstance()))
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
-            
+
         val scrapper = Scrapper(okHttpClient)
 
-        // 4. Register Handlers
         registry.register(RequestType.CHAPTER, ChapterHandler(
-            requestDao, scrapper, chapterRepository, storageRepository, crawlerFactory
+            scrapper, chapterRepository, storageRepository, crawlerFactory
         ))
         registry.register(RequestType.NOVEL_METADATA, NovelMetadataHandler(
-            crawlerFactory, novelRepository, chapterRepository, storageRepository, requestDao
+            crawlerFactory, novelRepository, chapterRepository, storageRepository
         ))
         registry.register(RequestType.ARTIFACT, ArtifactHandler(
-            novelRepository, chapterRepository,
-            crawlerFactory, storageRepository, generatorFactory, artifactRepository,
-            requestDao
-        ))
-        registry.register(RequestType.RANGE_DOWNLOAD, RangeDownloadHandler(
-            chapterRepository, requestDao
+            novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository
         ))
         registry.register(RequestType.BACKUP, BackupService(applicationContext))
+        registry.register(RequestType.RANGE_DOWNLOAD, RangeDownloadHandler(chapterRepository, taskDao))
 
-        // 5. Set Up Scheduler
-        scheduler = JobScheduler(requestDao, registry, preferenceRepository = preferenceRepository)
+        scheduler = JobScheduler(batchDao, taskDao, registry, preferenceRepository = preferenceRepository)
         scheduler.setOnEmptyListener {
             stopSelf()
         }
 
         createNotificationChannel()
-        
-        // Ensure sources are loaded even if service starts independently
+
         serviceScope.launch {
             SourceLoader(this@SchedulerService).loadLocalSources()
         }
-        
+
         observeProgress()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val jobId = intent?.getStringExtra(EXTRA_JOB_ID)
         when (intent?.action) {
             ACTION_START -> {
-                val initialConfig = NotificationConfig("Initializing...", "Starting scheduler", 0, 0, true)
-                startForeground(NOTIFICATION_ID, createNotification(initialConfig, 0))
+                ensureForeground()
                 scheduler.start()
             }
             ACTION_STOP -> {
@@ -181,13 +188,38 @@ class SchedulerService : Service() {
                 stopSelf()
             }
             ACTION_CANCEL_JOB -> {
-                val requestId = intent.getStringExtra(EXTRA_REQUEST_ID)
-                if (requestId != null) {
-                    scheduler.cancelActiveJob(requestId)
+                if (jobId != null) {
+                    scheduler.cancelActiveJob(jobId)
+                }
+            }
+            ACTION_PAUSE_JOB -> {
+                if (jobId != null) {
+                    scheduler.pauseJob(jobId)
+                }
+            }
+            ACTION_RESUME_JOB -> {
+                ensureForeground()
+                if (jobId != null) {
+                    scheduler.resumeJob(jobId)
+                } else {
+                    scheduler.start()
+                }
+            }
+            ACTION_REPLAY_JOB -> {
+                ensureForeground()
+                if (jobId != null) {
+                    scheduler.replayJob(jobId)
+                } else {
+                    scheduler.start()
                 }
             }
         }
         return START_STICKY
+    }
+
+    private fun ensureForeground() {
+        val initialConfig = NotificationConfig("Processing...", "Active background tasks", 0, 0, true)
+        startForeground(NOTIFICATION_ID, createNotification(initialConfig, 0))
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -215,7 +247,7 @@ class SchedulerService : Service() {
     private fun createNotification(config: NotificationConfig, othersCount: Int): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent, 
+            this, 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -225,8 +257,7 @@ class SchedulerService : Service() {
             config.content
         }
 
-        val largeIcon =
-            BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
+        val largeIcon = BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(config.title)
@@ -244,20 +275,27 @@ class SchedulerService : Service() {
     }
 
     private fun observeProgress() {
-        requestDao.getRootRequests()
-            .onEach { requests ->
-                val activeRequests = requests.filter { it.progressSuccess + it.progressFailed + it.progressCancelled < it.progressTotal }
-                    .sortedWith (
-                        compareByDescending<RequestEntity> {
-                            it.status == RequestStatus.RUNNING
-                        }.thenByDescending { it.updatedAt }
-                    )
-                if (activeRequests.isEmpty()) return@onEach
+        batchDao.getBatchesWithStatsFlow()
+            .onEach { batches ->
+                val active = batches.filter { it.batch.status == RequestStatus.RUNNING }
+                    .sortedByDescending { it.batch.updatedAt }
+                if (active.isEmpty()) return@onEach
 
-                val primaryRequest = activeRequests.first()
-                val config = primaryRequest.toNotificationConfig()
-                val othersCount = activeRequests.size - 1
-                
+                val primary = active.first()
+                val config = NotificationConfig(
+                    title = when (primary.batch.type) {
+                        RequestType.RANGE_DOWNLOAD -> "Downloading Chapters"
+                        RequestType.ARTIFACT -> "Creating Artifact"
+                        RequestType.NOVEL_METADATA -> "Refreshing Novel"
+                        else -> "LN Crawler Task"
+                    },
+                    content = primary.batch.name,
+                    progressCurrent = primary.completedTasks,
+                    progressTotal = primary.totalTasks,
+                    isIndeterminate = primary.totalTasks <= 0
+                )
+                val othersCount = active.size - 1
+
                 val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(NOTIFICATION_ID, createNotification(config, othersCount))
             }

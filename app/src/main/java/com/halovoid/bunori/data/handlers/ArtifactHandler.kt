@@ -2,8 +2,7 @@ package com.halovoid.bunori.data.handlers
 
 import com.halovoid.bunori.data.artifact.ArtifactGeneratorFactory
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
-import com.halovoid.bunori.data.db.dao.RequestDao
-import com.halovoid.bunori.data.db.entities.RequestEntity
+import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
@@ -22,19 +21,18 @@ class ArtifactHandler(
     private val crawlerFactory: CrawlerFactory,
     private val storageRepository: StorageRepository,
     private val generatorFactory: ArtifactGeneratorFactory,
-    private val artifactRepository: ArtifactRepository,
-    private val requestDao: RequestDao
+    private val artifactRepository: ArtifactRepository
 ) : JobHandler {
-    override suspend fun handle(request: RequestEntity): JobResult = withContext(Dispatchers.IO) {
-        val metadata = request.parsedMetadata
+    override suspend fun handle(task: TaskEntity): JobResult = withContext(Dispatchers.IO) {
+        val metadata = task.parsedMetadata
         val format = metadata.format ?: return@withContext JobResult.Failure(Exception("No Format Provided"))
         val crawlerName = metadata.crawlerName ?: return@withContext JobResult.Failure(Exception("No Crawler Name provided"))
 
         try {
             // 1. Fetch All Necessary data
-            val novel = novelRepository.getNovelDetails(request.novelUrl)
+            val novel = novelRepository.getNovelDetails(task.novelUrl)
                 ?: return@withContext JobResult.Failure(Exception("Novel not found in database"))
-            val chapters = chapterRepository.getChaptersByNovelUrl(request.novelUrl)
+            val chapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl)
 
             // 2. Select generator and create temp file
             val generator = generatorFactory.getGenerator(format)
@@ -42,9 +40,8 @@ class ArtifactHandler(
             val crawler = crawlerFactory.getCrawler(crawlerName)
                 ?: return@withContext JobResult.Failure(Exception("Crawler '$crawlerName' not found"))
 
-
-            // 3. Cleanup existing artifacts for this request to prevent duplicates
-            val existingArtifacts = artifactRepository.getArtifactForRequest(request.id)
+            // 3. Cleanup existing artifacts for this batch to prevent duplicates
+            val existingArtifacts = artifactRepository.getArtifactForRequest(task.batchId)
             existingArtifacts.forEach { existing ->
                 try {
                     storageRepository.delete(existing.artifactDestination.toUri())
@@ -52,7 +49,7 @@ class ArtifactHandler(
                 artifactRepository.removeArtifact(existing)
             }
 
-            // 4. Save Permanenetly to the user's selected storage
+            // 4. Save Permanently to the user's selected storage
             val novelKey = crawler.getNovelKey(novel.title)
             val fileName = "${novelKey}_${System.currentTimeMillis()}.$format"
             val mimeType = if (format.equals("pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
@@ -61,13 +58,13 @@ class ArtifactHandler(
                 fileName = fileName,
                 mimeType = mimeType,
                 data = tempFile.readBytes()
-            )
+            ) ?: return@withContext JobResult.Failure(Exception("Failed to save artifact"))
 
             // 5. Insert New Artifact to Database
             val artifact = Artifact(
                 id = 0,
                 novelUrl = novel.url,
-                requestId = request.id,
+                requestId = task.batchId,
                 artifactDestination = finalUri.toString(),
                 artifactName = fileName
             )
@@ -76,12 +73,9 @@ class ArtifactHandler(
             // 6. Cleanup Temp File
             tempFile.delete()
 
-            // 7. Notify
-            requestDao.propagateProgress(request.id)
             JobResult.Success
         } catch (e: Exception) {
             JobResult.Failure(e)
         }
-
     }
 }

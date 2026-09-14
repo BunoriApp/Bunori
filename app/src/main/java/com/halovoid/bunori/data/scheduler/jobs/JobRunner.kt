@@ -2,168 +2,168 @@ package com.halovoid.bunori.data.scheduler.jobs
 
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.data.config.SchedulerConfig
-import com.halovoid.bunori.data.db.dao.RequestDao
-import com.halovoid.bunori.data.db.entities.RequestEntity
+import com.halovoid.bunori.data.db.dao.BatchDao
+import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
 class JobRunner(
-    private val requestDao: RequestDao,
+    private val batchDao: BatchDao,
+    private val taskDao: TaskDao,
     private val handlerRegistry: JobHandlerRegistry,
     private val retryPolicy: RetryPolicy,
     private val config: SchedulerConfig
 ) {
     companion object {
-        // Fallback when a request has no associated crawler (e.g. ARTIFACT jobs)
-        // or the crawler doesn't define maxAttempts. Wire this to SchedulerConfig
-        // if you'd rather have one global default instead of a hardcoded fallback.
         private const val DEFAULT_MAX_ATTEMPTS = 3
     }
-    suspend fun run(request: RequestEntity, onComplete: suspend () -> Unit) {
-        var currRequest = request
+
+    suspend fun run(task: TaskEntity, onComplete: suspend () -> Unit) {
+        var currentTask = task
         try {
-            val hasChildren = requestDao.hasChildren(currRequest.id)
-            val preClaimStatus = requestDao.getRequestById(currRequest.id)?.status
-            if (preClaimStatus == RequestStatus.CANCELLED) return
-
-            currRequest = applyEvent(currRequest, JobEvent.CLAIMED, hasChildren)
-            requestDao.updateRequest(currRequest)
-
-            val handler = handlerRegistry.getHandler(currRequest.type)
-            if (handler == null) {
-                fail(currRequest, "No handler found for ${currRequest.type}", hasChildren)
+            val preClaim = taskDao.getTaskById(currentTask.id)
+            if (preClaim == null || preClaim.status == RequestStatus.CANCELLED || preClaim.status == RequestStatus.PAUSED) {
                 return
             }
 
-            val maxAttempts = maxAttemptsFor(currRequest)
-            while (true) {
-                val result = handler.handle(currRequest)
+            taskDao.updateStatus(currentTask.id, RequestStatus.RUNNING)
+            batchDao.updateStatus(currentTask.batchId, RequestStatus.RUNNING)
 
-                // Fetch latest state as the handler might have updated the DB (progress, rstatus via syncProgress)
-                val latestRequest = requestDao.getRequestById(currRequest.id) ?: currRequest
-                if (latestRequest.status == RequestStatus.CANCELLED) {
-                    // Already persisted as canceled (e.g. by JobScheduler.cancelActiveJob).
-                    // Nothing left for us to write.
+            val handler = handlerRegistry.getHandler(currentTask.type)
+            if (handler == null) {
+                fail(currentTask, "No handler found for ${currentTask.type}", currentTask.attemptCount)
+                return
+            }
+
+            val maxAttempts = maxAttemptsFor(currentTask)
+
+            while (true) {
+                val result = handler.handle(currentTask)
+
+                val latest = taskDao.getTaskById(currentTask.id) ?: currentTask
+                if (latest.status == RequestStatus.CANCELLED || latest.status == RequestStatus.PAUSED) {
                     return
                 }
-                val hasChildrenAfter = requestDao.hasChildren(latestRequest.id)
 
                 when (result) {
                     is JobResult.Success -> {
-                        markSuccess(latestRequest, hasChildrenAfter)
+                        markSuccess(latest)
                         return
                     }
 
                     is JobResult.Cancelled -> {
-                        markCancelled(latestRequest, hasChildrenAfter)
+                        markCancelled(latest)
                         return
                     }
 
                     is JobResult.Blocked -> {
-                        markBlocked(latestRequest, hasChildrenAfter)
+                        markBlocked(latest)
                         return
                     }
 
                     is JobResult.Failure -> {
-                        val attemptsSoFar = latestRequest.attemptCount + 1
+                        val attemptsSoFar = latest.attemptCount + 1
                         val canRetry = result.isRecoverable && attemptsSoFar < maxAttempts
+
                         if (!canRetry) {
-                            fail(latestRequest, result.error.message ?: "Execution Failed", hasChildrenAfter, attemptsSoFar)
+                            fail(latest, result.error.message ?: "Execution Failed", attemptsSoFar)
                             return
                         }
-                        currRequest = markRetrying(latestRequest, hasChildrenAfter, attemptsSoFar, result.error.message)
+
+                        taskDao.markRetrying(latest.id, attemptsSoFar, result.error.message)
                         val delayMs = retryPolicy.getNextDelay(attemptsSoFar)
                         delay(delayMs.milliseconds)
 
-                        val postDelay = requestDao.getRequestById(currRequest.id)
-                        if (postDelay == null || postDelay.status == RequestStatus.CANCELLED) {
-                            return // cancelled while we were backing off; already persisted
+                        val postDelay = taskDao.getTaskById(currentTask.id)
+                        if (postDelay == null || postDelay.status == RequestStatus.CANCELLED || postDelay.status == RequestStatus.PAUSED) {
+                            return
                         }
-                        currRequest = postDelay
+                        currentTask = postDelay
                     }
                 }
             }
         } catch (e: CancellationException) {
             runCatching {
-                val latest = requestDao.getRequestById(request.id)
-                if (latest != null && latest.status != RequestStatus.CANCELLED) {
-                    markCancelled(latest, requestDao.hasChildren(request.id))
+                val latestTask = taskDao.getTaskById(task.id)
+                val batch = batchDao.getBatchById(task.batchId)
+
+                if (batch?.status == RequestStatus.PAUSED || latestTask?.status == RequestStatus.PAUSED) {
+                    taskDao.updateStatus(task.id, RequestStatus.PAUSED)
+                } else if (batch?.status == RequestStatus.CANCELLED || latestTask?.status == RequestStatus.CANCELLED) {
+                    taskDao.updateStatus(task.id, RequestStatus.CANCELLED)
+                } else {
+                    taskDao.updateStatus(task.id, RequestStatus.PENDING)
                 }
+                syncBatchCompletion(task.batchId)
             }
             throw e
         } catch (e: Exception) {
-            val hasChildren = requestDao.hasChildren(request.id)
-            fail(request, e.message ?: "Unexpected error during execution", hasChildren, currRequest.attemptCount)
+            fail(task, e.message ?: "Unexpected error during execution", currentTask.attemptCount + 1)
         } finally {
             onComplete()
         }
     }
 
-    private fun maxAttemptsFor(request: RequestEntity): Int {
-        val crawlerName = request.parsedMetadata.crawlerName
+    private fun maxAttemptsFor(task: TaskEntity): Int {
+        val crawlerName = task.parsedMetadata.crawlerName
         val crawlerMax = crawlerName?.let { CrawlerFactory.getCrawler(it)?.config?.maxAttempts }
-        return crawlerMax ?: DEFAULT_MAX_ATTEMPTS
+        return crawlerMax ?: task.maxAttempts.takeIf { it > 0 } ?: DEFAULT_MAX_ATTEMPTS
     }
 
-    private fun applyEvent(request: RequestEntity, event: JobEvent, hasChildren: Boolean): RequestEntity {
-        val nextStatus = JobStateMachine.transition(request.status, event)
-        return request.copy(
-            status = nextStatus,
-            rstatus = if (!hasChildren) nextStatus else request.rstatus,
-            updatedAt = System.currentTimeMillis()
-        )
+    private suspend fun markSuccess(task: TaskEntity) {
+        taskDao.markSuccess(task.id)
+        syncBatchCompletion(task.batchId)
     }
 
-    private suspend fun markSuccess(request: RequestEntity, hasChildren: Boolean) {
-        val updated = applyEvent(request, JobEvent.HANDLER_SUCCESS, hasChildren).copy(
-            rstatus = if (!hasChildren) RequestStatus.SUCCESS else request.rstatus,
-            completedAt = System.currentTimeMillis(),
-            progressSuccess = if (hasChildren) request.progressSuccess else request.progressTotal,
-            error = null
-        )
-
-        requestDao.updateRequest(updated)
-        requestDao.propagateProgress(request.id)
+    private suspend fun fail(task: TaskEntity, errorMessage: String, attempts: Int) {
+        taskDao.markFailed(task.id, errorMessage, attempts)
+        syncBatchCompletion(task.batchId)
     }
 
-    private suspend fun fail(request: RequestEntity, errorMessage: String, hasChildren: Boolean, attemptCount: Int = request.attemptCount) {
-        val updated = applyEvent(request, JobEvent.HANDLER_FAILURE_FINAL, hasChildren).copy(
-            rstatus = if (!hasChildren) RequestStatus.FAILED else request.rstatus,
-            progressFailed = if (hasChildren) request.progressFailed else request.progressTotal,
-            error = errorMessage,
-            attemptCount = attemptCount
-        )
-
-        requestDao.updateRequest(updated)
-        requestDao.propagateProgress(request.id)
+    private suspend fun markCancelled(task: TaskEntity) {
+        taskDao.updateStatus(task.id, RequestStatus.CANCELLED)
+        syncBatchCompletion(task.batchId)
     }
 
-    private suspend fun markCancelled(request: RequestEntity, hasChildren: Boolean) {
-        if (request.status == RequestStatus.CANCELLED) return // idempotent
-        val updated = applyEvent(request, JobEvent.CANCEL_REQUESTED, hasChildren).copy(
-            rstatus = if (hasChildren) RequestStatus.CANCELLING else RequestStatus.CANCELLED,
-            progressCancelled = if (hasChildren) request.progressCancelled else request.progressTotal
-        )
-        requestDao.updateRequest(updated)
-        requestDao.propagateProgress(request.id)
-    }
-    private suspend fun markRetrying(request: RequestEntity, hasChildren: Boolean, attemptCount: Int, errorMessage: String?): RequestEntity {
-        val updated = applyEvent(request, JobEvent.HANDLER_FAILURE_RETRYABLE, hasChildren).copy(
-            attemptCount = attemptCount,
-            error = errorMessage
-        )
-        requestDao.updateRequest(updated)
-        return updated
+    private suspend fun markBlocked(task: TaskEntity) {
+        taskDao.updateStatus(task.id, RequestStatus.BLOCKED)
+        batchDao.updateStatus(task.batchId, RequestStatus.BLOCKED)
     }
 
+    private suspend fun syncBatchCompletion(batchId: String) {
+        val tasks = taskDao.getTasksByBatchId(batchId)
+        if (tasks.isEmpty()) return
 
-    private suspend fun markBlocked(request: RequestEntity, hasChildren: Boolean) {
-        val updated = applyEvent(request, JobEvent.BLOCKED_BY_PROTECTION, hasChildren)
-            .copy(error = "Security check required")
+        val batch = batchDao.getBatchById(batchId) ?: return
+        if (batch.status == RequestStatus.CANCELLED || batch.status == RequestStatus.PAUSED) {
+            return
+        }
 
-        requestDao.updateRequest(updated)
+        val allCompleted = tasks.all { 
+            it.status == RequestStatus.SUCCESS || 
+            it.status == RequestStatus.FAILED || 
+            it.status == RequestStatus.CANCELLED 
+        }
+
+        if (allCompleted) {
+            val hasFailed = tasks.any { it.status == RequestStatus.FAILED }
+            val allCancelled = tasks.all { it.status == RequestStatus.CANCELLED }
+
+            val finalStatus = when {
+                allCancelled -> RequestStatus.CANCELLED
+                hasFailed -> RequestStatus.FAILED
+                else -> RequestStatus.SUCCESS
+            }
+            batchDao.markCompleted(batchId, finalStatus)
+        } else {
+            val anyRunning = tasks.any { it.status == RequestStatus.RUNNING }
+            if (anyRunning && batch.status != RequestStatus.RUNNING) {
+                batchDao.updateStatus(batchId, RequestStatus.RUNNING)
+            }
+        }
     }
 }

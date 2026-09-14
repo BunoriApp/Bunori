@@ -4,9 +4,7 @@ import android.net.Uri
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.scrapper.CloudflareBlockedException
-import com.halovoid.bunori.data.db.dao.RequestDao
-import com.halovoid.bunori.data.db.entities.RequestEntity
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.NovelRepository
@@ -22,12 +20,11 @@ class NovelMetadataHandler(
     private val crawlerFactory: CrawlerFactory,
     private val novelRepository: NovelRepository,
     private val chapterRepository: ChapterRepository,
-    private val storageRepository: StorageRepository,
-    private val requestDao: RequestDao
+    private val storageRepository: StorageRepository
 ) : JobHandler {
 
-    override suspend fun handle(request: RequestEntity): JobResult {
-        val metadata = request.parsedMetadata
+    override suspend fun handle(task: TaskEntity): JobResult {
+        val metadata = task.parsedMetadata
         val crawlerName = metadata.crawlerName
             ?: return JobResult.Failure(Exception("No Crawler Provided"))
 
@@ -36,7 +33,7 @@ class NovelMetadataHandler(
 
         return try {
             // 1. Fetch latest details from the source
-            val novel = crawler.getNovelDetails(request.novelUrl)
+            val novel = crawler.getNovelDetails(task.novelUrl)
 
             // 2. Refresh cover image if available
             val coverUri = downloadAndSaveCover(novel.coverUrl, crawler, novel.url)
@@ -51,7 +48,7 @@ class NovelMetadataHandler(
             }
 
             // 4. Fetch existing chapters to preserve local state (like downloaded fileLocation)
-            val existingChapters = chapterRepository.getChaptersByNovelUrl(request.novelUrl)
+            val existingChapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl)
             val existingChapterMap = existingChapters.associateBy { it.url }
 
             val mergedChapters = updatedNovel.chapters.map { chapter ->
@@ -81,7 +78,7 @@ class NovelMetadataHandler(
 
             // 5. Persist the updated data to the database
             novelRepository.saveNovelMetadata(updatedNovel)
-            chapterRepository.insertChapters(mergedChapters)
+            chapterRepository.upsertChapters(mergedChapters)
 
             // Metadata for totalProgressUpdate is not changed in this request
             // Currently user would need to manually do a full novel fetch

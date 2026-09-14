@@ -5,8 +5,7 @@ import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.scrapper.CloudflareBlockedException
 import com.halovoid.bunori.api.core.scrapper.Scrapper
-import com.halovoid.bunori.data.db.dao.RequestDao
-import com.halovoid.bunori.data.db.entities.RequestEntity
+import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.StorageRepository
@@ -15,15 +14,14 @@ import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import com.halovoid.bunori.domain.models.Chapter
 
 class ChapterHandler(
-    private val requestDao: RequestDao,
     private val scrapper: Scrapper,
     private val chapterRepository: ChapterRepository,
     private val storageRepository: StorageRepository,
     private val crawlerFactory: CrawlerFactory
 ) : JobHandler {
-    override suspend fun handle(request: RequestEntity): JobResult {
-        val metadata = request.parsedMetadata
-        if (metadata.chapterId == null || request.url == null) {
+    override suspend fun handle(task: TaskEntity): JobResult {
+        val metadata = task.parsedMetadata
+        if (metadata.chapterId == null || task.url == null) {
             return JobResult.Failure(Exception("Failure to complete request"))
         }
         if (metadata.crawlerName == null) {
@@ -36,7 +34,7 @@ class ChapterHandler(
 
         // 1. Load the Chapter and Save it
         try {
-            val fileLocation = loadAndSaveFile(request.url, crawler, chapter)
+            val fileLocation = loadAndSaveFile(task.url, crawler, chapter)
                 ?: return JobResult.Failure(Exception("Failed to Load Content"))
 
             // 2. Update the file Location in the Chapter Database

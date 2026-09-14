@@ -1,6 +1,6 @@
 package com.halovoid.bunori.data.scheduler.jobs
 
-import com.halovoid.bunori.data.db.entities.RequestEntity
+import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.db.entities.RequestStatus
 import com.halovoid.bunori.data.db.entities.RequestType
 import java.util.concurrent.ConcurrentHashMap
@@ -12,6 +12,8 @@ enum class JobEvent {
     HANDLER_FAILURE_RETRYABLE,
     HANDLER_FAILURE_FINAL,
     CANCEL_REQUESTED,
+    PAUSE_REQUESTED,
+    RESUME_REQUESTED,
     BLOCKED_BY_PROTECTION
 }
 
@@ -33,19 +35,29 @@ object JobStateMachine {
         when (current to event) {
             RequestStatus.PENDING to JobEvent.CLAIMED -> RequestStatus.RUNNING
             RequestStatus.PENDING to JobEvent.CANCEL_REQUESTED -> RequestStatus.CANCELLED
+            RequestStatus.PENDING to JobEvent.PAUSE_REQUESTED -> RequestStatus.PAUSED
 
             RequestStatus.RUNNING to JobEvent.HANDLER_SUCCESS -> RequestStatus.SUCCESS
             RequestStatus.RUNNING to JobEvent.HANDLER_FAILURE_RETRYABLE -> RequestStatus.RUNNING
             RequestStatus.RUNNING to JobEvent.HANDLER_FAILURE_FINAL -> RequestStatus.FAILED
             RequestStatus.RUNNING to JobEvent.CANCEL_REQUESTED -> RequestStatus.CANCELLED
+            RequestStatus.RUNNING to JobEvent.PAUSE_REQUESTED -> RequestStatus.PAUSED
             RequestStatus.RUNNING to JobEvent.BLOCKED_BY_PROTECTION -> RequestStatus.BLOCKED
 
-            else -> error("Illegal Transaction: $current -> $event")
+            RequestStatus.PAUSED to JobEvent.CLAIMED -> RequestStatus.RUNNING
+            RequestStatus.PAUSED to JobEvent.RESUME_REQUESTED -> RequestStatus.PENDING
+            RequestStatus.PAUSED to JobEvent.CANCEL_REQUESTED -> RequestStatus.CANCELLED
+            RequestStatus.PAUSED to JobEvent.PAUSE_REQUESTED -> RequestStatus.PAUSED
+
+            RequestStatus.PENDING to JobEvent.RESUME_REQUESTED -> RequestStatus.PENDING
+            RequestStatus.RUNNING to JobEvent.RESUME_REQUESTED -> RequestStatus.RUNNING
+
+            else -> current
         }
 }
 
 interface JobHandler {
-    suspend fun handle(request: RequestEntity): JobResult
+    suspend fun handle(task: TaskEntity): JobResult
 }
 
 class JobHandlerRegistry {

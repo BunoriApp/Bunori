@@ -70,12 +70,15 @@ class RequestDetailViewModel(
     val chapterMetadata: StateFlow<Chapter?> = _requestId
         .filterNotNull()
         .flatMapLatest { id ->
-            requestRepository.requestDao.getRequestByIdFlow(id)
+            requestRepository.getRequestByIdFlow(id)
         }
         .filterNotNull()
         .map { request ->
-            val chapters = chapterRepository.getChaptersByNovelUrl(request.novelUrl)
-            chapters.find { it.url == request.url }
+            val novelUrl = request.novelUrl ?: request.parentNovel
+            if (novelUrl != null && request.url != null) {
+                val chapters = chapterRepository.getChaptersByNovelUrl(novelUrl)
+                chapters.find { it.url == request.url }
+            } else null
         }
         .flowOn(Dispatchers.IO)
         .stateIn(
@@ -88,7 +91,7 @@ class RequestDetailViewModel(
     val artifactMetadata: StateFlow<Artifact?> = _requestId
         .filterNotNull()
         .flatMapLatest { id ->
-            requestRepository.requestDao.getRequestByIdFlow(id)
+            requestRepository.getRequestByIdFlow(id)
         }
         .filterNotNull()
         .map { request ->
@@ -104,6 +107,12 @@ class RequestDetailViewModel(
 
     fun getRequest(requestId: String): Flow<Request?> {
         return requestRepository.getRequestByIdFlow(requestId)
+    }
+
+    fun pauseRequest(requestId: String) {
+        viewModelScope.launch {
+            requestRepository.pauseRequest(requestId)
+        }
     }
 
     fun replayRequest(requestId: String) {

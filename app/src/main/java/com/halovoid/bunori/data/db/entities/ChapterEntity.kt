@@ -16,7 +16,8 @@ import androidx.room.PrimaryKey
         )
     ],
     indices = [
-        Index("novelUrl")
+        Index("novelUrl"),
+        Index(value = ["novelUrl", "url"], unique = true)
     ]
 )
 data class ChapterEntity(
@@ -24,7 +25,7 @@ data class ChapterEntity(
     val novelUrl: String,
     val url: String,
     val sourceUrl: String? = null,
-    val scanlationSource: String = "NotProvided",
+    val scanlationSource: String = "Not Provided",
     val title: String,
     val index: Int,
     val fileLocation: String?,

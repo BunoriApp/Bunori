@@ -1,0 +1,89 @@
+package com.halovoid.bunori.data.db.dao
+
+import androidx.room.*
+import com.halovoid.bunori.data.db.entities.BatchEntity
+import com.halovoid.bunori.data.db.entities.RequestStatus
+import kotlinx.coroutines.flow.Flow
+
+data class BatchWithStats(
+    @Embedded val batch: BatchEntity,
+    val totalTasks: Int,
+    val completedTasks: Int,
+    val failedTasks: Int
+)
+
+@Dao
+interface BatchDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBatch(batch: BatchEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBatches(batches: List<BatchEntity>)
+
+    @Query("SELECT * FROM batches WHERE id = :id")
+    suspend fun getBatchById(id: String): BatchEntity?
+
+    @Query("SELECT * FROM batches WHERE id = :id")
+    fun getBatchByIdFlow(id: String): Flow<BatchEntity?>
+
+    @Query("""
+        SELECT 
+            b.*,
+            COUNT(t.id) AS totalTasks,
+            COUNT(CASE WHEN t.status = 'SUCCESS' THEN 1 END) AS completedTasks,
+            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks
+        FROM batches b
+        LEFT JOIN tasks t ON b.id = t.batchId
+        WHERE b.id = :id
+        GROUP BY b.id
+    """)
+    fun getBatchWithStatsByIdFlow(id: String): Flow<BatchWithStats?>
+
+    @Query("""
+        SELECT 
+            b.*,
+            COUNT(t.id) AS totalTasks,
+            COUNT(CASE WHEN t.status = 'SUCCESS' THEN 1 END) AS completedTasks,
+            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks
+        FROM batches b
+        LEFT JOIN tasks t ON b.id = t.batchId
+        GROUP BY b.id
+        ORDER BY b.createdAt DESC
+    """)
+    fun getBatchesWithStatsFlow(): Flow<List<BatchWithStats>>
+
+    @Query("""
+        SELECT 
+            b.*,
+            COUNT(t.id) AS totalTasks,
+            COUNT(CASE WHEN t.status = 'SUCCESS' THEN 1 END) AS completedTasks,
+            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks
+        FROM batches b
+        LEFT JOIN tasks t ON b.id = t.batchId
+        WHERE b.novelUrl = :novelUrl
+        GROUP BY b.id
+        ORDER BY b.createdAt DESC
+    """)
+    fun getBatchesWithStatsByNovelFlow(novelUrl: String): Flow<List<BatchWithStats>>
+
+    @Query("SELECT * FROM batches WHERE status IN ('RUNNING', 'PENDING')")
+    suspend fun getActiveBatches(): List<BatchEntity>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM batches WHERE status IN ('RUNNING', 'PENDING', 'PAUSED') LIMIT 1)")
+    suspend fun hasActiveOrPendingBatches(): Boolean
+
+    @Query("UPDATE batches SET status = :status, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateStatus(id: String, status: RequestStatus, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE batches SET status = :status, error = :error, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateStatusWithError(id: String, status: RequestStatus, error: String?, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE batches SET status = :status, completedAt = :completedAt, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun markCompleted(id: String, status: RequestStatus, completedAt: Long = System.currentTimeMillis(), updatedAt: Long = System.currentTimeMillis())
+
+    @Query("DELETE FROM batches WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Update
+    suspend fun updateBatch(batch: BatchEntity)
+}

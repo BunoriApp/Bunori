@@ -2,7 +2,7 @@ package com.halovoid.bunori.api.backup
 
 import android.content.Context
 import com.halovoid.bunori.data.db.AppDatabase
-import com.halovoid.bunori.data.db.entities.RequestEntity
+import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.data.scheduler.jobs.JobHandler
@@ -17,7 +17,7 @@ import java.util.zip.ZipOutputStream
 
 @Suppress("RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
 class BackupService(private val context: Context): JobHandler {
-    override suspend fun handle(request: RequestEntity): JobResult {
+    override suspend fun handle(task: TaskEntity): JobResult {
         return try {
             createBackup()
             JobResult.Success

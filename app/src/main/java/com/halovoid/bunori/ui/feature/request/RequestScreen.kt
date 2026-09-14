@@ -43,9 +43,6 @@ enum class BrowseTab(val title: String) {
     EXTENSIONS("Extensions")
 }
 
-// Backward-compatibility alias
-typealias BrowseSubTab = BrowseTab
-
 /**
  * Modern BrowseScreen adhering to Bunori's dark aesthetic guidelines:
  * - Minimalist Top App Bar with large left-aligned "Browse" title, Search, and MoreVert

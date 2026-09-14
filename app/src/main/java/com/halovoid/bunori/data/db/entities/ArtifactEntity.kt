@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
     tableName = "artifacts",
     foreignKeys = [
         ForeignKey(
-            entity = RequestEntity::class,
+            entity = BatchEntity::class,
             parentColumns = ["id"],
             childColumns = ["requestId"],
             onDelete = ForeignKey.CASCADE

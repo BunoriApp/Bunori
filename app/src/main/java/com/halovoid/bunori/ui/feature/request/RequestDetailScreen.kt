@@ -4,7 +4,10 @@ import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,21 +15,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.halovoid.bunori.data.db.entities.RequestStatus
 import com.halovoid.bunori.data.db.entities.RequestType
 import com.halovoid.bunori.domain.models.Request
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.core.components.AppTopBar
+import com.halovoid.bunori.ui.core.components.ConfirmCancelDialog
 import com.halovoid.bunori.ui.core.components.SecurityCheckDialog
 import com.halovoid.bunori.ui.core.platform.rememberFileExportLauncher
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ArtifactCard
 import com.halovoid.bunori.ui.feature.request.components.RequestCard
-import com.halovoid.bunori.ui.feature.request.components.requestHistorySection
+import com.halovoid.bunori.ui.feature.request.components.StatusIndicator
 import kotlinx.coroutines.launch
 
 @Composable
@@ -55,6 +61,7 @@ fun RequestDetailScreen(
     val artifactMetadata by viewModel.artifactMetadata.collectAsState()
 
     var securityDialogRequest by remember { mutableStateOf<Request?>(null) }
+    var showCancelDialog by remember { mutableStateOf(false) }
 
     if (securityDialogRequest != null) {
         SecurityCheckDialog(
@@ -65,6 +72,18 @@ fun RequestDetailScreen(
                 viewModel.resolveCloudflare(req.id, req.url ?: req.novelUrl)
             },
             onDismiss = { securityDialogRequest = null }
+        )
+    }
+
+    if (showCancelDialog && record != null) {
+        ConfirmCancelDialog(
+            title = "Cancel Batch?",
+            message = "Are you sure you want to stop \"${record!!.name}\"? Any progress made will be preserved, but remaining tasks will stop.",
+            onConfirm = {
+                showCancelDialog = false
+                viewModel.cancelRequest(record!!.id)
+            },
+            onDismiss = { showCancelDialog = false }
         )
     }
 
@@ -108,13 +127,99 @@ fun RequestDetailScreen(
         viewModel.setRequestId(requestId)
     }
 
+    val isCancelling = record != null && cancellingRequestIds.contains(record!!.id)
+    val isActionPending = record != null && activeActionIds.contains(record!!.id)
+
     Scaffold(
         containerColor = DarkBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AppTopBar(
-                title = "Request Details",
-                onBack = onBackClick
+                title = "Batch",
+                onBack = onBackClick,
+                actions = {
+                    val current = record
+                    if (current != null) {
+                        if (isCancelling || isActionPending) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = PrimaryText
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                        } else {
+                            when (current.status) {
+                                RequestStatus.RUNNING -> {
+                                    IconButton(onClick = { viewModel.pauseRequest(current.id) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Pause,
+                                            contentDescription = "Pause",
+                                            tint = PrimaryText
+                                        )
+                                    }
+                                    IconButton(onClick = { showCancelDialog = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Cancel",
+                                            tint = PrimaryText
+                                        )
+                                    }
+                                }
+                                RequestStatus.PAUSED -> {
+                                    IconButton(onClick = { viewModel.resumeRequest(current.id) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.PlayArrow,
+                                            contentDescription = "Resume",
+                                            tint = PrimaryText
+                                        )
+                                    }
+                                    IconButton(onClick = { showCancelDialog = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Cancel",
+                                            tint = PrimaryText
+                                        )
+                                    }
+                                }
+                                RequestStatus.PENDING -> {
+                                    IconButton(onClick = { showCancelDialog = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Cancel",
+                                            tint = PrimaryText
+                                        )
+                                    }
+                                }
+                                RequestStatus.BLOCKED -> {
+                                    IconButton(onClick = { securityDialogRequest = current }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Shield,
+                                            contentDescription = "Resolve Security Check",
+                                            tint = BrandAccent
+                                        )
+                                    }
+                                    IconButton(onClick = { showCancelDialog = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Cancel",
+                                            tint = PrimaryText
+                                        )
+                                    }
+                                }
+                                RequestStatus.SUCCESS, RequestStatus.FAILED, RequestStatus.CANCELLED -> {
+                                    IconButton(onClick = { viewModel.replayRequest(current.id) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Replay",
+                                            tint = PrimaryText
+                                        )
+                                    }
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
+                }
             )
         }
     ) { innerPadding ->
@@ -129,18 +234,15 @@ fun RequestDetailScreen(
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
                     RequestCard(
                         request = currentRecord,
-                        onClick = { /* Already here */ },
-                        onReplay = { viewModel.replayRequest(currentRecord.id) },
-                        onCancel = { viewModel.cancelRequest(currentRecord.id) },
-                        onContinue = { viewModel.resumeRequest(currentRecord.id) },
-                        onSecurityClick = { securityDialogRequest = currentRecord },
-                        isCancelling = cancellingRequestIds.contains(currentRecord.id),
-                        isActionPending = activeActionIds.contains(currentRecord.id)
+                        onClick = null,
+                        allowAction = false,
+                        isCancelling = isCancelling,
+                        isActionPending = isActionPending
                     )
                 }
 
@@ -194,27 +296,66 @@ fun RequestDetailScreen(
                 if (linkedRequests.isNotEmpty()) {
                     item {
                         Text(
-                            "Linked Requests",
+                            text = "Tasks (${linkedRequests.size})",
                             style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                             color = PrimaryText,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
                         )
                     }
-                    requestHistorySection(
-                        requestHistory = linkedRequests,
-                        onRequestClick = onRequestClick,
-                        onGroupClick = onGroupClick,
-                        onReplay = { viewModel.replayRequest(it) },
-                        onCancel = { viewModel.cancelRequest(it) },
-                        onContinue = { viewModel.resumeRequest(it) },
-                        onSecurityClick = { securityDialogRequest = it },
-                        cancellingRequestIds = cancellingRequestIds,
-                        activeActionIds = activeActionIds,
-                        allowAction = true
-                    )
+
+                    items(linkedRequests, key = { it.id }) { task ->
+                        TaskDetailItem(task = task)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun TaskDetailItem(
+    task: Request,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(
+                    text = task.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = PrimaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!task.error.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = task.error,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ErrorRed.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            StatusIndicator(status = task.status)
+        }
+        HorizontalDivider(
+            thickness = 0.5.dp,
+            color = BorderColor.copy(alpha = 0.25f)
+        )
     }
 }
 

@@ -253,7 +253,7 @@ class RequestViewModel(
 
     fun deleteRequestRecord(id: String, requestId: Int) {
         viewModelScope.launch {
-            requestRepository.requestDao.deleteById(id)
+            requestRepository.deleteRequest(id)
         }
     }
 }
