@@ -37,6 +37,7 @@ interface CloudflareResolver {
  */
 class Scrapper(
     private var client: OkHttpClient = OkHttpClient.Builder()
+        .dns(com.halovoid.bunori.api.core.network.NetworkClient.fastDns)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()

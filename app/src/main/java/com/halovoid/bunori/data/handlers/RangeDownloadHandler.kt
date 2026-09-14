@@ -1,8 +1,8 @@
 package com.halovoid.bunori.data.handlers
 
 import com.halovoid.bunori.data.db.dao.TaskDao
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ChapterRepository
@@ -42,10 +42,10 @@ class RangeDownloadHandler(
                 name = chapter.title.ifBlank { "Chapter ${chapter.index}" },
                 url = chapter.url,
                 novelUrl = chapter.novelUrl,
-                type = RequestType.CHAPTER,
+                type = JobType.CHAPTER,
                 priority = task.priority,
                 metadata = taskMetadata,
-                status = RequestStatus.PENDING
+                status = JobStatus.PENDING
             )
         }
 

@@ -8,8 +8,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.domain.models.Request
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
@@ -19,11 +19,11 @@ import com.halovoid.bunori.ui.feature.request.components.requestHistorySection
 
 @Composable
 fun GroupedRequestsScreen(
-    type: RequestType,
+    type: JobType,
     requests: List<Request>,
     allRequests: List<Request>,
-    statusFilters: Map<RequestStatus, FilterState>,
-    onStatusFilterChange: (RequestStatus, FilterState) -> Unit,
+    statusFilters: Map<JobStatus, FilterState>,
+    onStatusFilterChange: (JobStatus, FilterState) -> Unit,
     onBack: () -> Unit,
     onRequestClick: (String) -> Unit,
     onReplay: (String) -> Unit = {},
@@ -45,11 +45,11 @@ fun GroupedRequestsScreen(
         onResolveCloudflare = onResolveCloudflare
     ) { onSecurityClick ->
         val title = when (type) {
-            RequestType.NOVEL_METADATA -> "Metadata"
-            RequestType.CHAPTER -> "Chapter Downloads"
-            RequestType.ARTIFACT -> "Exports"
-            RequestType.RANGE_DOWNLOAD -> "Downloads"
-            RequestType.BACKUP -> "Backups"
+            JobType.NOVEL_METADATA -> "Metadata"
+            JobType.CHAPTER -> "Chapter Downloads"
+            JobType.ARTIFACT -> "Exports"
+            JobType.RANGE_DOWNLOAD -> "Downloads"
+            JobType.BACKUP -> "Backups"
         }
 
         Scaffold(

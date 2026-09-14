@@ -333,6 +333,9 @@ fun NovelPreviewContent(
 
     var isSynopsisExpanded by remember { mutableStateOf(false) }
     var showDetailsSheet by remember { mutableStateOf(false) }
+    val displayChapters = remember(novel.chapters) {
+        novel.chapters.sortedWith(compareBy({ it.index }, { it.scanlationSource }))
+    }
 
     Box(
         modifier = Modifier
@@ -459,9 +462,9 @@ fun NovelPreviewContent(
                 }
             } else {
                 items(
-                    items = novel.chapters,
+                    items = displayChapters,
                     key = { chapter ->
-                        if (chapter.id != 0) chapter.id else "${chapter.index}_${chapter.url.ifBlank { chapter.title }}"
+                        if (chapter.id != 0) chapter.id else "${chapter.index}_${chapter.scanlationSource}_${chapter.url.ifBlank { chapter.title }}"
                     }
                 ) { chapter ->
                     ChapterPreviewRow(

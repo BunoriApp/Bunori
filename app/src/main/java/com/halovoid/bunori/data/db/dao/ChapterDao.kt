@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChapterDao {
-    @Query("SELECT * FROM chapters WHERE novelUrl = :url")
+    @Query("SELECT * FROM chapters WHERE novelUrl = :url ORDER BY `index` ASC, id ASC")
     fun getChapterFromNovel(url: String): List<ChapterEntity>
 
-    @Query("SELECT * FROM chapters WHERE novelUrl = :url")
+    @Query("SELECT * FROM chapters WHERE novelUrl = :url ORDER BY `index` ASC, id ASC")
     fun getChaptersFlow(url: String): Flow<List<ChapterEntity>>
 
     @Query("SELECT * FROM chapters WHERE id = :id")

@@ -4,9 +4,8 @@ import android.content.Context
 import com.halovoid.bunori.data.db.AppDatabase
 import com.halovoid.bunori.data.db.dao.BatchWithStats
 import com.halovoid.bunori.data.db.entities.BatchEntity
-import com.halovoid.bunori.data.db.entities.RequestEntity
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
@@ -52,25 +51,17 @@ class RequestRepository private constructor(private val context: Context) {
             list.map { it.toDomain() }
         }
 
-    suspend fun insertRequests(requests: List<RequestEntity>) = withContext(Dispatchers.IO) {
-        for (request in requests) {
-            val batch = BatchEntity(
-                id = request.id,
-                name = request.name,
-                novelUrl = request.novelUrl,
-                type = request.type,
-                priority = request.priority,
-                metadata = request.metadata
-            )
+    suspend fun insertRequests(batches: List<BatchEntity>) = withContext(Dispatchers.IO) {
+        for (batch in batches) {
             val task = TaskEntity(
-                id = "${request.id}_init",
-                batchId = request.id,
-                name = if (request.type == RequestType.RANGE_DOWNLOAD) "Preparing chapters..." else request.name,
-                url = request.url,
-                novelUrl = request.novelUrl,
-                type = request.type,
-                priority = request.priority,
-                metadata = request.metadata
+                id = "${batch.id}_init",
+                batchId = batch.id,
+                name = if (batch.type == JobType.RANGE_DOWNLOAD) "Preparing chapters..." else batch.name,
+                url = null,
+                novelUrl = batch.novelUrl,
+                type = batch.type,
+                priority = batch.priority,
+                metadata = batch.metadata
             )
             batchDao.insertBatch(batch)
             taskDao.insertTask(task)
@@ -80,8 +71,8 @@ class RequestRepository private constructor(private val context: Context) {
     suspend fun pauseRequest(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
-            batchDao.updateStatus(batchId, RequestStatus.PAUSED)
-            taskDao.updateUnfinishedStatusForBatch(batchId, RequestStatus.PAUSED)
+            batchDao.updateStatus(batchId, JobStatus.PAUSED)
+            taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.PAUSED)
             SchedulerService.pauseJob(context, batchId)
         } finally {
             _activeActionIds.update { it - batchId }
@@ -91,8 +82,8 @@ class RequestRepository private constructor(private val context: Context) {
     suspend fun resumeRequest(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
-            batchDao.updateStatus(batchId, RequestStatus.RUNNING)
-            taskDao.updateStatusForBatch(batchId, RequestStatus.PAUSED, RequestStatus.PENDING)
+            batchDao.updateStatus(batchId, JobStatus.RUNNING)
+            taskDao.updateStatusForBatch(batchId, JobStatus.PAUSED, JobStatus.PENDING)
             SchedulerService.resumeJob(context, batchId)
         } finally {
             _activeActionIds.update { it - batchId }
@@ -102,7 +93,7 @@ class RequestRepository private constructor(private val context: Context) {
     suspend fun replayRequest(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
-            batchDao.updateStatus(batchId, RequestStatus.PENDING)
+            batchDao.updateStatus(batchId, JobStatus.PENDING)
             taskDao.resetAllTasksForBatch(batchId)
             SchedulerService.replayJob(context, batchId)
         } finally {
@@ -113,8 +104,8 @@ class RequestRepository private constructor(private val context: Context) {
     suspend fun cancelRequest(batchId: String) = withContext(Dispatchers.IO) {
         _cancellingRequestIds.update { it + batchId }
         try {
-            batchDao.updateStatus(batchId, RequestStatus.CANCELLED)
-            taskDao.updateUnfinishedStatusForBatch(batchId, RequestStatus.CANCELLED)
+            batchDao.updateStatus(batchId, JobStatus.CANCELLED)
+            taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.CANCELLED)
             SchedulerService.cancelJob(context, batchId)
         } finally {
             _cancellingRequestIds.update { it - batchId }
@@ -172,9 +163,9 @@ fun TaskEntity.toDomain(): Request = Request(
     updatedAt = updatedAt,
     completedAt = completedAt,
     progressTotal = 1,
-    progressSuccess = if (status == RequestStatus.SUCCESS) 1 else 0,
-    progressFailed = if (status == RequestStatus.FAILED) 1 else 0,
-    progressCancelled = if (status == RequestStatus.CANCELLED) 1 else 0,
+    progressSuccess = if (status == JobStatus.SUCCESS) 1 else 0,
+    progressFailed = if (status == JobStatus.FAILED) 1 else 0,
+    progressCancelled = if (status == JobStatus.CANCELLED) 1 else 0,
     status = status,
     rstatus = status,
     metadata = metadata,

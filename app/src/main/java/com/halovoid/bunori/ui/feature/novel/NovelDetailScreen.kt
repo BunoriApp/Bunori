@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.core.components.ConfirmDeleteDialog
@@ -93,11 +93,11 @@ fun NovelDetailScreen(
 
     val ongoingStatuses = remember {
         setOf(
-            RequestStatus.PENDING,
-            RequestStatus.RUNNING,
-            RequestStatus.CANCELLING,
-            RequestStatus.PAUSED,
-            RequestStatus.BLOCKED
+            JobStatus.PENDING,
+            JobStatus.RUNNING,
+            JobStatus.CANCELLING,
+            JobStatus.PAUSED,
+            JobStatus.BLOCKED
         )
     }
     
@@ -107,9 +107,9 @@ fun NovelDetailScreen(
         
         requestHistory.filter { it.rstatus in ongoingStatuses }.forEach { req ->
             val meta = req.parsedMetadata
-            if (req.type == RequestType.CHAPTER) {
+            if (req.type == JobType.CHAPTER) {
                 meta.chapterId?.let { ids.add(it) }
-            } else if (req.type == RequestType.RANGE_DOWNLOAD) {
+            } else if (req.type == JobType.RANGE_DOWNLOAD) {
                 val start = meta.startIndex
                 val end = meta.endIndex
                 if (start != null && end != null) {

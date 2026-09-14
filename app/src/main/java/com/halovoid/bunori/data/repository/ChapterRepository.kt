@@ -35,6 +35,10 @@ class ChapterRepository private constructor(context: Context) {
         chapterDao.upsertChapters(chapters.map { it.toEntity() })
     }
 
+    suspend fun insertChapters(chapters: List<Chapter>) {
+        chapterDao.upsertChapters(chapters.map { it.toEntity() })
+    }
+
     fun getChapterById(id: Int) : Chapter {
         return chapterDao.getChapterById(id).toDomain()
     }

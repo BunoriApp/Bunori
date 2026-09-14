@@ -1,7 +1,7 @@
 package com.halovoid.bunori.data.db.dao
 
 import androidx.room.*
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -37,7 +37,7 @@ interface TaskDao {
     suspend fun getRunningTasks(): List<TaskEntity>
 
     @Query("UPDATE tasks SET status = :status, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun updateStatus(id: String, status: RequestStatus, updatedAt: Long = System.currentTimeMillis())
+    suspend fun updateStatus(id: String, status: JobStatus, updatedAt: Long = System.currentTimeMillis())
 
     @Query("UPDATE tasks SET status = 'SUCCESS', completedAt = :now, updatedAt = :now WHERE id = :id")
     suspend fun markSuccess(id: String, now: Long = System.currentTimeMillis())
@@ -49,10 +49,10 @@ interface TaskDao {
     suspend fun markRetrying(id: String, attemptCount: Int, error: String?, now: Long = System.currentTimeMillis())
 
     @Query("UPDATE tasks SET status = :newStatus, updatedAt = :now WHERE batchId = :batchId AND status = :oldStatus")
-    suspend fun updateStatusForBatch(batchId: String, oldStatus: RequestStatus, newStatus: RequestStatus, now: Long = System.currentTimeMillis())
+    suspend fun updateStatusForBatch(batchId: String, oldStatus: JobStatus, newStatus: JobStatus, now: Long = System.currentTimeMillis())
 
     @Query("UPDATE tasks SET status = :newStatus, updatedAt = :now WHERE batchId = :batchId AND status != 'SUCCESS'")
-    suspend fun updateUnfinishedStatusForBatch(batchId: String, newStatus: RequestStatus, now: Long = System.currentTimeMillis())
+    suspend fun updateUnfinishedStatusForBatch(batchId: String, newStatus: JobStatus, now: Long = System.currentTimeMillis())
 
     @Query("UPDATE tasks SET status = 'PENDING', error = NULL, attemptCount = 0, completedAt = NULL, updatedAt = :now WHERE batchId = :batchId")
     suspend fun resetAllTasksForBatch(batchId: String, now: Long = System.currentTimeMillis())

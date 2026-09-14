@@ -92,7 +92,7 @@ class NovelRepository private constructor(context: Context) {
         
         // Save chapters if present
         if (novel.chapters.isNotEmpty()) {
-            chapterDao.insertChapters(novel.chapters.map { it.toEntity() })
+            chapterDao.upsertChapters(novel.chapters.map { it.toEntity() })
         }
     }
 

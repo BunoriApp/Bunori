@@ -1,8 +1,8 @@
 package com.halovoid.bunori.data.scheduler
 
 import com.halovoid.bunori.data.db.entities.TaskEntity
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.scheduler.jobs.ReadyQueue
 import org.junit.Assert.*
 import org.junit.Test
@@ -23,10 +23,10 @@ class ReadyQueueTest {
             url = "$novelUrl/chapter-$index",
             novelUrl = novelUrl,
             priority = priority,
-            type = RequestType.CHAPTER,
+            type = JobType.CHAPTER,
             createdAt = createdAt,
             completedAt = null,
-            status = RequestStatus.PENDING
+            status = JobStatus.PENDING
         )
     }
 

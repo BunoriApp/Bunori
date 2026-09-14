@@ -28,6 +28,5 @@ data class ChapterEntity(
     val scanlationSource: String = "Not Provided",
     val title: String,
     val index: Int,
-    val fileLocation: String?,
     val read: Boolean = false
 )

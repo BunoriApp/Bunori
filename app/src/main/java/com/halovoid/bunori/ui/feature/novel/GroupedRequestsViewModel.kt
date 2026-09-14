@@ -3,7 +3,7 @@ package com.halovoid.bunori.ui.feature.novel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.repository.RequestRepository
 import com.halovoid.bunori.domain.models.Request
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -33,10 +33,10 @@ class GroupedRequestsViewModel(
 
     private val _scope = MutableStateFlow<RequestScope?>(null)
     
-    private val _statusFilters = MutableStateFlow<Map<RequestStatus, FilterState>>(emptyMap())
-    val statusFilters: StateFlow<Map<RequestStatus, FilterState>> = _statusFilters.asStateFlow()
+    private val _statusFilters = MutableStateFlow<Map<JobStatus, FilterState>>(emptyMap())
+    val statusFilters: StateFlow<Map<JobStatus, FilterState>> = _statusFilters.asStateFlow()
 
-    fun setStatusFilter(status: RequestStatus, state: FilterState) {
+    fun setStatusFilter(status: JobStatus, state: FilterState) {
         val current = _statusFilters.value.toMutableMap()
         if (state == FilterState.NONE) {
             current.remove(status)

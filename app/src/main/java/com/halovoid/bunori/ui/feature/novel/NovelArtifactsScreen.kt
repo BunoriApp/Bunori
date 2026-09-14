@@ -188,7 +188,7 @@ fun NovelArtifactsScreen(
                 val start = chapterRange.start.toInt()
                 val end = chapterRange.endInclusive.toInt()
                 val rangeChapters = chapters.filter { it.index in start..end }
-                val downloadedCount = rangeChapters.count { it.fileLocation?.startsWith("content://") == true }
+                val downloadedCount = rangeChapters.count { it.isDownloaded }
 
                 ArtifactExportDialog(
                     onDismiss = { activeDialog = null },

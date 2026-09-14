@@ -14,7 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.domain.models.Request
 import com.halovoid.bunori.ui.core.components.AppBottomSheet
 import com.halovoid.bunori.ui.core.components.AppBottomSheetDivider
@@ -28,8 +28,8 @@ import com.halovoid.bunori.ui.feature.novel.FilterState
 @Composable
 fun RequestFilterSheet(
     allRequests: List<Request>,
-    statusFilters: Map<RequestStatus, FilterState>,
-    onStatusFilterChange: (RequestStatus, FilterState) -> Unit,
+    statusFilters: Map<JobStatus, FilterState>,
+    onStatusFilterChange: (JobStatus, FilterState) -> Unit,
     onDismiss: () -> Unit
 ) {
     val availableStatuses = remember(allRequests) {

@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.scrapper.Scrapper
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.repository.RequestRepository
 import com.halovoid.bunori.domain.models.Request
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,9 +29,9 @@ class DownloadViewModel(
 
     val globalStats: StateFlow<GlobalDownloadStats> = requestHistory.map { list ->
         val active = list.filter { 
-            it.status == RequestStatus.RUNNING || 
-            it.status == RequestStatus.PAUSED || 
-            it.status == RequestStatus.PENDING 
+            it.status == JobStatus.RUNNING || 
+            it.status == JobStatus.PAUSED || 
+            it.status == JobStatus.PENDING 
         }
         GlobalDownloadStats(
             completed = active.sumOf { it.progressSuccess },

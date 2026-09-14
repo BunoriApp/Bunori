@@ -7,7 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.ui.core.components.AppBottomSheet
 import com.halovoid.bunori.ui.core.components.AppBottomSheetDivider
 import com.halovoid.bunori.ui.core.components.AppBottomSheetGroup
@@ -16,9 +16,9 @@ import com.halovoid.bunori.ui.core.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterBottomSheet(
-    currentFilter: RequestType?,
+    currentFilter: JobType?,
     onDismiss: () -> Unit,
-    onFilterSelected: (RequestType?) -> Unit
+    onFilterSelected: (JobType?) -> Unit
 ) {
     AppBottomSheet(
         onDismiss = onDismiss,
@@ -35,13 +35,13 @@ fun FilterBottomSheet(
             )
             AppBottomSheetDivider()
 
-            RequestType.entries.forEach { type ->
+            JobType.entries.forEach { type ->
                 val label = when (type) {
-                    RequestType.NOVEL_METADATA -> "Metadata"
-                    RequestType.CHAPTER -> "Chapters"
-                    RequestType.ARTIFACT -> "Exports"
-                    RequestType.RANGE_DOWNLOAD -> "Downloads"
-                    RequestType.BACKUP -> "Backups"
+                    JobType.NOVEL_METADATA -> "Metadata"
+                    JobType.CHAPTER -> "Chapters"
+                    JobType.ARTIFACT -> "Exports"
+                    JobType.RANGE_DOWNLOAD -> "Downloads"
+                    JobType.BACKUP -> "Backups"
                 }
                 ListItem(
                     headlineContent = { Text(label, color = PrimaryText) },
@@ -51,7 +51,7 @@ fun FilterBottomSheet(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onFilterSelected(type) }
                 )
-                if (type != RequestType.entries.last()) {
+                if (type != JobType.entries.last()) {
                     AppBottomSheetDivider()
                 }
             }

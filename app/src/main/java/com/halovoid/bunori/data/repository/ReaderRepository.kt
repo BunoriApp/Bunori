@@ -5,11 +5,13 @@ import android.content.Context
 import androidx.core.net.toUri
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.domain.models.Chapter
+import com.halovoid.bunori.domain.models.Download
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class ReaderRepository private constructor(
-    private val context: Context
+    private val context: Context,
+    private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.getInstance(context)
 ) {
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -25,17 +27,24 @@ class ReaderRepository private constructor(
 
     suspend fun getChapterContent(chapter: Chapter, crawlerName: String): String =
         withContext(Dispatchers.IO) {
-            val html = readDownloaded(chapter.fileLocation) ?: fetchLive(chapter, crawlerName)
+            val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
+            val html = if (download != null) {
+                readDownloaded(download) ?: fetchLive(chapter, crawlerName)
+            } else {
+                fetchLive(chapter, crawlerName)
+            }
             html ?: "<p>Couldn't load this chapter. Check your connection and try again</p>"
         }
 
-    private fun readDownloaded(fileLocation: String?): String? {
-        if (fileLocation.isNullOrBlank() || !fileLocation.startsWith("content://")) return null
+    private suspend fun readDownloaded(download: Download): String? {
+        val fileLocation = download.fileLocation
+        if (fileLocation.isBlank() || !fileLocation.startsWith("content://")) return null
         return try {
             context.contentResolver.openInputStream(fileLocation.toUri())
                 ?.bufferedReader()
                 ?.use { it.readText() }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            downloadRepository.deleteDownload(download.novelUrl, download.chapterUrl)
             null
         }
     }

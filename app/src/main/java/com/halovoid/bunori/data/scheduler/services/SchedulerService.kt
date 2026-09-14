@@ -21,8 +21,8 @@ import com.halovoid.bunori.api.loader.SourceLoader
 import com.halovoid.bunori.data.db.AppDatabase
 import com.halovoid.bunori.data.db.dao.BatchDao
 import com.halovoid.bunori.data.db.dao.TaskDao
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.handlers.ArtifactHandler
 import com.halovoid.bunori.data.handlers.ChapterHandler
 import com.halovoid.bunori.data.handlers.NovelMetadataHandler
@@ -134,6 +134,7 @@ class SchedulerService : Service() {
         val preferenceRepository = PreferenceRepository.getInstance(this)
         val storageRepository = StorageRepositoryImpl.getInstance(this)
         val artifactRepository = ArtifactRepository.getInstance(this)
+        val downloadRepository = DownloadRepositoryImpl.getInstance(this)
 
         val epubGenerator = EpubGenerator(storageRepository)
         val pdfGenerator = PdfGenerator(storageRepository)
@@ -143,6 +144,7 @@ class SchedulerService : Service() {
         val crawlerFactory = CrawlerFactory
 
         val okHttpClient = OkHttpClient.Builder()
+            .dns(com.halovoid.bunori.api.core.network.NetworkClient.fastDns)
             .addInterceptor(CloudflareInterceptor(CloudflareResolverImpl.getInstance()))
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -150,17 +152,18 @@ class SchedulerService : Service() {
 
         val scrapper = Scrapper(okHttpClient)
 
-        registry.register(RequestType.CHAPTER, ChapterHandler(
-            scrapper, chapterRepository, storageRepository, crawlerFactory
+        registry.register(JobType.CHAPTER, ChapterHandler(
+            scrapper, chapterRepository, storageRepository, crawlerFactory,
+            downloadRepository, novelRepository
         ))
-        registry.register(RequestType.NOVEL_METADATA, NovelMetadataHandler(
+        registry.register(JobType.NOVEL_METADATA, NovelMetadataHandler(
             crawlerFactory, novelRepository, chapterRepository, storageRepository
         ))
-        registry.register(RequestType.ARTIFACT, ArtifactHandler(
+        registry.register(JobType.ARTIFACT, ArtifactHandler(
             novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository
         ))
-        registry.register(RequestType.BACKUP, BackupService(applicationContext))
-        registry.register(RequestType.RANGE_DOWNLOAD, RangeDownloadHandler(chapterRepository, taskDao))
+        registry.register(JobType.BACKUP, BackupService(applicationContext))
+        registry.register(JobType.RANGE_DOWNLOAD, RangeDownloadHandler(chapterRepository, taskDao))
 
         scheduler = JobScheduler(batchDao, taskDao, registry, preferenceRepository = preferenceRepository)
         scheduler.setOnEmptyListener {
@@ -277,16 +280,16 @@ class SchedulerService : Service() {
     private fun observeProgress() {
         batchDao.getBatchesWithStatsFlow()
             .onEach { batches ->
-                val active = batches.filter { it.batch.status == RequestStatus.RUNNING }
+                val active = batches.filter { it.batch.status == JobStatus.RUNNING }
                     .sortedByDescending { it.batch.updatedAt }
                 if (active.isEmpty()) return@onEach
 
                 val primary = active.first()
                 val config = NotificationConfig(
                     title = when (primary.batch.type) {
-                        RequestType.RANGE_DOWNLOAD -> "Downloading Chapters"
-                        RequestType.ARTIFACT -> "Creating Artifact"
-                        RequestType.NOVEL_METADATA -> "Refreshing Novel"
+                        JobType.RANGE_DOWNLOAD -> "Downloading Chapters"
+                        JobType.ARTIFACT -> "Creating Artifact"
+                        JobType.NOVEL_METADATA -> "Refreshing Novel"
                         else -> "LN Crawler Task"
                     },
                     content = primary.batch.name,

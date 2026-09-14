@@ -18,7 +18,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
@@ -357,7 +357,7 @@ fun NavGraph(navController: NavHostController) {
                     onRequestClick = { requestId: String ->
                         navController.navigate(Screen.RequestDetail.createRoute(requestId))
                     },
-                    onGroupClick = { type: RequestType ->
+                    onGroupClick = { type: JobType ->
                         navController.navigate(Screen.GroupedRequests.createRoute("ALL", "all", type.name))
                     }
                 )
@@ -398,7 +398,7 @@ fun NavGraph(navController: NavHostController) {
                     onRequestClick = { requestId: String ->
                         navController.navigate(Screen.RequestDetail.createRoute(requestId))
                     },
-                    onGroupClick = { type: RequestType ->
+                    onGroupClick = { type: JobType ->
                         navController.navigate(Screen.GroupedRequests.createRoute("ALL", "all", type.name))
                     }
                 )
@@ -632,7 +632,7 @@ fun NavGraph(navController: NavHostController) {
                     "UTF-8"
                 )
                 val typeName = backStackEntry.arguments?.getString("type") ?: ""
-                val type = RequestType.valueOf(typeName)
+                val type = JobType.valueOf(typeName)
 
                 val viewModel: GroupedRequestsViewModel = viewModel(
                     factory = remember { ViewModelFactory(application) }

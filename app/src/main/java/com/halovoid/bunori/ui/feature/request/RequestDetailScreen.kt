@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.domain.models.Request
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.core.components.AppTopBar
@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 fun RequestDetailScreen(
     requestId: String?,
     onBackClick: () -> Unit,
-    onGroupClick: (RequestType) -> Unit,
+    onGroupClick: (JobType) -> Unit,
     onRequestClick: (String) -> Unit
 ) {
     if (requestId == null) {
@@ -149,7 +149,7 @@ fun RequestDetailScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                         } else {
                             when (current.status) {
-                                RequestStatus.RUNNING -> {
+                                JobStatus.RUNNING -> {
                                     IconButton(onClick = { viewModel.pauseRequest(current.id) }) {
                                         Icon(
                                             imageVector = Icons.Default.Pause,
@@ -165,7 +165,7 @@ fun RequestDetailScreen(
                                         )
                                     }
                                 }
-                                RequestStatus.PAUSED -> {
+                                JobStatus.PAUSED -> {
                                     IconButton(onClick = { viewModel.resumeRequest(current.id) }) {
                                         Icon(
                                             imageVector = Icons.Default.PlayArrow,
@@ -181,7 +181,7 @@ fun RequestDetailScreen(
                                         )
                                     }
                                 }
-                                RequestStatus.PENDING -> {
+                                JobStatus.PENDING -> {
                                     IconButton(onClick = { showCancelDialog = true }) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
@@ -190,7 +190,7 @@ fun RequestDetailScreen(
                                         )
                                     }
                                 }
-                                RequestStatus.BLOCKED -> {
+                                JobStatus.BLOCKED -> {
                                     IconButton(onClick = { securityDialogRequest = current }) {
                                         Icon(
                                             imageVector = Icons.Default.Shield,
@@ -206,7 +206,7 @@ fun RequestDetailScreen(
                                         )
                                     }
                                 }
-                                RequestStatus.SUCCESS, RequestStatus.FAILED, RequestStatus.CANCELLED -> {
+                                JobStatus.SUCCESS, JobStatus.FAILED, JobStatus.CANCELLED -> {
                                     IconButton(onClick = { viewModel.replayRequest(current.id) }) {
                                         Icon(
                                             imageVector = Icons.Default.Refresh,
@@ -246,7 +246,7 @@ fun RequestDetailScreen(
                     )
                 }
 
-                if (currentRecord.type == RequestType.CHAPTER && chapterMetadata != null) {
+                if (currentRecord.type == JobType.CHAPTER && chapterMetadata != null) {
                     item {
                         Column {
                             Text(
@@ -267,7 +267,7 @@ fun RequestDetailScreen(
                     }
                 }
 
-                if (currentRecord.type == RequestType.ARTIFACT && artifactMetadata != null) {
+                if (currentRecord.type == JobType.ARTIFACT && artifactMetadata != null) {
                     item {
                         ArtifactCard(
                             artifact = artifactMetadata!!,

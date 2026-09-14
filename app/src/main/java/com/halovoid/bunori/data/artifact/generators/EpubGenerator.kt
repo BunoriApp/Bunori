@@ -6,6 +6,7 @@ import com.halovoid.bunori.data.scheduler.RequestMetadata
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import androidx.core.net.toUri
+import com.halovoid.bunori.data.repository.DownloadRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -46,14 +47,15 @@ private data class EpubItem(
 }
 
 class EpubGenerator(
-    private val storageRepository: StorageRepository
+    private val storageRepository: StorageRepository,
+    private val downloadRepository: DownloadRepository? = null
 ) : ArtifactGenerator {
     override val format: String = "EPUB"
 
     // Constants and CSS for EPUB
     private companion object {
         const val styleFileName = "style.css"
-        const val projectUrl = "https://github.com/LNCrawler/LNCrawler"
+        const val projectUrl = "https://github.com/BunoriApp/LNCrawler"
 
         val epubStyleCSS = """
             |body { font-family: sans-serif; padding: 1em; line-height: 1.5; }
@@ -349,7 +351,8 @@ class EpubGenerator(
         // 2. Build Chapters
         chapters.sortedBy { it.index }.forEach { chapter ->
             ensureActive()
-            val rawContent = chapter.fileLocation?.let { loc ->
+            val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
+            val rawContent = download?.fileLocation?.let { loc ->
                 storageRepository.readText(loc.toUri())
             } ?: "<p><em>Content not available</em></p>"
             val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem)

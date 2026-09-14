@@ -13,7 +13,7 @@ import com.halovoid.bunori.data.scheduler.jobs.JobHandler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
 
 /**
- * Handler for [RequestType.NOVEL_METADATA] requests.
+ * Handler for [JobType.NOVEL_METADATA] requests.
  * Responsible for refreshing novel metadata and chapter lists from the source.
  */
 class NovelMetadataHandler(
@@ -61,8 +61,7 @@ class NovelMetadataHandler(
 
                 if (existing != null) {
                     chapter.copy(
-                        id = existing.id,
-                        fileLocation = existing.fileLocation
+                        id = existing.id
                     ).apply {
                         sourceUrl = existing.sourceUrl ?: chapter.url
                         scanlationSource = effectiveScanlation
@@ -77,8 +76,8 @@ class NovelMetadataHandler(
             }
 
             // 5. Persist the updated data to the database
-            novelRepository.saveNovelMetadata(updatedNovel)
-            chapterRepository.upsertChapters(mergedChapters)
+            val novelToSave = updatedNovel.copy(chapters = mergedChapters)
+            novelRepository.saveNovelMetadata(novelToSave)
 
             // Metadata for totalProgressUpdate is not changed in this request
             // Currently user would need to manually do a full novel fetch

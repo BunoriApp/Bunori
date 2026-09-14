@@ -102,6 +102,7 @@ class BackupService(private val context: Context): JobHandler {
                 put("chapters", backupChapters)
                 put("covers", backupCovers)
                 put("artifacts", backupArtifacts)
+                put("downloads", backupDatabase)
             })
         }
 

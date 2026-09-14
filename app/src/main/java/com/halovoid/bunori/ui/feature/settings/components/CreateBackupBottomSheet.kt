@@ -42,7 +42,7 @@ fun CreateBackupBottomSheet(
         AppBottomSheetGroup {
             ListItem(
                 headlineContent = { Text("Database", color = PrimaryText) },
-                supportingContent = { Text("Library metadata, reading progress, settings", color = SecondaryText) },
+                supportingContent = { Text("Library metadata, downloads, reading progress, settings", color = SecondaryText) },
                 trailingContent = { Checkbox(checked = backupDatabase, onCheckedChange = { backupDatabase = it }) },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { backupDatabase = !backupDatabase }

@@ -19,8 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.ui.core.components.DownloadProgressRing
 import com.halovoid.bunori.ui.core.components.MutedEmptyState
 import com.halovoid.bunori.ui.core.components.ScreenHeader
@@ -38,14 +38,14 @@ import com.halovoid.bunori.ui.feature.request.components.RequestCard
 fun DownloadScreen(
     viewModel: DownloadViewModel,
     onRequestClick: (String) -> Unit,
-    onGroupClick: (RequestType) -> Unit
+    onGroupClick: (JobType) -> Unit
 ) {
     val requestHistory by viewModel.requestHistory.collectAsStateWithLifecycle()
     val globalStats by viewModel.globalStats.collectAsStateWithLifecycle()
     val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
     val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
 
-    var filterType by remember { mutableStateOf<RequestType?>(null) }
+    var filterType by remember { mutableStateOf<JobType?>(null) }
     var showFilterMenu by remember { mutableStateOf(false) }
 
     RequestActionHandler(
@@ -61,19 +61,19 @@ fun DownloadScreen(
 
             val activeBatches = remember(filteredHistory) {
                 filteredHistory.filter {
-                    it.status == RequestStatus.RUNNING ||
-                    it.status == RequestStatus.PAUSED ||
-                    it.status == RequestStatus.PENDING ||
-                    it.status == RequestStatus.BLOCKED ||
-                    it.status == RequestStatus.CANCELLING
+                    it.status == JobStatus.RUNNING ||
+                    it.status == JobStatus.PAUSED ||
+                    it.status == JobStatus.PENDING ||
+                    it.status == JobStatus.BLOCKED ||
+                    it.status == JobStatus.CANCELLING
                 }
             }
 
             val nonActiveBatches = remember(filteredHistory) {
                 filteredHistory.filter {
-                    it.status == RequestStatus.SUCCESS ||
-                    it.status == RequestStatus.FAILED ||
-                    it.status == RequestStatus.CANCELLED
+                    it.status == JobStatus.SUCCESS ||
+                    it.status == JobStatus.FAILED ||
+                    it.status == JobStatus.CANCELLED
                 }
             }
 

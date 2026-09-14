@@ -2,7 +2,7 @@ package com.halovoid.bunori.data.db.dao
 
 import androidx.room.*
 import com.halovoid.bunori.data.db.entities.BatchEntity
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import kotlinx.coroutines.flow.Flow
 
 data class BatchWithStats(
@@ -73,13 +73,13 @@ interface BatchDao {
     suspend fun hasActiveOrPendingBatches(): Boolean
 
     @Query("UPDATE batches SET status = :status, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun updateStatus(id: String, status: RequestStatus, updatedAt: Long = System.currentTimeMillis())
+    suspend fun updateStatus(id: String, status: JobStatus, updatedAt: Long = System.currentTimeMillis())
 
     @Query("UPDATE batches SET status = :status, error = :error, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun updateStatusWithError(id: String, status: RequestStatus, error: String?, updatedAt: Long = System.currentTimeMillis())
+    suspend fun updateStatusWithError(id: String, status: JobStatus, error: String?, updatedAt: Long = System.currentTimeMillis())
 
     @Query("UPDATE batches SET status = :status, completedAt = :completedAt, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun markCompleted(id: String, status: RequestStatus, completedAt: Long = System.currentTimeMillis(), updatedAt: Long = System.currentTimeMillis())
+    suspend fun markCompleted(id: String, status: JobStatus, completedAt: Long = System.currentTimeMillis(), updatedAt: Long = System.currentTimeMillis())
 
     @Query("DELETE FROM batches WHERE id = :id")
     suspend fun deleteById(id: String)

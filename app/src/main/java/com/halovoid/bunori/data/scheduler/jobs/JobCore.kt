@@ -1,8 +1,8 @@
 package com.halovoid.bunori.data.scheduler.jobs
 
 import com.halovoid.bunori.data.db.entities.TaskEntity
-import com.halovoid.bunori.data.db.entities.RequestStatus
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 
@@ -31,26 +31,26 @@ sealed class JobResult {
 }
 
 object JobStateMachine {
-    fun transition(current: RequestStatus, event: JobEvent): RequestStatus =
+    fun transition(current: JobStatus, event: JobEvent): JobStatus =
         when (current to event) {
-            RequestStatus.PENDING to JobEvent.CLAIMED -> RequestStatus.RUNNING
-            RequestStatus.PENDING to JobEvent.CANCEL_REQUESTED -> RequestStatus.CANCELLED
-            RequestStatus.PENDING to JobEvent.PAUSE_REQUESTED -> RequestStatus.PAUSED
+            JobStatus.PENDING to JobEvent.CLAIMED -> JobStatus.RUNNING
+            JobStatus.PENDING to JobEvent.CANCEL_REQUESTED -> JobStatus.CANCELLED
+            JobStatus.PENDING to JobEvent.PAUSE_REQUESTED -> JobStatus.PAUSED
 
-            RequestStatus.RUNNING to JobEvent.HANDLER_SUCCESS -> RequestStatus.SUCCESS
-            RequestStatus.RUNNING to JobEvent.HANDLER_FAILURE_RETRYABLE -> RequestStatus.RUNNING
-            RequestStatus.RUNNING to JobEvent.HANDLER_FAILURE_FINAL -> RequestStatus.FAILED
-            RequestStatus.RUNNING to JobEvent.CANCEL_REQUESTED -> RequestStatus.CANCELLED
-            RequestStatus.RUNNING to JobEvent.PAUSE_REQUESTED -> RequestStatus.PAUSED
-            RequestStatus.RUNNING to JobEvent.BLOCKED_BY_PROTECTION -> RequestStatus.BLOCKED
+            JobStatus.RUNNING to JobEvent.HANDLER_SUCCESS -> JobStatus.SUCCESS
+            JobStatus.RUNNING to JobEvent.HANDLER_FAILURE_RETRYABLE -> JobStatus.RUNNING
+            JobStatus.RUNNING to JobEvent.HANDLER_FAILURE_FINAL -> JobStatus.FAILED
+            JobStatus.RUNNING to JobEvent.CANCEL_REQUESTED -> JobStatus.CANCELLED
+            JobStatus.RUNNING to JobEvent.PAUSE_REQUESTED -> JobStatus.PAUSED
+            JobStatus.RUNNING to JobEvent.BLOCKED_BY_PROTECTION -> JobStatus.BLOCKED
 
-            RequestStatus.PAUSED to JobEvent.CLAIMED -> RequestStatus.RUNNING
-            RequestStatus.PAUSED to JobEvent.RESUME_REQUESTED -> RequestStatus.PENDING
-            RequestStatus.PAUSED to JobEvent.CANCEL_REQUESTED -> RequestStatus.CANCELLED
-            RequestStatus.PAUSED to JobEvent.PAUSE_REQUESTED -> RequestStatus.PAUSED
+            JobStatus.PAUSED to JobEvent.CLAIMED -> JobStatus.RUNNING
+            JobStatus.PAUSED to JobEvent.RESUME_REQUESTED -> JobStatus.PENDING
+            JobStatus.PAUSED to JobEvent.CANCEL_REQUESTED -> JobStatus.CANCELLED
+            JobStatus.PAUSED to JobEvent.PAUSE_REQUESTED -> JobStatus.PAUSED
 
-            RequestStatus.PENDING to JobEvent.RESUME_REQUESTED -> RequestStatus.PENDING
-            RequestStatus.RUNNING to JobEvent.RESUME_REQUESTED -> RequestStatus.RUNNING
+            JobStatus.PENDING to JobEvent.RESUME_REQUESTED -> JobStatus.PENDING
+            JobStatus.RUNNING to JobEvent.RESUME_REQUESTED -> JobStatus.RUNNING
 
             else -> current
         }
@@ -61,13 +61,13 @@ interface JobHandler {
 }
 
 class JobHandlerRegistry {
-    private val handlers = ConcurrentHashMap<RequestType, JobHandler>()
+    private val handlers = ConcurrentHashMap<JobType, JobHandler>()
 
-    fun register(type: RequestType, handler: JobHandler) {
+    fun register(type: JobType, handler: JobHandler) {
         handlers[type] = handler
     }
 
-    fun getHandler(type: RequestType): JobHandler? = handlers[type]
+    fun getHandler(type: JobType): JobHandler? = handlers[type]
 }
 
 interface RetryPolicy {

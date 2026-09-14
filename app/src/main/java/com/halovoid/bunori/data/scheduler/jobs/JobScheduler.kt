@@ -4,7 +4,7 @@ import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.data.config.SchedulerConfig
 import com.halovoid.bunori.data.db.dao.BatchDao
 import com.halovoid.bunori.data.db.dao.TaskDao
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.PreferenceRepository
@@ -59,8 +59,8 @@ class JobScheduler(
 
     fun pauseJob(batchId: String) {
         scope.launch {
-            batchDao.updateStatus(batchId, RequestStatus.PAUSED)
-            taskDao.updateUnfinishedStatusForBatch(batchId, RequestStatus.PAUSED)
+            batchDao.updateStatus(batchId, JobStatus.PAUSED)
+            taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.PAUSED)
             val tasks = taskDao.getTasksByBatchId(batchId)
             tasks.forEach { activeJobs[it.id]?.cancel() }
         }
@@ -68,15 +68,15 @@ class JobScheduler(
 
     fun resumeJob(batchId: String) {
         scope.launch {
-            batchDao.updateStatus(batchId, RequestStatus.RUNNING)
-            taskDao.updateStatusForBatch(batchId, RequestStatus.PAUSED, RequestStatus.PENDING)
+            batchDao.updateStatus(batchId, JobStatus.RUNNING)
+            taskDao.updateStatusForBatch(batchId, JobStatus.PAUSED, JobStatus.PENDING)
             start()
         }
     }
 
     fun replayJob(batchId: String) {
         scope.launch {
-            batchDao.updateStatus(batchId, RequestStatus.PENDING)
+            batchDao.updateStatus(batchId, JobStatus.PENDING)
             taskDao.resetAllTasksForBatch(batchId)
             start()
         }
@@ -84,8 +84,8 @@ class JobScheduler(
 
     fun cancelActiveJob(batchId: String) {
         scope.launch {
-            batchDao.updateStatus(batchId, RequestStatus.CANCELLED)
-            taskDao.updateUnfinishedStatusForBatch(batchId, RequestStatus.CANCELLED)
+            batchDao.updateStatus(batchId, JobStatus.CANCELLED)
+            taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.CANCELLED)
             val tasks = taskDao.getTasksByBatchId(batchId)
             tasks.forEach { activeJobs[it.id]?.cancel() }
         }
@@ -163,9 +163,9 @@ class JobScheduler(
             if (!activeJobs.containsKey(task.id) && leaseMonitor.isExpired(task, now)) {
                 val batch = batchDao.getBatchById(task.batchId)
                 when (batch?.status) {
-                    RequestStatus.CANCELLED -> taskDao.updateStatus(task.id, RequestStatus.CANCELLED)
-                    RequestStatus.PAUSED -> taskDao.updateStatus(task.id, RequestStatus.PAUSED)
-                    else -> taskDao.updateStatus(task.id, RequestStatus.PENDING)
+                    JobStatus.CANCELLED -> taskDao.updateStatus(task.id, JobStatus.CANCELLED)
+                    JobStatus.PAUSED -> taskDao.updateStatus(task.id, JobStatus.PAUSED)
+                    else -> taskDao.updateStatus(task.id, JobStatus.PENDING)
                 }
             }
         }
@@ -180,7 +180,7 @@ internal class WorkerPool(maxConcurrent: Int) {
 
 internal class LeaseMonitor(private val leaseDurationMs: Long) {
     fun isExpired(task: TaskEntity, now: Long = System.currentTimeMillis()): Boolean =
-        task.status == RequestStatus.RUNNING && (now - task.updatedAt) > leaseDurationMs
+        task.status == JobStatus.RUNNING && (now - task.updatedAt) > leaseDurationMs
 }
 
 internal class ReadyQueue {

@@ -17,7 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.domain.models.Request
 import com.halovoid.bunori.ui.core.components.ConfirmCancelDialog
 import com.halovoid.bunori.ui.core.theme.*
@@ -113,7 +113,7 @@ fun CompactRequestItem(
 
 @Composable
 fun StatusIndicator(
-    status: RequestStatus,
+    status: JobStatus,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -122,7 +122,7 @@ fun StatusIndicator(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         when (status) {
-            RequestStatus.RUNNING -> {
+            JobStatus.RUNNING -> {
                 CircularProgressIndicator(
                     modifier = Modifier.size(10.dp),
                     strokeWidth = 1.8.dp,
@@ -130,7 +130,7 @@ fun StatusIndicator(
                 )
                 Text("Running", style = MaterialTheme.typography.labelSmall, color = SecondaryText, fontSize = 11.sp)
             }
-            RequestStatus.PAUSED -> {
+            JobStatus.PAUSED -> {
                 Icon(
                     imageVector = Icons.Default.Pause,
                     contentDescription = "Paused",
@@ -139,7 +139,7 @@ fun StatusIndicator(
                 )
                 Text("Paused", style = MaterialTheme.typography.labelSmall, color = SecondaryText, fontSize = 11.sp)
             }
-            RequestStatus.SUCCESS -> {
+            JobStatus.SUCCESS -> {
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = "Completed",
@@ -148,7 +148,7 @@ fun StatusIndicator(
                 )
                 Text("Completed", style = MaterialTheme.typography.labelSmall, color = SecondaryText, fontSize = 11.sp)
             }
-            RequestStatus.FAILED -> {
+            JobStatus.FAILED -> {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Failed",
@@ -157,7 +157,7 @@ fun StatusIndicator(
                 )
                 Text("Failed", style = MaterialTheme.typography.labelSmall, color = SecondaryText, fontSize = 11.sp)
             }
-            RequestStatus.CANCELLED -> {
+            JobStatus.CANCELLED -> {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Cancelled",
@@ -166,7 +166,7 @@ fun StatusIndicator(
                 )
                 Text("Cancelled", style = MaterialTheme.typography.labelSmall, color = SecondaryText, fontSize = 11.sp)
             }
-            RequestStatus.CANCELLING -> {
+            JobStatus.CANCELLING -> {
                 CircularProgressIndicator(
                     modifier = Modifier.size(10.dp),
                     strokeWidth = 1.8.dp,
@@ -174,7 +174,7 @@ fun StatusIndicator(
                 )
                 Text("Cancelling", style = MaterialTheme.typography.labelSmall, color = SecondaryText, fontSize = 11.sp)
             }
-            RequestStatus.BLOCKED -> {
+            JobStatus.BLOCKED -> {
                 Icon(
                     imageVector = Icons.Default.Shield,
                     contentDescription = "Blocked",
@@ -183,7 +183,7 @@ fun StatusIndicator(
                 )
                 Text("Blocked", style = MaterialTheme.typography.labelSmall, color = SecondaryText, fontSize = 11.sp)
             }
-            RequestStatus.PENDING -> {
+            JobStatus.PENDING -> {
                 Icon(
                     imageVector = Icons.Default.Schedule,
                     contentDescription = "Queued",
@@ -318,7 +318,7 @@ fun RequestCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (request.status == RequestStatus.BLOCKED && onSecurityClick != null) {
+                    if (request.status == JobStatus.BLOCKED && onSecurityClick != null) {
                         IconButton(
                             onClick = onSecurityClick,
                             modifier = Modifier.size(28.dp)
@@ -415,7 +415,7 @@ fun RequestCard(
                             color = ErrorRed,
                             fontSize = 10.sp
                         )
-                    } else if (request.status == RequestStatus.RUNNING || request.status == RequestStatus.PENDING || request.status == RequestStatus.BLOCKED) {
+                    } else if (request.status == JobStatus.RUNNING || request.status == JobStatus.PENDING || request.status == JobStatus.BLOCKED) {
                         if (onCancel != null) {
                             TextButton(
                                 onClick = { showCancelDialog = true },
@@ -428,7 +428,7 @@ fun RequestCard(
                                 Text("Cancel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                    } else if (request.status == RequestStatus.PAUSED) {
+                    } else if (request.status == JobStatus.PAUSED) {
                         if (onContinue != null) {
                             TextButton(
                                 onClick = onContinue,
@@ -454,7 +454,7 @@ fun RequestCard(
                                 Text("Cancel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                    } else if (request.status == RequestStatus.SUCCESS || request.status == RequestStatus.FAILED || request.status == RequestStatus.CANCELLED) {
+                    } else if (request.status == JobStatus.SUCCESS || request.status == JobStatus.FAILED || request.status == JobStatus.CANCELLED) {
                         if (onReplay != null) {
                             TextButton(
                                 onClick = onReplay,

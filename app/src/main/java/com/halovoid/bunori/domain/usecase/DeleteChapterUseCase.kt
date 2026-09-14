@@ -1,7 +1,7 @@
 package com.halovoid.bunori.domain.usecase
 
 import android.net.Uri
-import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.ui.core.logging.AppLog
@@ -10,21 +10,18 @@ import com.halovoid.bunori.ui.core.logging.AppLog
  * Single business action for deleting a downloaded chapter's file and updating its database state.
  */
 class DeleteChapterUseCase(
-    private val chapterRepository: ChapterRepository,
+    private val downloadRepository: DownloadRepository,
     private val storageRepository: StorageRepository
 ) {
     suspend operator fun invoke(chapter: Chapter) {
-        chapter.fileLocation?.let { location ->
+        val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
+        if (download != null) {
             try {
-                storageRepository.delete(Uri.parse(location))
+                storageRepository.delete(Uri.parse(download.fileLocation))
             } catch (e: Exception) {
-                AppLog.w("DeleteChapterUseCase", "Failed to delete chapter file at $location", e)
+                AppLog.w("DeleteChapterUseCase", "Failed to delete chapter file at ${download.fileLocation}", e)
             }
+            downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
         }
-        chapterRepository.updateChapter(chapter.copy(fileLocation = null).apply {
-            sourceUrl = chapter.sourceUrl
-            scanlationSource = chapter.scanlationSource
-            read = chapter.read
-        })
     }
 }

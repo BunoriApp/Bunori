@@ -149,7 +149,7 @@ fun ChapterRow(
             modifier = Modifier.size(40.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (chapter.fileLocation?.contains("content://") == true) {
+            if (chapter.isDownloaded) {
                 IconButton(
                     onClick = { showMenu = true },
                     modifier = Modifier.fillMaxSize()

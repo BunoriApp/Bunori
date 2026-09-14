@@ -4,7 +4,7 @@ import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.data.config.SchedulerConfig
 import com.halovoid.bunori.data.db.dao.BatchDao
 import com.halovoid.bunori.data.db.dao.TaskDao
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import kotlinx.coroutines.CancellationException
@@ -26,12 +26,12 @@ class JobRunner(
         var currentTask = task
         try {
             val preClaim = taskDao.getTaskById(currentTask.id)
-            if (preClaim == null || preClaim.status == RequestStatus.CANCELLED || preClaim.status == RequestStatus.PAUSED) {
+            if (preClaim == null || preClaim.status == JobStatus.CANCELLED || preClaim.status == JobStatus.PAUSED) {
                 return
             }
 
-            taskDao.updateStatus(currentTask.id, RequestStatus.RUNNING)
-            batchDao.updateStatus(currentTask.batchId, RequestStatus.RUNNING)
+            taskDao.updateStatus(currentTask.id, JobStatus.RUNNING)
+            batchDao.updateStatus(currentTask.batchId, JobStatus.RUNNING)
 
             val handler = handlerRegistry.getHandler(currentTask.type)
             if (handler == null) {
@@ -45,7 +45,7 @@ class JobRunner(
                 val result = handler.handle(currentTask)
 
                 val latest = taskDao.getTaskById(currentTask.id) ?: currentTask
-                if (latest.status == RequestStatus.CANCELLED || latest.status == RequestStatus.PAUSED) {
+                if (latest.status == JobStatus.CANCELLED || latest.status == JobStatus.PAUSED) {
                     return
                 }
 
@@ -79,7 +79,7 @@ class JobRunner(
                         delay(delayMs.milliseconds)
 
                         val postDelay = taskDao.getTaskById(currentTask.id)
-                        if (postDelay == null || postDelay.status == RequestStatus.CANCELLED || postDelay.status == RequestStatus.PAUSED) {
+                        if (postDelay == null || postDelay.status == JobStatus.CANCELLED || postDelay.status == JobStatus.PAUSED) {
                             return
                         }
                         currentTask = postDelay
@@ -91,12 +91,12 @@ class JobRunner(
                 val latestTask = taskDao.getTaskById(task.id)
                 val batch = batchDao.getBatchById(task.batchId)
 
-                if (batch?.status == RequestStatus.PAUSED || latestTask?.status == RequestStatus.PAUSED) {
-                    taskDao.updateStatus(task.id, RequestStatus.PAUSED)
-                } else if (batch?.status == RequestStatus.CANCELLED || latestTask?.status == RequestStatus.CANCELLED) {
-                    taskDao.updateStatus(task.id, RequestStatus.CANCELLED)
+                if (batch?.status == JobStatus.PAUSED || latestTask?.status == JobStatus.PAUSED) {
+                    taskDao.updateStatus(task.id, JobStatus.PAUSED)
+                } else if (batch?.status == JobStatus.CANCELLED || latestTask?.status == JobStatus.CANCELLED) {
+                    taskDao.updateStatus(task.id, JobStatus.CANCELLED)
                 } else {
-                    taskDao.updateStatus(task.id, RequestStatus.PENDING)
+                    taskDao.updateStatus(task.id, JobStatus.PENDING)
                 }
                 syncBatchCompletion(task.batchId)
             }
@@ -125,13 +125,13 @@ class JobRunner(
     }
 
     private suspend fun markCancelled(task: TaskEntity) {
-        taskDao.updateStatus(task.id, RequestStatus.CANCELLED)
+        taskDao.updateStatus(task.id, JobStatus.CANCELLED)
         syncBatchCompletion(task.batchId)
     }
 
     private suspend fun markBlocked(task: TaskEntity) {
-        taskDao.updateStatus(task.id, RequestStatus.BLOCKED)
-        batchDao.updateStatus(task.batchId, RequestStatus.BLOCKED)
+        taskDao.updateStatus(task.id, JobStatus.BLOCKED)
+        batchDao.updateStatus(task.batchId, JobStatus.BLOCKED)
     }
 
     private suspend fun syncBatchCompletion(batchId: String) {
@@ -139,30 +139,30 @@ class JobRunner(
         if (tasks.isEmpty()) return
 
         val batch = batchDao.getBatchById(batchId) ?: return
-        if (batch.status == RequestStatus.CANCELLED || batch.status == RequestStatus.PAUSED) {
+        if (batch.status == JobStatus.CANCELLED || batch.status == JobStatus.PAUSED) {
             return
         }
 
         val allCompleted = tasks.all { 
-            it.status == RequestStatus.SUCCESS || 
-            it.status == RequestStatus.FAILED || 
-            it.status == RequestStatus.CANCELLED 
+            it.status == JobStatus.SUCCESS || 
+            it.status == JobStatus.FAILED || 
+            it.status == JobStatus.CANCELLED 
         }
 
         if (allCompleted) {
-            val hasFailed = tasks.any { it.status == RequestStatus.FAILED }
-            val allCancelled = tasks.all { it.status == RequestStatus.CANCELLED }
+            val hasFailed = tasks.any { it.status == JobStatus.FAILED }
+            val allCancelled = tasks.all { it.status == JobStatus.CANCELLED }
 
             val finalStatus = when {
-                allCancelled -> RequestStatus.CANCELLED
-                hasFailed -> RequestStatus.FAILED
-                else -> RequestStatus.SUCCESS
+                allCancelled -> JobStatus.CANCELLED
+                hasFailed -> JobStatus.FAILED
+                else -> JobStatus.SUCCESS
             }
             batchDao.markCompleted(batchId, finalStatus)
         } else {
-            val anyRunning = tasks.any { it.status == RequestStatus.RUNNING }
-            if (anyRunning && batch.status != RequestStatus.RUNNING) {
-                batchDao.updateStatus(batchId, RequestStatus.RUNNING)
+            val anyRunning = tasks.any { it.status == JobStatus.RUNNING }
+            if (anyRunning && batch.status != JobStatus.RUNNING) {
+                batchDao.updateStatus(batchId, JobStatus.RUNNING)
             }
         }
     }

@@ -36,6 +36,7 @@ class ExtensionManager private constructor(private val context: Context) {
     val failedExtensions: StateFlow<List<String>> = _failedExtensions.asStateFlow()
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .dns(com.halovoid.bunori.api.core.network.NetworkClient.fastDns)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .followRedirects(true)

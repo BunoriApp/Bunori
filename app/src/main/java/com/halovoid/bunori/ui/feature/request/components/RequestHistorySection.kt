@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.halovoid.bunori.data.db.entities.RequestType
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.domain.models.Request
 import com.halovoid.bunori.ui.core.components.SecurityCheckDialog
 import com.halovoid.bunori.ui.core.theme.*
@@ -24,7 +24,7 @@ import com.halovoid.bunori.ui.core.theme.*
 fun LazyListScope.requestHistorySection(
     requestHistory: List<Request>,
     onRequestClick: (String) -> Unit,
-    onGroupClick: (RequestType) -> Unit,
+    onGroupClick: (JobType) -> Unit,
     onReplay: (String) -> Unit = {},
     onCancel: (String) -> Unit = {},
     onContinue: (String) -> Unit = {},
@@ -112,7 +112,7 @@ fun RequestActionHandler(
 
 @Composable
 fun RequestGroupCard(
-    type: RequestType,
+    type: JobType,
     requests: List<Request>,
     onClick: () -> Unit
 ) {
@@ -123,11 +123,11 @@ fun RequestGroupCard(
     val latestUpdate = requests.maxOfOrNull { it.updatedAt } ?: 0L
 
     val typeName = when (type) {
-        RequestType.NOVEL_METADATA -> "Metadata"
-        RequestType.CHAPTER -> "Chapters"
-        RequestType.ARTIFACT -> "Exports"
-        RequestType.RANGE_DOWNLOAD -> "Downloads"
-        RequestType.BACKUP -> "Backups"
+        JobType.NOVEL_METADATA -> "Metadata"
+        JobType.CHAPTER -> "Chapters"
+        JobType.ARTIFACT -> "Exports"
+        JobType.RANGE_DOWNLOAD -> "Downloads"
+        JobType.BACKUP -> "Backups"
     }
 
     Surface(

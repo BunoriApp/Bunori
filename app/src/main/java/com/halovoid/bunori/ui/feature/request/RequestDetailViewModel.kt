@@ -4,7 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.halovoid.bunori.data.db.entities.RequestStatus
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.RequestRepository
@@ -29,10 +29,10 @@ class RequestDetailViewModel(
         _requestId.value = id
     }
 
-    private val _statusFilter = MutableStateFlow<RequestStatus?>(null)
-    val statusFilter: StateFlow<RequestStatus?> = _statusFilter.asStateFlow()
+    private val _statusFilter = MutableStateFlow<JobStatus?>(null)
+    val statusFilter: StateFlow<JobStatus?> = _statusFilter.asStateFlow()
 
-    fun setStatusFilter(status: RequestStatus?) {
+    fun setStatusFilter(status: JobStatus?) {
         _statusFilter.value = status
     }
 

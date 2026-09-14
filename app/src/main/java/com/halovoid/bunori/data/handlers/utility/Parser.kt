@@ -1,6 +1,6 @@
 package com.halovoid.bunori.data.handlers.utility
 
-import com.halovoid.bunori.data.db.entities.RequestEntity
+import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.domain.models.Request
 import com.halovoid.bunori.data.scheduler.RequestMetadata
@@ -24,7 +24,7 @@ val Request.parsedMetadata: RequestMetadata
         }
     }
 
-val RequestEntity.parsedMetadata: RequestMetadata
+val BatchEntity.parsedMetadata: RequestMetadata
     get() {
         if (this.metadata.isNullOrBlank()) return RequestMetadata()
         return try {
