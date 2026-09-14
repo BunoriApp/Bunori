@@ -16,7 +16,8 @@ import androidx.room.PrimaryKey
         )
     ],
     indices = [
-        Index("novelUrl")
+        Index("novelUrl"),
+        Index(value = ["novelUrl", "url"], unique = true)
     ]
 )
 data class ChapterEntity(

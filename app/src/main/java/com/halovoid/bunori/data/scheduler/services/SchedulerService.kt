@@ -129,6 +129,7 @@ class SchedulerService : Service() {
         
         // Initialize OkHttpClient with Cloudflare Interceptor
         val okHttpClient = OkHttpClient.Builder()
+            .dns(com.halovoid.bunori.api.core.network.NetworkClient.fastDns)
             .addInterceptor(CloudflareInterceptor(CloudflareResolverImpl.getInstance()))
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

@@ -213,4 +213,22 @@ object DatabaseMigrations {
             db.execSQL("PRAGMA foreign_keys = ON")
         }
     }
+
+    val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                UPDATE chapters SET fileLocation = (
+                    SELECT c2.fileLocation FROM chapters c2 
+                    WHERE c2.novelUrl = chapters.novelUrl AND c2.url = chapters.url AND c2.fileLocation IS NOT NULL 
+                    LIMIT 1
+                ) WHERE fileLocation IS NULL
+            """.trimIndent())
+            db.execSQL("""
+                DELETE FROM chapters WHERE id NOT IN (
+                    SELECT MIN(id) FROM chapters GROUP BY novelUrl, url
+                )
+            """.trimIndent())
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_chapters_novelUrl_url` ON `chapters` (`novelUrl`, `url`)")
+        }
+    }
 }

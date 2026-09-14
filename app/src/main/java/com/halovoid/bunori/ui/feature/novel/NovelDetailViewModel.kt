@@ -159,9 +159,9 @@ class NovelDetailViewModel(
         when (sort.type) {
             SortType.CHAPTER_NUMBER -> {
                 if (sort.order == SortOrder.ASCENDING) {
-                    filteredBySource.sortedWith(compareBy({ it.index }, { it.id }))
+                    filteredBySource.sortedWith(compareBy({ it.index }, { it.scanlationSource }, { it.id }))
                 } else {
-                    filteredBySource.sortedWith(compareByDescending<Chapter> { it.index }.thenByDescending { it.id })
+                    filteredBySource.sortedWith(compareByDescending<Chapter> { it.index }.thenBy { it.scanlationSource }.thenByDescending { it.id })
                 }
             }
             SortType.ALPHABETICAL -> {
@@ -212,8 +212,9 @@ class NovelDetailViewModel(
                             _selectedSources.value = sources.toSet()
                         }
                         val currentRange = _chapterRange.value
+                        val maxIdx = currentNovel.chapters.maxOfOrNull { it.index.toFloat() } ?: currentNovel.chapters.size.toFloat()
                         if (currentRange.start == 1f && currentRange.endInclusive == 1f) {
-                            _chapterRange.value = 1f..currentNovel.chapters.size.toFloat()
+                            _chapterRange.value = 1f..maxIdx
                         }
                     }
                 }

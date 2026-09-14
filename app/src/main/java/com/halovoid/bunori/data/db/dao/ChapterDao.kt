@@ -5,15 +5,16 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Upsert
 import com.halovoid.bunori.data.db.entities.ChapterEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChapterDao {
-    @Query("SELECT * FROM chapters WHERE novelUrl = :url")
+    @Query("SELECT * FROM chapters WHERE novelUrl = :url ORDER BY `index` ASC, id ASC")
     fun getChapterFromNovel(url: String): List<ChapterEntity>
 
-    @Query("SELECT * FROM chapters WHERE novelUrl = :url")
+    @Query("SELECT * FROM chapters WHERE novelUrl = :url ORDER BY `index` ASC, id ASC")
     fun getChaptersFlow(url: String): Flow<List<ChapterEntity>>
 
     @Query("SELECT * FROM chapters WHERE id = :id")
@@ -31,7 +32,10 @@ interface ChapterDao {
     @Query("UPDATE chapters SET read = :read WHERE url = :chapterUrl")
     suspend fun updateChapterReadStatusByUrl(chapterUrl: String, read: Boolean)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
+    suspend fun upsertChapters(chapters: List<ChapterEntity>)
+
+    @Upsert
     suspend fun insertChapters(chapters: List<ChapterEntity>)
 
     @Update
