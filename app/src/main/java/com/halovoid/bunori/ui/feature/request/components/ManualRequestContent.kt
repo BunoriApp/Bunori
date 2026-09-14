@@ -38,11 +38,9 @@ fun ManualRequestContent(
                 if (libraryUrls.contains(urlInput)) {
                     onNavigateToDetail(crawlerName, urlInput)
                 } else {
-                    viewModel.pushToRedis(urlInput) {
-                        viewModel.setPreviewUrl(urlInput)
-                        viewModel.setPreviewNovel(null)
-                        onNavigateToPreview()
-                    }
+                    viewModel.setPreviewUrl(urlInput)
+                    viewModel.setPreviewNovel(null)
+                    onNavigateToPreview()
                 }
             }
         }

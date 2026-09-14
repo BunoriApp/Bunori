@@ -13,6 +13,7 @@ import android.text.TextPaint
 import android.text.TextUtils
 import androidx.core.net.toUri
 import com.halovoid.bunori.data.artifact.ArtifactGenerator
+import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.data.scheduler.RequestMetadata
 import com.halovoid.bunori.domain.models.Chapter
@@ -215,7 +216,8 @@ private class PagedPdfWriter(
 }
 
 class PdfGenerator(
-    private val storageRepository: StorageRepository
+    private val storageRepository: StorageRepository,
+    private val downloadRepository: DownloadRepository? = null
 ) : ArtifactGenerator {
     override val format: String = "PDF"
 
@@ -225,7 +227,7 @@ class PdfGenerator(
         const val MARGIN_X = 46f
         const val MARGIN_TOP = 58f
         const val MARGIN_BOTTOM = 56f
-        const val PROJECT_NAME = "LN Crawler"
+        const val PROJECT_NAME = "Bunori"
     }
 
     private val imgTagRegex = Regex("""<img[^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*>""", RegexOption.IGNORE_CASE)
@@ -379,7 +381,8 @@ class PdfGenerator(
         val chapterBlocks = mutableMapOf<Any, List<ContentBlock>>()
         for (chapter in sortedChapters) {
             ensureActive()
-            val rawContent = chapter.fileLocation?.let { loc -> storageRepository.readText(loc.toUri()) }
+            val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
+            val rawContent = download?.fileLocation?.let { loc -> storageRepository.readText(loc.toUri()) }
                 ?: "<p><em>Content not available</em></p>"
             chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache)
         }

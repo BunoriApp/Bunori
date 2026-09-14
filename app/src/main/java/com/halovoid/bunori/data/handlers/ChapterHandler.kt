@@ -9,17 +9,22 @@ import com.halovoid.bunori.data.db.dao.RequestDao
 import com.halovoid.bunori.data.db.entities.RequestEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.DownloadRepository
+import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.data.scheduler.jobs.JobHandler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import com.halovoid.bunori.domain.models.Chapter
+import com.halovoid.bunori.domain.models.Download
 
 class ChapterHandler(
     private val requestDao: RequestDao,
     private val scrapper: Scrapper,
     private val chapterRepository: ChapterRepository,
     private val storageRepository: StorageRepository,
-    private val crawlerFactory: CrawlerFactory
+    private val crawlerFactory: CrawlerFactory,
+    private val downloadRepository: DownloadRepository,
+    private val novelRepository: NovelRepository
 ) : JobHandler {
     override suspend fun handle(request: RequestEntity): JobResult {
         val metadata = request.parsedMetadata
@@ -33,20 +38,26 @@ class ChapterHandler(
             ?: return JobResult.Failure(Exception("No Crawler Found"))
 
         val chapter = chapterRepository.getChapterById(metadata.chapterId)
+        val novel = novelRepository.getNovelDetails(chapter.novelUrl)
+        val novelTitle = novel?.title ?: "Novel"
 
         // 1. Load the Chapter and Save it
         try {
             val fileLocation = loadAndSaveFile(request.url, crawler, chapter)
                 ?: return JobResult.Failure(Exception("Failed to Load Content"))
 
-            // 2. Update the file Location in the Chapter Database
-            chapterRepository.updateChapter(chapter = chapter.copy(
-                fileLocation = fileLocation.toString()
-            ).apply {
-                sourceUrl = chapter.sourceUrl
-                scanlationSource = chapter.scanlationSource
-                read = chapter.read
-            })
+            // 2. Save into the Download table
+            downloadRepository.saveDownload(
+                Download(
+                    novelUrl = chapter.novelUrl,
+                    chapterUrl = chapter.url,
+                    fileLocation = fileLocation.toString(),
+                    chapterIndex = chapter.index,
+                    chapterTitle = chapter.title,
+                    scanlationSource = chapter.scanlationSource,
+                    novelTitle = novelTitle
+                )
+            )
 
             return JobResult.Success
         } catch (e: CloudflareBlockedException) {
@@ -62,7 +73,7 @@ class ChapterHandler(
                 val chapterContent = crawler.getChapterContent(url)
                 if (!chapterContent.isNullOrBlank() && chapterContent.trim().length > 100) {
                     val novelKey = crawler.getNovelKey(chapter.novelUrl)
-                    val fileName = "${chapter.index.toString().padStart(4, '0')}.html"
+                    val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html"
                     val relativePath = "novels/$novelKey/chapters"
 
                     val localUri = storageRepository.saveText(

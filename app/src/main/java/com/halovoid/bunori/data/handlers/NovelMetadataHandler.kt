@@ -64,8 +64,7 @@ class NovelMetadataHandler(
 
                 if (existing != null) {
                     chapter.copy(
-                        id = existing.id,
-                        fileLocation = existing.fileLocation
+                        id = existing.id
                     ).apply {
                         sourceUrl = existing.sourceUrl ?: chapter.url
                         scanlationSource = effectiveScanlation

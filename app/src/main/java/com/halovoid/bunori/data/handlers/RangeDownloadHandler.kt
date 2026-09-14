@@ -41,7 +41,7 @@ class RangeDownloadHandler(
         val chapterRequests = chapters.map { chapter ->
             currentCoroutineContext().ensureActive()
 
-            val requestId = "${request.id}_chapter_${chapter.index}"
+            val requestId = "${request.id}_chapter_${chapter.index}_${chapter.id}"
             val existing = requestDao.getRequestById(requestId)
             
             // If it already exists and is finished, don't recreate it

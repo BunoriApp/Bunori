@@ -231,4 +231,78 @@ object DatabaseMigrations {
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_chapters_novelUrl_url` ON `chapters` (`novelUrl`, `url`)")
         }
     }
+
+    val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("PRAGMA foreign_keys = OFF")
+
+            // 1. Create downloads table
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `downloads` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `novelUrl` TEXT NOT NULL,
+                    `chapterUrl` TEXT NOT NULL,
+                    `fileLocation` TEXT NOT NULL,
+                    `chapterIndex` INTEGER NOT NULL,
+                    `chapterTitle` TEXT NOT NULL,
+                    `scanlationSource` TEXT NOT NULL,
+                    `novelTitle` TEXT NOT NULL,
+                    `sizeBytes` INTEGER NOT NULL,
+                    `downloadedAt` INTEGER NOT NULL
+                )
+            """.trimIndent())
+
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_downloads_novelUrl_chapterUrl` ON `downloads` (`novelUrl`, `chapterUrl`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_downloads_novelUrl` ON `downloads` (`novelUrl`)")
+
+            // 2. Migrate existing downloaded chapters into downloads table
+            db.execSQL("""
+                INSERT OR IGNORE INTO `downloads` (
+                    `novelUrl`, `chapterUrl`, `fileLocation`, `chapterIndex`, `chapterTitle`,
+                    `scanlationSource`, `novelTitle`, `sizeBytes`, `downloadedAt`
+                )
+                SELECT 
+                    c.novelUrl,
+                    c.url,
+                    c.fileLocation,
+                    c.`index`,
+                    c.title,
+                    c.scanlationSource,
+                    COALESCE((SELECT n.title FROM novels n WHERE n.url = c.novelUrl LIMIT 1), ''),
+                    0,
+                    strftime('%s', 'now') * 1000
+                FROM chapters c
+                WHERE c.fileLocation IS NOT NULL AND c.fileLocation != ''
+            """.trimIndent())
+
+            // 3. Recreate chapters table without fileLocation column
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `chapters_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `novelUrl` TEXT NOT NULL,
+                    `url` TEXT NOT NULL,
+                    `sourceUrl` TEXT,
+                    `scanlationSource` TEXT NOT NULL,
+                    `title` TEXT NOT NULL,
+                    `index` INTEGER NOT NULL,
+                    `read` INTEGER NOT NULL,
+                    FOREIGN KEY(`novelUrl`) REFERENCES `novels`(`url`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+            """.trimIndent())
+
+            db.execSQL("""
+                INSERT INTO `chapters_new` (`id`, `novelUrl`, `url`, `sourceUrl`, `scanlationSource`, `title`, `index`, `read`)
+                SELECT `id`, `novelUrl`, `url`, `sourceUrl`, `scanlationSource`, `title`, `index`, `read`
+                FROM `chapters`
+            """.trimIndent())
+
+            db.execSQL("DROP TABLE `chapters`")
+            db.execSQL("ALTER TABLE `chapters_new` RENAME TO `chapters`")
+
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_chapters_novelUrl_url` ON `chapters` (`novelUrl`, `url`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_chapters_novelUrl` ON `chapters` (`novelUrl`)")
+
+            db.execSQL("PRAGMA foreign_keys = ON")
+        }
+    }
 }

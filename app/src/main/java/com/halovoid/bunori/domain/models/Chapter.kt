@@ -13,7 +13,7 @@ data class Chapter(
     val title: String,
     val index: Int,
     val novelUrl: String,
-    val fileLocation: String? = null
+    val isDownloaded: Boolean = false
 ) {
     var sourceUrl: String? = null
     var read: Boolean = false
@@ -30,7 +30,7 @@ data class Chapter(
         if (title != other.title) return false
         if (index != other.index) return false
         if (novelUrl != other.novelUrl) return false
-        if (fileLocation != other.fileLocation) return false
+        if (isDownloaded != other.isDownloaded) return false
         if (sourceUrl != other.sourceUrl) return false
         if (read != other.read) return false
         if (scanlationSource != other.scanlationSource) return false
@@ -44,7 +44,7 @@ data class Chapter(
         result = 31 * result + title.hashCode()
         result = 31 * result + index.hashCode()
         result = 31 * result + novelUrl.hashCode()
-        result = 31 * result + (fileLocation?.hashCode() ?: 0)
+        result = 31 * result + isDownloaded.hashCode()
         result = 31 * result + (sourceUrl?.hashCode() ?: 0)
         result = 31 * result + read.hashCode()
         result = 31 * result + scanlationSource.hashCode()

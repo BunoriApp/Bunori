@@ -2,7 +2,7 @@ package com.halovoid.bunori.domain.usecase
 
 import android.net.Uri
 import com.halovoid.bunori.data.factory.RequestFactory
-import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.RequestRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.domain.models.Chapter
@@ -13,24 +13,21 @@ import com.halovoid.bunori.ui.core.logging.AppLog
  * Single business action for deleting an existing chapter download and re-queuing a fetch request.
  */
 class ReplayChapterUseCase(
-    private val chapterRepository: ChapterRepository,
+    private val downloadRepository: DownloadRepository,
     private val storageRepository: StorageRepository,
     private val requestRepository: RequestRepository,
     private val requestFactory: RequestFactory = RequestFactory()
 ) {
     suspend operator fun invoke(novel: Novel, chapter: Chapter) {
-        chapter.fileLocation?.let { location ->
+        val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
+        if (download != null) {
             try {
-                storageRepository.delete(Uri.parse(location))
+                storageRepository.delete(Uri.parse(download.fileLocation))
             } catch (e: Exception) {
-                AppLog.w("ReplayChapterUseCase", "Failed to delete chapter file at $location on replay", e)
+                AppLog.w("ReplayChapterUseCase", "Failed to delete chapter file at ${download.fileLocation} on replay", e)
             }
+            downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
         }
-        chapterRepository.updateChapter(chapter.copy(fileLocation = null).apply {
-            sourceUrl = chapter.sourceUrl
-            scanlationSource = chapter.scanlationSource
-            read = chapter.read
-        })
         val request = requestFactory.chapter(novel, chapter)
         requestRepository.insertRequests(listOf(request))
     }

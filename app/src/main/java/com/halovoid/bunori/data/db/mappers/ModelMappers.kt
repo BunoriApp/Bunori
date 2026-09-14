@@ -38,8 +38,7 @@ fun ChapterEntity.toDomain(): Chapter = Chapter(
     url = url,
     title = title,
     index = index,
-    novelUrl = novelUrl,
-    fileLocation = fileLocation
+    novelUrl = novelUrl
 ).apply {
     sourceUrl = this@toDomain.sourceUrl
     scanlationSource = this@toDomain.scanlationSource
@@ -54,6 +53,5 @@ fun Chapter.toEntity(): ChapterEntity = ChapterEntity(
     title = title,
     index = index,
     novelUrl = novelUrl,
-    fileLocation = fileLocation,
     read = read
 )

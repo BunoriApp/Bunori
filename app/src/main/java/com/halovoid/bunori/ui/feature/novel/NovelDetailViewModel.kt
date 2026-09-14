@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.data.factory.RequestFactory
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.DownloadRepositoryImpl
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
@@ -55,11 +56,11 @@ class NovelDetailViewModel(
     private val requestRepository: RequestRepository,
     private val requestFactory: RequestFactory = RequestFactory(),
     private val deleteChapterUseCase: DeleteChapterUseCase = DeleteChapterUseCase(
-        ChapterRepository.getInstance(application),
+        DownloadRepositoryImpl.getInstance(application),
         StorageRepositoryImpl.getInstance(application)
     ),
     private val replayChapterUseCase: ReplayChapterUseCase = ReplayChapterUseCase(
-        ChapterRepository.getInstance(application),
+        DownloadRepositoryImpl.getInstance(application),
         StorageRepositoryImpl.getInstance(application),
         requestRepository,
         requestFactory
@@ -70,6 +71,7 @@ class NovelDetailViewModel(
 
     private val artifactRepository = ArtifactRepository.getInstance(application)
     private val chapterRepository = ChapterRepository.getInstance(application)
+    private val downloadRepository = DownloadRepositoryImpl.getInstance(application)
 
     private val _novelUrl = MutableStateFlow<String?>(null)
     private val _requestedUrls = mutableSetOf<String>()
@@ -138,7 +140,19 @@ class NovelDetailViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val chapters: StateFlow<List<Chapter>> = combine(
         novel.filterNotNull().flatMapLatest { nov ->
-            chapterRepository.getChaptersFlow(nov.url)
+            combine(
+                chapterRepository.getChaptersFlow(nov.url),
+                downloadRepository.getDownloadedChapterUrlsFlow(nov.url)
+            ) { rawChapters, downloadedUrls ->
+                val downloadedSet = downloadedUrls.toSet()
+                rawChapters.map { chapter ->
+                    chapter.copy(isDownloaded = downloadedSet.contains(chapter.url)).apply {
+                        sourceUrl = chapter.sourceUrl
+                        scanlationSource = chapter.scanlationSource
+                        read = chapter.read
+                    }
+                }
+            }
         },
         _downloadFilter,
         _selectedSources,
@@ -146,8 +160,8 @@ class NovelDetailViewModel(
     ) { rawChapters, filter, selectedSources, sort ->
         val filteredByDownload = when (filter) {
             DownloadFilter.ALL -> rawChapters
-            DownloadFilter.DOWNLOADED -> rawChapters.filter { it.fileLocation?.startsWith("content://") == true }
-            DownloadFilter.NOT_DOWNLOADED -> rawChapters.filter { it.fileLocation?.startsWith("content://") != true }
+            DownloadFilter.DOWNLOADED -> rawChapters.filter { it.isDownloaded }
+            DownloadFilter.NOT_DOWNLOADED -> rawChapters.filter { !it.isDownloaded }
         }
 
         val filteredBySource = if (selectedSources.isEmpty()) {

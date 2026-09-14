@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.factory.RequestFactory
-import com.halovoid.bunori.data.repository.IndexRepository
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.RequestRepository
 import com.halovoid.bunori.domain.models.Chapter
@@ -28,8 +27,6 @@ class RequestViewModel(
     private val saveNovelUseCase: SaveNovelUseCase = SaveNovelUseCase(novelRepository),
     private val startNovelCrawlUseCase: StartNovelCrawlUseCase = StartNovelCrawlUseCase(requestRepository, requestFactory)
 ) : AndroidViewModel(application) {
-
-    private val indexRepository: IndexRepository = IndexRepository()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -208,21 +205,6 @@ class RequestViewModel(
 
     fun clearSimilarNovels() {
         _similarNovels.value = emptyList()
-    }
-
-    fun pushToRedis(url: String, onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            try {
-                indexRepository.index(url)
-                onSuccess()
-            } catch (e: Exception) {
-                _error.value = "Server is down or under maintenance. Please try again later."
-            } finally {
-                _isLoading.value = false
-            }
-        }
     }
 
     fun startNovelCrawl(crawlerName: String, url: String, title: String) {
