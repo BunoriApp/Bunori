@@ -2,11 +2,11 @@ package com.halovoid.bunori.data.handlers.utility
 
 import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.TaskEntity
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.data.scheduler.RequestMetadata
 import org.json.JSONObject
 
-val Request.parsedMetadata: RequestMetadata
+val Batch.parsedMetadata: RequestMetadata
     get() {
         if (this.metadata.isNullOrBlank()) return RequestMetadata()
         return try {

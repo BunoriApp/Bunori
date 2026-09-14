@@ -7,10 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
-import com.halovoid.bunori.data.repository.RequestRepository
+import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.domain.models.Artifact
 import com.halovoid.bunori.domain.models.Chapter
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 
 class RequestDetailViewModel(
     application: Application,
-    private val requestRepository: RequestRepository
+    private val batchRepository: BatchRepository
 ) : AndroidViewModel(application) {
     private val chapterRepository = ChapterRepository.getInstance(application)
     private val artifactRepository = ArtifactRepository.getInstance(application)
@@ -36,8 +36,8 @@ class RequestDetailViewModel(
         _statusFilter.value = status
     }
 
-    val cancellingRequestIds: StateFlow<Set<String>> = requestRepository.cancellingRequestIds
-    val activeActionIds: StateFlow<Set<String>> = requestRepository.activeActionIds
+    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
+    val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
     fun resolveCloudflare(requestId: String, url: String) {
         viewModelScope.launch {
@@ -46,17 +46,17 @@ class RequestDetailViewModel(
             AppLog.i("RequestDetailViewModel", "Resolution result: $success")
             if (success) {
                 AppLog.i("RequestDetailViewModel", "Replaying request $requestId")
-                requestRepository.replayRequest(requestId)
+                batchRepository.replayRequest(requestId)
             }
         }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val linkedRequests: StateFlow<List<Request>> = combine(_requestId.filterNotNull(), _statusFilter) { id, status ->
+    val linkedRequests: StateFlow<List<Batch>> = combine(_requestId.filterNotNull(), _statusFilter) { id, status ->
         id to status
     }
         .flatMapLatest { (id, status) ->
-            requestRepository.getRequestsByDependenceFlow(id).map { requests ->
+            batchRepository.getRequestsByDependenceFlow(id).map { requests ->
                 if (status == null) requests else requests.filter { it.status == status }
             }
         }
@@ -70,7 +70,7 @@ class RequestDetailViewModel(
     val chapterMetadata: StateFlow<Chapter?> = _requestId
         .filterNotNull()
         .flatMapLatest { id ->
-            requestRepository.getRequestByIdFlow(id)
+            batchRepository.getRequestByIdFlow(id)
         }
         .filterNotNull()
         .map { request ->
@@ -91,7 +91,7 @@ class RequestDetailViewModel(
     val artifactMetadata: StateFlow<Artifact?> = _requestId
         .filterNotNull()
         .flatMapLatest { id ->
-            requestRepository.getRequestByIdFlow(id)
+            batchRepository.getRequestByIdFlow(id)
         }
         .filterNotNull()
         .map { request ->
@@ -105,31 +105,31 @@ class RequestDetailViewModel(
             initialValue = null
         )
 
-    fun getRequest(requestId: String): Flow<Request?> {
-        return requestRepository.getRequestByIdFlow(requestId)
+    fun getRequest(requestId: String): Flow<Batch?> {
+        return batchRepository.getRequestByIdFlow(requestId)
     }
 
     fun pauseRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.pauseRequest(requestId)
+            batchRepository.pauseRequest(requestId)
         }
     }
 
     fun replayRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.replayRequest(requestId)
+            batchRepository.replayRequest(requestId)
         }
     }
 
     fun resumeRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.resumeRequest(requestId)
+            batchRepository.resumeRequest(requestId)
         }
     }
 
     fun cancelRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.cancelRequest(requestId)
+            batchRepository.cancelRequest(requestId)
         }
     }
 

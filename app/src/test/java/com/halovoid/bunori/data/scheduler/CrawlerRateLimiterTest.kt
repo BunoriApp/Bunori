@@ -1,5 +1,6 @@
 package com.halovoid.bunori.data.scheduler
 
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -36,5 +37,38 @@ class CrawlerRateLimiterTest {
         rateLimiter.acquire("CrawlerB", 500L)
         val elapsed = System.currentTimeMillis() - t
         assertTrue("Different crawlers should not block each other ($elapsed ms)", elapsed < 100)
+    }
+
+    @Test
+    fun testRateLimiterWithJitter() = runBlocking {
+        val rateLimiter = CrawlerRateLimiter()
+        val crawler = "JitterCrawler"
+
+        rateLimiter.acquire(crawler, 150L, maxJitterMs = 50L)
+
+        val t = System.currentTimeMillis()
+        rateLimiter.acquire(crawler, 150L, maxJitterMs = 50L)
+        val elapsed = System.currentTimeMillis() - t
+        assertTrue("Acquire with jitter should delay at least the base cooldown ($elapsed ms)", elapsed >= 130)
+    }
+
+    @Test
+    fun testRateLimiterConcurrentWorkersSpacing() = runBlocking {
+        val rateLimiter = CrawlerRateLimiter()
+        val crawler = "ConcurrentCrawler"
+
+        val tStart = System.currentTimeMillis()
+        val job1 = async {
+            rateLimiter.acquire(crawler, 200L)
+        }
+        val job2 = async {
+            rateLimiter.acquire(crawler, 200L)
+        }
+
+        job1.await()
+        job2.await()
+
+        val totalElapsed = System.currentTimeMillis() - tStart
+        assertTrue("Two concurrent acquires should be serialized with cooldown ($totalElapsed ms)", totalElapsed >= 180)
     }
 }

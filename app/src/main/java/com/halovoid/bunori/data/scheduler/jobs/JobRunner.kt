@@ -7,6 +7,7 @@ import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
+import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -16,7 +17,8 @@ class JobRunner(
     private val taskDao: TaskDao,
     private val handlerRegistry: JobHandlerRegistry,
     private val retryPolicy: RetryPolicy,
-    private val config: SchedulerConfig
+    private val config: SchedulerConfig,
+    private val rateLimiter: CrawlerRateLimiter? = null
 ) {
     companion object {
         private const val DEFAULT_MAX_ATTEMPTS = 3
@@ -42,6 +44,18 @@ class JobRunner(
             val maxAttempts = maxAttemptsFor(currentTask)
 
             while (true) {
+                val crawlerName = currentTask.parsedMetadata.crawlerName
+                if (crawlerName != null && rateLimiter != null) {
+                    val crawler = CrawlerFactory.getCrawler(crawlerName)
+                    val cooldownMs = crawler?.config?.runnerCooldownMs ?: 1000L
+                    rateLimiter.acquire(crawlerName, cooldownMs, maxJitterMs = 250L)
+                }
+
+                val preExec = taskDao.getTaskById(currentTask.id) ?: currentTask
+                if (preExec.status == JobStatus.CANCELLED || preExec.status == JobStatus.PAUSED) {
+                    return
+                }
+
                 val result = handler.handle(currentTask)
 
                 val latest = taskDao.getTaskById(currentTask.id) ?: currentTask

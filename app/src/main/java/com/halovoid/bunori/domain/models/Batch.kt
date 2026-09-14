@@ -3,7 +3,7 @@ package com.halovoid.bunori.domain.models
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 
-data class Request(
+data class Batch(
     val id: String,
     val name: String,
     val parentNovel: String?,

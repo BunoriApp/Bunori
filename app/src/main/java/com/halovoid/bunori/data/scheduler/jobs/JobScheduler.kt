@@ -8,6 +8,7 @@ import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.PreferenceRepository
+import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
@@ -22,7 +23,8 @@ class JobScheduler(
     private val config: SchedulerConfig = SchedulerConfig(),
     private val retryPolicy: RetryPolicy = ExponentialBackoffPolicy(),
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
-    private val preferenceRepository: PreferenceRepository? = null
+    private val preferenceRepository: PreferenceRepository? = null,
+    private val rateLimiter: CrawlerRateLimiter = CrawlerRateLimiter()
 ) {
     private var pollingJob: Job? = null
     private val activeJobs = ConcurrentHashMap<String, Job>()
@@ -141,7 +143,7 @@ class JobScheduler(
 
             val job = scope.launch {
                 try {
-                    val runner = JobRunner(batchDao, taskDao, handlerRegistry, retryPolicy, config)
+                    val runner = JobRunner(batchDao, taskDao, handlerRegistry, retryPolicy, config, rateLimiter)
                     runner.run(task) {
                         activeJobs.remove(task.id)
                     }

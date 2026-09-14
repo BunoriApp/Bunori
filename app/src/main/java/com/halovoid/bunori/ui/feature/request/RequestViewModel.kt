@@ -7,7 +7,7 @@ import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.factory.RequestFactory
 import com.halovoid.bunori.data.repository.NovelRepository
-import com.halovoid.bunori.data.repository.RequestRepository
+import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.domain.usecase.SaveNovelResult
@@ -21,11 +21,11 @@ import kotlinx.coroutines.launch
 
 class RequestViewModel(
     application: Application,
-    private val requestRepository: RequestRepository,
+    private val batchRepository: BatchRepository,
     private val novelRepository: NovelRepository = NovelRepository.getInstance(application),
     private val requestFactory: RequestFactory = RequestFactory(),
     private val saveNovelUseCase: SaveNovelUseCase = SaveNovelUseCase(novelRepository),
-    private val startNovelCrawlUseCase: StartNovelCrawlUseCase = StartNovelCrawlUseCase(requestRepository, requestFactory)
+    private val startNovelCrawlUseCase: StartNovelCrawlUseCase = StartNovelCrawlUseCase(batchRepository, requestFactory)
 ) : AndroidViewModel(application) {
 
     private val _error = MutableStateFlow<String?>(null)
@@ -65,8 +65,8 @@ class RequestViewModel(
     private val _uiEvents = Channel<RequestUiEvent>()
     val uiEvents = _uiEvents.receiveAsFlow()
 
-    val cancellingRequestIds: StateFlow<Set<String>> = requestRepository.cancellingRequestIds
-    val activeActionIds: StateFlow<Set<String>> = requestRepository.activeActionIds
+    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
+    val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
     fun resolveCloudflare(requestId: String, url: String) {
         viewModelScope.launch {
@@ -75,7 +75,7 @@ class RequestViewModel(
             AppLog.i("RequestViewModel", "Resolution result: $success")
             if (success) {
                 AppLog.i("RequestViewModel", "Replaying request $requestId")
-                requestRepository.replayRequest(requestId)
+                batchRepository.replayRequest(requestId)
             }
         }
     }
@@ -217,25 +217,25 @@ class RequestViewModel(
 
     fun cancelRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.cancelRequest(requestId)
+            batchRepository.cancelRequest(requestId)
         }
     }
 
     fun replayRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.replayRequest(requestId)
+            batchRepository.replayRequest(requestId)
         }
     }
 
     fun resumeRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.resumeRequest(requestId)
+            batchRepository.resumeRequest(requestId)
         }
     }
 
     fun deleteRequestRecord(id: String, requestId: Int) {
         viewModelScope.launch {
-            requestRepository.deleteRequest(id)
+            batchRepository.deleteRequest(id)
         }
     }
 }

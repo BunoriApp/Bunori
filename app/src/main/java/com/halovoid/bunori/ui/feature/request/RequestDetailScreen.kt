@@ -23,7 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.components.ConfirmCancelDialog
@@ -60,18 +60,18 @@ fun RequestDetailScreen(
     val chapterMetadata by viewModel.chapterMetadata.collectAsState()
     val artifactMetadata by viewModel.artifactMetadata.collectAsState()
 
-    var securityDialogRequest by remember { mutableStateOf<Request?>(null) }
+    var securityDialogBatch by remember { mutableStateOf<Batch?>(null) }
     var showCancelDialog by remember { mutableStateOf(false) }
 
-    if (securityDialogRequest != null) {
+    if (securityDialogBatch != null) {
         SecurityCheckDialog(
-            novelName = securityDialogRequest!!.name,
+            novelName = securityDialogBatch!!.name,
             onConfirm = {
-                val req = securityDialogRequest!!
-                securityDialogRequest = null
+                val req = securityDialogBatch!!
+                securityDialogBatch = null
                 viewModel.resolveCloudflare(req.id, req.url ?: req.novelUrl)
             },
-            onDismiss = { securityDialogRequest = null }
+            onDismiss = { securityDialogBatch = null }
         )
     }
 
@@ -191,7 +191,7 @@ fun RequestDetailScreen(
                                     }
                                 }
                                 JobStatus.BLOCKED -> {
-                                    IconButton(onClick = { securityDialogRequest = current }) {
+                                    IconButton(onClick = { securityDialogBatch = current }) {
                                         Icon(
                                             imageVector = Icons.Default.Shield,
                                             contentDescription = "Resolve Security Check",
@@ -238,7 +238,7 @@ fun RequestDetailScreen(
             ) {
                 item {
                     RequestCard(
-                        request = currentRecord,
+                        batch = currentRecord,
                         onClick = null,
                         allowAction = false,
                         isCancelling = isCancelling,
@@ -315,7 +315,7 @@ fun RequestDetailScreen(
 
 @Composable
 fun TaskDetailItem(
-    task: Request,
+    task: Batch,
     modifier: Modifier = Modifier
 ) {
     Column(

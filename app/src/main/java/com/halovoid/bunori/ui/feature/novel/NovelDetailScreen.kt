@@ -202,7 +202,7 @@ fun NovelDetailScreen(
                     if (activeRequest != null) {
                         item {
                             ActiveRequestCard(
-                                request = activeRequest,
+                                batch = activeRequest,
                                 onClick = { onRequestClick(activeRequest.id) }
                             )
                         }

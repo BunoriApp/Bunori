@@ -40,7 +40,7 @@ fun DownloadScreen(
     onRequestClick: (String) -> Unit,
     onGroupClick: (JobType) -> Unit
 ) {
-    val requestHistory by viewModel.requestHistory.collectAsStateWithLifecycle()
+    val requestHistory by viewModel.batchHistory.collectAsStateWithLifecycle()
     val globalStats by viewModel.globalStats.collectAsStateWithLifecycle()
     val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
     val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
@@ -164,7 +164,7 @@ fun DownloadScreen(
                                             .padding(horizontal = 20.dp)
                                     ) {
                                         RequestCard(
-                                            request = batch,
+                                            batch = batch,
                                             onClick = { onRequestClick(batch.id) },
                                             allowAction = false
                                         )
@@ -183,7 +183,7 @@ fun DownloadScreen(
                                         ) { page ->
                                             val batch = activeBatches[page]
                                             RequestCard(
-                                                request = batch,
+                                                batch = batch,
                                                 onClick = { onRequestClick(batch.id) },
                                                 allowAction = false
                                             )
@@ -224,7 +224,7 @@ fun DownloadScreen(
 
                             items(recentBatches, key = { it.id }) { batch ->
                                 CompactRequestItem(
-                                    request = batch,
+                                    batch = batch,
                                     onClick = { onRequestClick(batch.id) }
                                 )
                             }
@@ -250,7 +250,7 @@ fun DownloadScreen(
 
                             items(historyBatches, key = { it.id }) { batch ->
                                 CompactRequestItem(
-                                    request = batch,
+                                    batch = batch,
                                     onClick = { onRequestClick(batch.id) }
                                 )
                             }

@@ -39,7 +39,7 @@ ui/
     downloads/
     library/
     novel/
-    request/
+    batch/
     search/
     reader/
     settings/

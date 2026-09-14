@@ -8,7 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.core.theme.PrimaryText
@@ -18,7 +18,7 @@ import com.halovoid.bunori.ui.feature.request.components.RequestCard
 
 @Composable
 fun NovelActivityScreen(
-    requests: List<Request>,
+    batches: List<Batch>,
     onBack: () -> Unit,
     onRequestClick: (String) -> Unit,
     onReplay: (String) -> Unit,
@@ -40,7 +40,7 @@ fun NovelActivityScreen(
         RequestActionHandler(
             onResolveCloudflare = onResolveCloudflare
         ) { onSecurityClick ->
-            if (requests.isEmpty()) {
+            if (batches.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -51,7 +51,7 @@ fun NovelActivityScreen(
                         Text("No activity yet", style = MaterialTheme.typography.titleMedium, color = PrimaryText)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "History of crawl requests will appear here.",
+                            "History of crawl batches will appear here.",
                             style = MaterialTheme.typography.bodySmall,
                             color = SecondaryText
                         )
@@ -65,9 +65,9 @@ fun NovelActivityScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(requests.sortedByDescending { it.createdAt }, key = { it.id }) { request ->
+                    items(batches.sortedByDescending { it.createdAt }, key = { it.id }) { request ->
                         RequestCard(
-                            request = request,
+                            batch = request,
                             onClick = { onRequestClick(request.id) },
                             onReplay = { onReplay(request.id) },
                             onCancel = { onCancel(request.id) },

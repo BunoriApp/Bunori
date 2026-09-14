@@ -7,15 +7,13 @@ import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.db.entities.TaskEntity
-import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 
-class RequestRepository private constructor(private val context: Context) {
+class BatchRepository private constructor(private val context: Context) {
     private val db = AppDatabase.getDatabase(context)
     val batchDao = db.batchDao()
     val taskDao = db.taskDao()
@@ -27,17 +25,17 @@ class RequestRepository private constructor(private val context: Context) {
     private val _activeActionIds = MutableStateFlow<Set<String>>(emptySet())
     val activeActionIds: StateFlow<Set<String>> = _activeActionIds.asStateFlow()
 
-    fun getRootRequests(): Flow<List<Request>> = batchDao.getBatchesWithStatsFlow().map { list ->
+    fun getRootRequests(): Flow<List<Batch>> = batchDao.getBatchesWithStatsFlow().map { list ->
         list.map { it.toDomain() }
     }
 
-    fun getRootRequestByNovelFlow(url: String): Flow<List<Request>> = 
+    fun getRootRequestByNovelFlow(url: String): Flow<List<Batch>> =
         batchDao.getBatchesWithStatsByNovelFlow(url).map { list ->
             list.map { it.toDomain() }
         }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    fun getRequestByIdFlow(id: String): Flow<Request?> = 
+    fun getRequestByIdFlow(id: String): Flow<Batch?> =
         batchDao.getBatchWithStatsByIdFlow(id).flatMapLatest { batchWithStats ->
             if (batchWithStats != null) {
                 flowOf(batchWithStats.toDomain())
@@ -46,7 +44,7 @@ class RequestRepository private constructor(private val context: Context) {
             }
         }
 
-    fun getRequestsByDependenceFlow(batchId: String): Flow<List<Request>> = 
+    fun getRequestsByDependenceFlow(batchId: String): Flow<List<Batch>> =
         taskDao.getTasksByBatchIdFlow(batchId).map { list ->
             list.map { it.toDomain() }
         }
@@ -119,17 +117,17 @@ class RequestRepository private constructor(private val context: Context) {
 
     companion object {
         @Volatile
-        private var INSTANCE: RequestRepository? = null
+        private var INSTANCE: BatchRepository? = null
 
-        fun getInstance(context: Context): RequestRepository {
+        fun getInstance(context: Context): BatchRepository {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: RequestRepository(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: BatchRepository(context.applicationContext).also { INSTANCE = it }
             }
         }
     }
 }
 
-fun BatchWithStats.toDomain(): Request = Request(
+fun BatchWithStats.toDomain(): Batch = Batch(
     id = batch.id,
     name = batch.name,
     parentNovel = batch.novelUrl,
@@ -150,7 +148,7 @@ fun BatchWithStats.toDomain(): Request = Request(
     error = batch.error
 )
 
-fun TaskEntity.toDomain(): Request = Request(
+fun TaskEntity.toDomain(): Batch = Batch(
     id = id,
     name = name,
     parentNovel = novelUrl,

@@ -10,14 +10,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.ProgressIndicator
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.request.components.StatusIndicator
 
 @Composable
 fun ActiveRequestCard(
-    request: Request,
+    batch: Batch,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -39,7 +39,7 @@ fun ActiveRequestCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${request.name} · ${request.progressSuccess} / ${request.progressTotal}",
+                    text = "${batch.name} · ${batch.progressSuccess} / ${batch.progressTotal}",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = PrimaryText,
@@ -48,16 +48,16 @@ fun ActiveRequestCard(
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                StatusIndicator(request.rstatus)
+                StatusIndicator(batch.rstatus)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             ProgressIndicator(
-                success = request.progressSuccess,
-                failed = request.progressFailed,
-                cancelled = request.progressCancelled,
-                total = request.progressTotal,
+                success = batch.progressSuccess,
+                failed = batch.progressFailed,
+                cancelled = batch.progressCancelled,
+                total = batch.progressTotal,
             )
         }
     }

@@ -18,7 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.halovoid.bunori.data.db.entities.JobStatus
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.ConfirmCancelDialog
 import com.halovoid.bunori.ui.core.theme.*
 import java.text.SimpleDateFormat
@@ -27,14 +27,14 @@ import java.util.*
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CompactRequestItem(
-    request: Request,
+    batch: Batch,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    val formattedDate = remember(request.createdAt, locale) {
-        SimpleDateFormat("MMM dd, HH:mm", locale).format(Date(request.createdAt))
+    val formattedDate = remember(batch.createdAt, locale) {
+        SimpleDateFormat("MMM dd, HH:mm", locale).format(Date(batch.createdAt))
     }
 
     Column(
@@ -58,7 +58,7 @@ fun CompactRequestItem(
                     .padding(end = 12.dp)
             ) {
                 Text(
-                    text = request.name,
+                    text = batch.name,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = PrimaryText,
@@ -72,12 +72,12 @@ fun CompactRequestItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (request.progressTotal > 0) {
+                    if (batch.progressTotal > 0) {
                         Text(
-                            text = if (request.progressSuccess > 0) {
-                                "${request.progressSuccess}/${request.progressTotal} tasks"
+                            text = if (batch.progressSuccess > 0) {
+                                "${batch.progressSuccess}/${batch.progressTotal} tasks"
                             } else {
-                                "${request.progressTotal} tasks"
+                                "${batch.progressTotal} tasks"
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryText,
@@ -100,7 +100,7 @@ fun CompactRequestItem(
                 }
             }
 
-            StatusIndicator(request.status)
+            StatusIndicator(batch.status)
         }
 
         HorizontalDivider(
@@ -198,7 +198,7 @@ fun StatusIndicator(
 
 @Composable
 fun RequestCard(
-    request: Request,
+    batch: Batch,
     onClick: (() -> Unit)? = null,
     onReplay: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
@@ -210,8 +210,8 @@ fun RequestCard(
     modifier: Modifier = Modifier
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    val formattedDate = remember(request.createdAt, locale) {
-        SimpleDateFormat("MMM dd, HH:mm", locale).format(Date(request.createdAt))
+    val formattedDate = remember(batch.createdAt, locale) {
+        SimpleDateFormat("MMM dd, HH:mm", locale).format(Date(batch.createdAt))
     }
 
     var showCancelDialog by remember { mutableStateOf(false) }
@@ -219,7 +219,7 @@ fun RequestCard(
     if (showCancelDialog && onCancel != null) {
         ConfirmCancelDialog(
             title = "Cancel Batch?",
-            message = "Are you sure you want to stop \"${request.name}\"? Any completed progress will be preserved.",
+            message = "Are you sure you want to stop \"${batch.name}\"? Any completed progress will be preserved.",
             onConfirm = {
                 showCancelDialog = false
                 onCancel()
@@ -228,8 +228,8 @@ fun RequestCard(
         )
     }
 
-    val progress = if (request.progressTotal > 0) {
-        request.progressSuccess.toFloat() / request.progressTotal
+    val progress = if (batch.progressTotal > 0) {
+        batch.progressSuccess.toFloat() / batch.progressTotal
     } else 0f
 
     Surface(
@@ -249,76 +249,65 @@ fun RequestCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+            // Row 1: TYPE . DATE (and High Priority) on Left | Status on Right
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text(
-                        text = request.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
+                    Surface(
+                        color = DarkSurfaceVariant,
+                        shape = RoundedCornerShape(4.dp)
                     ) {
-                        Surface(
-                            color = DarkSurfaceVariant,
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                text = request.type.name,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 9.sp,
-                                color = SecondaryText,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        if (request.priority > 0) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.FlashOn,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(10.dp),
-                                    tint = SecondaryText.copy(alpha = 0.7f)
-                                )
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Text(
-                                    text = "High Priority",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SecondaryText.copy(alpha = 0.7f),
-                                    fontSize = 9.sp
-                                )
-                            }
-                        }
-
                         Text(
-                            text = "·",
+                            text = batch.type.name,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryText.copy(alpha = 0.4f)
-                        )
-
-                        Text(
-                            text = formattedDate,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryText.copy(alpha = 0.6f),
-                            fontSize = 9.sp
+                            fontSize = 9.sp,
+                            color = SecondaryText,
+                            fontWeight = FontWeight.Medium
                         )
                     }
+
+                    if (batch.priority > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.FlashOn,
+                                contentDescription = null,
+                                modifier = Modifier.size(10.dp),
+                                tint = SecondaryText.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "High Priority",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SecondaryText.copy(alpha = 0.7f),
+                                fontSize = 9.sp
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "·",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryText.copy(alpha = 0.4f)
+                    )
+
+                    Text(
+                        text = formattedDate,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryText.copy(alpha = 0.6f),
+                        fontSize = 9.sp
+                    )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (request.status == JobStatus.BLOCKED && onSecurityClick != null) {
+                    if (batch.status == JobStatus.BLOCKED && onSecurityClick != null) {
                         IconButton(
                             onClick = onSecurityClick,
                             modifier = Modifier.size(28.dp)
@@ -332,57 +321,71 @@ fun RequestCard(
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                     }
-                    StatusIndicator(request.status)
+                    StatusIndicator(batch.status)
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Column {
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
-                    color = BrandAccent,
-                    trackColor = DarkSurfaceVariant
+            // Row 2: Title
+            Text(
+                text = batch.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = PrimaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Row 3: x/y tasks on Left | % on Right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (batch.progressTotal > 0) {
+                        "${batch.progressSuccess}/${batch.progressTotal} tasks"
+                    } else {
+                        "0 tasks"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SecondaryText,
+                    fontSize = 11.sp
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (request.progressTotal > 0) {
-                            "${request.progressSuccess}/${request.progressTotal} tasks"
-                        } else {
-                            "0 tasks"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryText,
-                        fontSize = 11.sp
-                    )
 
-                    Text(
-                        text = "${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SecondaryText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
 
-            if (!request.error.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Row 4: Progress Bar
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color = BrandAccent,
+                trackColor = DarkSurfaceVariant
+            )
+
+            if (!batch.error.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Surface(
                     color = ErrorRed.copy(alpha = 0.08f),
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        text = request.error,
+                        text = batch.error,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = ErrorRed.copy(alpha = 0.9f),
@@ -415,7 +418,7 @@ fun RequestCard(
                             color = ErrorRed,
                             fontSize = 10.sp
                         )
-                    } else if (request.status == JobStatus.RUNNING || request.status == JobStatus.PENDING || request.status == JobStatus.BLOCKED) {
+                    } else if (batch.status == JobStatus.RUNNING || batch.status == JobStatus.PENDING || batch.status == JobStatus.BLOCKED) {
                         if (onCancel != null) {
                             TextButton(
                                 onClick = { showCancelDialog = true },
@@ -428,7 +431,7 @@ fun RequestCard(
                                 Text("Cancel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                    } else if (request.status == JobStatus.PAUSED) {
+                    } else if (batch.status == JobStatus.PAUSED) {
                         if (onContinue != null) {
                             TextButton(
                                 onClick = onContinue,
@@ -454,7 +457,7 @@ fun RequestCard(
                                 Text("Cancel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                    } else if (request.status == JobStatus.SUCCESS || request.status == JobStatus.FAILED || request.status == JobStatus.CANCELLED) {
+                    } else if (batch.status == JobStatus.SUCCESS || batch.status == JobStatus.FAILED || batch.status == JobStatus.CANCELLED) {
                         if (onReplay != null) {
                             TextButton(
                                 onClick = onReplay,

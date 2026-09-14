@@ -32,7 +32,8 @@ class ExtensionCrawlerAdapter(
             userFolderLocation = "",
             maxAttempts = extension.metadata.maxAttempts,
             runnerConcurrency = extension.metadata.runnerConcurrency,
-            runnerCooldown = (extension.metadata.runnerCooldown / 1000).toInt()
+            runnerCooldown = (extension.metadata.runnerCooldown / 1000).toInt(),
+            runnerCooldownMs = extension.metadata.runnerCooldown
         )
 
     override fun canHandle(url: String): Boolean {

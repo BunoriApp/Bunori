@@ -7,7 +7,7 @@ import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.ReaderRepository
-import com.halovoid.bunori.data.repository.RequestRepository
+import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
@@ -25,18 +25,18 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
             modelClass.isAssignableFrom(RequestViewModel::class.java) -> {
-                RequestViewModel(application, RequestRepository.getInstance(application)) as T
+                RequestViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(SearchViewModel::class.java) -> {
                 SearchViewModel(application) as T
             }
             modelClass.isAssignableFrom(RequestDetailViewModel::class.java) -> {
-                RequestDetailViewModel(application, RequestRepository.getInstance(application)) as T
+                RequestDetailViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(NovelDetailViewModel::class.java) -> {
                 NovelDetailViewModel(
                     application,
-                    RequestRepository.getInstance(application),
+                    BatchRepository.getInstance(application),
                     preferenceRepository = PreferenceRepository.getInstance(application)
                 ) as T
             }
@@ -57,10 +57,10 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
                 SettingsViewModel(application) as T
             }
             modelClass.isAssignableFrom(GroupedRequestsViewModel::class.java) -> {
-                GroupedRequestsViewModel(application, RequestRepository.getInstance(application)) as T
+                GroupedRequestsViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(DownloadViewModel::class.java) -> {
-                DownloadViewModel(application, RequestRepository.getInstance(application)) as T
+                DownloadViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(ReaderViewModel::class.java) -> {
                 ReaderViewModel(

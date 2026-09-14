@@ -11,12 +11,12 @@ import com.halovoid.bunori.data.repository.DownloadRepositoryImpl
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
-import com.halovoid.bunori.data.repository.RequestRepository
+import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.domain.models.Artifact
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.domain.usecase.DeleteChapterUseCase
 import com.halovoid.bunori.domain.usecase.ReplayChapterUseCase
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ExportFormat
@@ -53,7 +53,7 @@ data class ChapterSortState(
 
 class NovelDetailViewModel(
     application: Application,
-    private val requestRepository: RequestRepository,
+    private val batchRepository: BatchRepository,
     private val requestFactory: RequestFactory = RequestFactory(),
     private val deleteChapterUseCase: DeleteChapterUseCase = DeleteChapterUseCase(
         DownloadRepositoryImpl.getInstance(application),
@@ -62,7 +62,7 @@ class NovelDetailViewModel(
     private val replayChapterUseCase: ReplayChapterUseCase = ReplayChapterUseCase(
         DownloadRepositoryImpl.getInstance(application),
         StorageRepositoryImpl.getInstance(application),
-        requestRepository,
+        batchRepository,
         requestFactory
     ),
     private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
@@ -98,8 +98,8 @@ class NovelDetailViewModel(
     private val _chapterRange = MutableStateFlow<ClosedFloatingPointRange<Float>>(1f..1f)
     val chapterRange: StateFlow<ClosedFloatingPointRange<Float>> = _chapterRange.asStateFlow()
 
-    val cancellingRequestIds: StateFlow<Set<String>> = requestRepository.cancellingRequestIds
-    val activeActionIds: StateFlow<Set<String>> = requestRepository.activeActionIds
+    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
+    val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
     private val _downloadFilter = MutableStateFlow(DownloadFilter.ALL)
     val downloadFilter: StateFlow<DownloadFilter> = _downloadFilter.asStateFlow()
@@ -126,10 +126,10 @@ class NovelDetailViewModel(
     val sortState: StateFlow<ChapterSortState> = _sortState.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val rootRequests: StateFlow<List<Request>> = novel
+    val rootRequests: StateFlow<List<Batch>> = novel
         .filterNotNull()
         .flatMapLatest { nov ->
-            requestRepository.getRootRequestByNovelFlow(nov.url)
+            batchRepository.getRootRequestByNovelFlow(nov.url)
         }
         .stateIn(
             scope = viewModelScope,
@@ -314,7 +314,7 @@ class NovelDetailViewModel(
             val end = _chapterRange.value.endInclusive.toInt()
             val request = requestFactory.export(novel, format, start, end)
 
-            requestRepository.insertRequests(listOf(request))
+            batchRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())
         }
     }
@@ -323,7 +323,7 @@ class NovelDetailViewModel(
         viewModelScope.launch {
             val request = requestFactory.metadata(novel)
 
-            requestRepository.insertRequests(listOf(request))
+            batchRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())
         }
     }
@@ -335,7 +335,7 @@ class NovelDetailViewModel(
             val rangeChapters = chapters.value.filter { it.index in start..end }
             val request = requestFactory.rangeDownload(novel, start, end, rangeChapters.size)
 
-            requestRepository.insertRequests(listOf(request))
+            batchRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())
         }
     }
@@ -344,7 +344,7 @@ class NovelDetailViewModel(
         viewModelScope.launch {
             val request = requestFactory.chapter(novel, chapter)
 
-            requestRepository.insertRequests(listOf(request))
+            batchRepository.insertRequests(listOf(request))
             SchedulerService.startService(getApplication())
         }
     }
@@ -381,19 +381,19 @@ class NovelDetailViewModel(
 
     fun replayRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.replayRequest(requestId)
+            batchRepository.replayRequest(requestId)
         }
     }
 
     fun resumeRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.resumeRequest(requestId)
+            batchRepository.resumeRequest(requestId)
         }
     }
 
     fun cancelRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.cancelRequest(requestId)
+            batchRepository.cancelRequest(requestId)
         }
     }
 

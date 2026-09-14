@@ -131,7 +131,7 @@ Try to keep contributions consistent with the exisitng codebase.
 - Keep source speceific logic inside its crawlers
 - Use Kotlin idioms where they improve readability
 - Handle network and parsing failures gracefuly
-- Avoid unrelated changes in the same pull request
+- Avoid unrelated changes in the same pull batch
 
 Most importantly **don't over-engineer a crawler**. A simple implementation that reliably handles the source is preferable to unnecessary complexity
 
@@ -139,7 +139,7 @@ Most importantly **don't over-engineer a crawler**. A simple implementation that
 
 ## Pull Requests
 
-Before opening a pull request
+Before opening a pull batch
 - Make sure your changes build successfully
 - Test the affected crawlers or functionality
 - Check the existing functionality still works
@@ -147,7 +147,7 @@ Before opening a pull request
 - Update documentation if your change requires it
 - If you changed :api, test existing crawler implementations for compatibility.
 
-When opening a pull request, briefly describe:
+When opening a pull batch, briefly describe:
 - What you changed
 - Why the change was needed
 - How you tested it

@@ -1,6 +1,5 @@
 package com.halovoid.bunori.extension.http
 
-import android.content.Context
 import android.webkit.CookieManager
 import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.extension.api.http.ExtensionHttpClient

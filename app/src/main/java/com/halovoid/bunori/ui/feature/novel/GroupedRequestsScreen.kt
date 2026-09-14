@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.novel.components.RequestFilterSheet
@@ -20,8 +20,8 @@ import com.halovoid.bunori.ui.feature.request.components.requestHistorySection
 @Composable
 fun GroupedRequestsScreen(
     type: JobType,
-    requests: List<Request>,
-    allRequests: List<Request>,
+    batches: List<Batch>,
+    allBatches: List<Batch>,
     statusFilters: Map<JobStatus, FilterState>,
     onStatusFilterChange: (JobStatus, FilterState) -> Unit,
     onBack: () -> Unit,
@@ -34,9 +34,9 @@ fun GroupedRequestsScreen(
     activeActionIds: Set<String> = emptySet(),
     allowAction: Boolean = false
 ) {
-    val filteredRequests = requests.filter { it.type == type }
-    val unfilteredRequestsForType = remember(allRequests, type) {
-        allRequests.filter { it.type == type }
+    val filteredRequests = batches.filter { it.type == type }
+    val unfilteredRequestsForType = remember(allBatches, type) {
+        allBatches.filter { it.type == type }
     }
     var showFilterMenu by remember { mutableStateOf(false) }
     val isFilterActive = statusFilters.values.any { it != FilterState.NONE }
@@ -78,7 +78,7 @@ fun GroupedRequestsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 requestHistorySection(
-                    requestHistory = filteredRequests,
+                    batchHistory = filteredRequests,
                     onRequestClick = onRequestClick,
                     onGroupClick = {},
                     onReplay = onReplay,
@@ -96,7 +96,7 @@ fun GroupedRequestsScreen(
 
     if (showFilterMenu) {
         RequestFilterSheet(
-            allRequests = unfilteredRequestsForType,
+            allBatches = unfilteredRequestsForType,
             statusFilters = statusFilters,
             onStatusFilterChange = onStatusFilterChange,
             onDismiss = { showFilterMenu = false }

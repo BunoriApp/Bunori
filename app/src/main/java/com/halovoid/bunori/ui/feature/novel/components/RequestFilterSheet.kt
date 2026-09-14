@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.data.db.entities.JobStatus
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.AppBottomSheet
 import com.halovoid.bunori.ui.core.components.AppBottomSheetDivider
 import com.halovoid.bunori.ui.core.theme.BrandAccent
@@ -27,13 +27,13 @@ import com.halovoid.bunori.ui.feature.novel.FilterState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestFilterSheet(
-    allRequests: List<Request>,
+    allBatches: List<Batch>,
     statusFilters: Map<JobStatus, FilterState>,
     onStatusFilterChange: (JobStatus, FilterState) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val availableStatuses = remember(allRequests) {
-        allRequests.map { it.status }.distinct().sortedBy { it.name }
+    val availableStatuses = remember(allBatches) {
+        allBatches.map { it.status }.distinct().sortedBy { it.name }
     }
 
     AppBottomSheet(

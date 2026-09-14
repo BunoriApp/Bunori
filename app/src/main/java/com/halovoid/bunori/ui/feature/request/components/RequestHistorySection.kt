@@ -17,31 +17,31 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.halovoid.bunori.data.db.entities.JobType
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.SecurityCheckDialog
 import com.halovoid.bunori.ui.core.theme.*
 
 fun LazyListScope.requestHistorySection(
-    requestHistory: List<Request>,
+    batchHistory: List<Batch>,
     onRequestClick: (String) -> Unit,
     onGroupClick: (JobType) -> Unit,
     onReplay: (String) -> Unit = {},
     onCancel: (String) -> Unit = {},
     onContinue: (String) -> Unit = {},
-    onSecurityClick: (Request) -> Unit = {},
+    onSecurityClick: (Batch) -> Unit = {},
     cancellingRequestIds: Set<String> = emptySet(),
     activeActionIds: Set<String> = emptySet(),
     horizontalPadding: androidx.compose.ui.unit.Dp = 0.dp,
     allowAction: Boolean = false,
     forceUngrouped: Boolean = false
 ) {
-    if (requestHistory.isEmpty()) return
+    if (batchHistory.isEmpty()) return
 
     if (forceUngrouped) {
-        items(requestHistory, key = { it.id }) { request ->
+        items(batchHistory, key = { it.id }) { request ->
             Box(modifier = Modifier.padding(horizontal = horizontalPadding).padding(bottom = 12.dp)) {
                 RequestCard(
-                    request = request,
+                    batch = request,
                     onClick = { onRequestClick(request.id) },
                     onReplay = { onReplay(request.id) },
                     onCancel = { onCancel(request.id) },
@@ -54,7 +54,7 @@ fun LazyListScope.requestHistorySection(
             }
         }
     } else {
-        val groupedRequests = requestHistory.groupBy { it.type }
+        val groupedRequests = batchHistory.groupBy { it.type }
 
         groupedRequests.forEach { (type, requests) ->
             if (requests.size > 1) {
@@ -62,7 +62,7 @@ fun LazyListScope.requestHistorySection(
                     Box(modifier = Modifier.padding(horizontal = horizontalPadding).padding(bottom = 12.dp)) {
                         RequestGroupCard(
                             type = type,
-                            requests = requests,
+                            batches = requests,
                             onClick = { onGroupClick(type) }
                         )
                     }
@@ -71,7 +71,7 @@ fun LazyListScope.requestHistorySection(
                 items(requests, key = { it.id }) { request ->
                     Box(modifier = Modifier.padding(horizontal = horizontalPadding).padding(bottom = 12.dp)) {
                         RequestCard(
-                            request = request,
+                            batch = request,
                             onClick = { onRequestClick(request.id) },
                             onReplay = { onReplay(request.id) },
                             onCancel = { onCancel(request.id) },
@@ -91,36 +91,36 @@ fun LazyListScope.requestHistorySection(
 @Composable
 fun RequestActionHandler(
     onResolveCloudflare: (String, String) -> Unit,
-    content: @Composable (onSecurityClick: (Request) -> Unit) -> Unit
+    content: @Composable (onSecurityClick: (Batch) -> Unit) -> Unit
 ) {
-    var securityDialogRequest by remember { mutableStateOf<Request?>(null) }
+    var securityDialogBatch by remember { mutableStateOf<Batch?>(null) }
 
-    if (securityDialogRequest != null) {
+    if (securityDialogBatch != null) {
         SecurityCheckDialog(
-            novelName = securityDialogRequest!!.name,
+            novelName = securityDialogBatch!!.name,
             onConfirm = {
-                val req = securityDialogRequest!!
-                securityDialogRequest = null
+                val req = securityDialogBatch!!
+                securityDialogBatch = null
                 onResolveCloudflare(req.id, req.url ?: req.novelUrl)
             },
-            onDismiss = { securityDialogRequest = null }
+            onDismiss = { securityDialogBatch = null }
         )
     }
 
-    content { securityDialogRequest = it }
+    content { securityDialogBatch = it }
 }
 
 @Composable
 fun RequestGroupCard(
     type: JobType,
-    requests: List<Request>,
+    batches: List<Batch>,
     onClick: () -> Unit
 ) {
-    val totalSuccess = requests.sumOf { it.progressSuccess }
-    val totalFailed = requests.sumOf { it.progressFailed }
-    val totalProgress = requests.sumOf { it.progressTotal }
+    val totalSuccess = batches.sumOf { it.progressSuccess }
+    val totalFailed = batches.sumOf { it.progressFailed }
+    val totalProgress = batches.sumOf { it.progressTotal }
     
-    val latestUpdate = requests.maxOfOrNull { it.updatedAt } ?: 0L
+    val latestUpdate = batches.maxOfOrNull { it.updatedAt } ?: 0L
 
     val typeName = when (type) {
         JobType.NOVEL_METADATA -> "Metadata"
@@ -176,7 +176,7 @@ fun RequestGroupCard(
                         }
                         
                         Text(
-                            text = "${requests.size} jobs",
+                            text = "${batches.size} jobs",
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryText.copy(alpha = 0.7f),
                             fontSize = 10.sp

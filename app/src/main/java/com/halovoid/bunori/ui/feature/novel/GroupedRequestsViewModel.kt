@@ -4,8 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.data.db.entities.JobStatus
-import com.halovoid.bunori.data.repository.RequestRepository
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.data.repository.BatchRepository
+import com.halovoid.bunori.domain.models.Batch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -28,7 +28,7 @@ sealed interface RequestScope {
 
 class GroupedRequestsViewModel(
     application: Application,
-    private val requestRepository: RequestRepository
+    private val batchRepository: BatchRepository
 ) : AndroidViewModel(application) {
 
     private val _scope = MutableStateFlow<RequestScope?>(null)
@@ -46,16 +46,16 @@ class GroupedRequestsViewModel(
         _statusFilters.value = current
     }
 
-    val cancellingRequestIds: StateFlow<Set<String>> = requestRepository.cancellingRequestIds
-    val activeActionIds: StateFlow<Set<String>> = requestRepository.activeActionIds
+    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
+    val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val allRequests: StateFlow<List<Request>> = _scope.filterNotNull()
+    val allRequests: StateFlow<List<Batch>> = _scope.filterNotNull()
         .flatMapLatest { scope ->
             when (scope) {
-                is RequestScope.All -> requestRepository.getRootRequests()
-                is RequestScope.ByNovel -> requestRepository.getRootRequestByNovelFlow(scope.novelUrl)
-                is RequestScope.ByDependency -> requestRepository.getRequestsByDependenceFlow(scope.requestId)
+                is RequestScope.All -> batchRepository.getRootRequests()
+                is RequestScope.ByNovel -> batchRepository.getRootRequestByNovelFlow(scope.novelUrl)
+                is RequestScope.ByDependency -> batchRepository.getRequestsByDependenceFlow(scope.requestId)
             }
         }
         .stateIn(
@@ -65,7 +65,7 @@ class GroupedRequestsViewModel(
         )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val requests: StateFlow<List<Request>> = combine(allRequests, _statusFilters) { list, statusMap ->
+    val requests: StateFlow<List<Batch>> = combine(allRequests, _statusFilters) { list, statusMap ->
         var filtered = list
 
         val excludedStatuses = statusMap.filter { it.value == FilterState.EXCLUDE }.keys
@@ -101,26 +101,26 @@ class GroupedRequestsViewModel(
 
     fun replayRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.replayRequest(requestId)
+            batchRepository.replayRequest(requestId)
         }
     }
 
     fun resumeRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.resumeRequest(requestId)
+            batchRepository.resumeRequest(requestId)
         }
     }
 
     fun cancelRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.cancelRequest(requestId)
+            batchRepository.cancelRequest(requestId)
         }
     }
 
     fun resolveCloudflare(requestId: String, url: String) {
         viewModelScope.launch {
             com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url)
-            requestRepository.replayRequest(requestId)
+            batchRepository.replayRequest(requestId)
         }
     }
 }

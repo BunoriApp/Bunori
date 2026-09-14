@@ -16,7 +16,7 @@ sealed interface PreviewUiState {
 }
 
 /**
- * One-shot UI events for navigation and user feedback in the Request feature.
+ * One-shot UI events for navigation and user feedback in the Batch feature.
  */
 sealed interface RequestUiEvent {
     data object NavigateBack : RequestUiEvent

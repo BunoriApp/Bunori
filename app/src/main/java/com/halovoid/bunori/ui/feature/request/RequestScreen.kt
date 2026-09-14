@@ -52,9 +52,6 @@ enum class BrowseTab(val title: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestScreen(
-    onNavigateToPreview: () -> Unit,
-    onNavigateToDetail: (String, String) -> Unit,
-    onNavigateToRequest: () -> Unit,
     onNavigateToSearch: (String?) -> Unit = {},
     onNavigateToExtensionSettings: () -> Unit = {},
     onNavigateToExtensionInfo: ((String) -> Unit)? = null,
@@ -518,7 +515,7 @@ fun ManualRequestScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "Request Novel",
+                title = "Batch Novel",
                 onBack = onBack
             )
         },

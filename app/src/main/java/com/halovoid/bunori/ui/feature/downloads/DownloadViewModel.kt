@@ -5,8 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.db.entities.JobStatus
-import com.halovoid.bunori.data.repository.RequestRepository
-import com.halovoid.bunori.domain.models.Request
+import com.halovoid.bunori.data.repository.BatchRepository
+import com.halovoid.bunori.domain.models.Batch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -15,10 +15,10 @@ import kotlinx.coroutines.launch
 
 class DownloadViewModel(
     application: Application,
-    private val requestRepository: RequestRepository
+    private val batchRepository: BatchRepository
 ) : AndroidViewModel(application) {
 
-    val requestHistory: StateFlow<List<Request>> = requestRepository.getRootRequests()
+    val batchHistory: StateFlow<List<Batch>> = batchRepository.getRootRequests()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -27,7 +27,7 @@ class DownloadViewModel(
 
     data class GlobalDownloadStats(val completed: Int, val total: Int)
 
-    val globalStats: StateFlow<GlobalDownloadStats> = requestHistory.map { list ->
+    val globalStats: StateFlow<GlobalDownloadStats> = batchHistory.map { list ->
         val active = list.filter { 
             it.status == JobStatus.RUNNING || 
             it.status == JobStatus.PAUSED || 
@@ -43,24 +43,24 @@ class DownloadViewModel(
         initialValue = GlobalDownloadStats(0, 0)
     )
 
-    val cancellingRequestIds: StateFlow<Set<String>> = requestRepository.cancellingRequestIds
-    val activeActionIds: StateFlow<Set<String>> = requestRepository.activeActionIds
+    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
+    val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
     fun cancelRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.cancelRequest(requestId)
+            batchRepository.cancelRequest(requestId)
         }
     }
 
     fun replayRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.replayRequest(requestId)
+            batchRepository.replayRequest(requestId)
         }
     }
 
     fun resumeRequest(requestId: String) {
         viewModelScope.launch {
-            requestRepository.resumeRequest(requestId)
+            batchRepository.resumeRequest(requestId)
         }
     }
 
@@ -68,7 +68,7 @@ class DownloadViewModel(
         viewModelScope.launch {
             val success = Scrapper.globalResolver?.resolve(url) ?: false
             if (success) {
-                requestRepository.replayRequest(requestId)
+                batchRepository.replayRequest(requestId)
             }
         }
     }

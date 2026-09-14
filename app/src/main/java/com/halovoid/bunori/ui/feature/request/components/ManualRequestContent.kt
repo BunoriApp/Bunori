@@ -52,7 +52,7 @@ fun ManualRequestContent(
     ) {
         item {
             Text(
-                text = "Request a Novel",
+                text = "Batch a Novel",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = PrimaryText

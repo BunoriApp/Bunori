@@ -7,7 +7,7 @@ starting at Section 11, *which layer is allowed to depend on which*, since
 in-file discipline alone doesn't produce a layered codebase on its own.
 
 These rules exist because of a specific, recurring problem in the current
-codebase: the same small decision (how to build a request, how to track which
+codebase: the same small decision (how to build a batch, how to track which
 dialog is open, how to color a top bar, how to launch a file picker) gets
 solved slightly differently every time it comes up, instead of being solved
 once. The result is a codebase where no two files quite agree with each
@@ -30,7 +30,7 @@ files, each slightly different, each equally hard to find.
 
 **Ask this before writing inline logic:**
 
-- Does this represent a *concept* (a request payload, a dialog, a filter, a
+- Does this represent a *concept* (a batch payload, a dialog, a filter, a
   sort order, a file-export operation)? → It's a class.
 - Is this just local, throwaway plumbing for one function (a temp index, a
   loop accumulator)? → It's fine inline.
@@ -101,7 +101,7 @@ painful.
 
 ### 2.2 Extract repeated construction into a named builder
 
-If you catch yourself building the same kind of object (a request, a
+If you catch yourself building the same kind of object (a batch, a
 metadata blob, a file name, an export payload) more than once with slightly
 different fields each time, that construction logic is a concept and
 deserves its own class.
@@ -116,7 +116,7 @@ val metadata = JSONObject().apply {
     put("endIndex", end)
 }.toString()
 
-val request = RequestEntity(
+val batch = RequestEntity(
     id = requestId,
     type = RequestType.RANGE_DOWNLOAD,
     novelUrl = novel.url,
@@ -148,14 +148,14 @@ class RequestFactory {
 // ViewModel becomes intent, not construction
 fun fetchRange(novel: Novel) {
     viewModelScope.launch {
-        requestRepository.insertRequests(listOf(requestFactory.rangeDownload(novel, range, count)))
-        requestRepository.startScheduler()
+        batchRepository.insertRequests(listOf(requestFactory.rangeDownload(novel, range, count)))
+        batchRepository.startScheduler()
     }
 }
 ```
 
 Now there's exactly one place that knows what fields a `RequestEntity`
-needs, and every request looks the same shape by construction — not by
+needs, and every batch looks the same shape by construction — not by
 everyone remembering to copy the previous function correctly.
 
 ### 2.3 Small ≠ inline
@@ -190,7 +190,7 @@ Do not mix construction styles within the same class:
 // in the same constructor block. A reader can't tell which pattern is "the real one."
 class NovelDetailViewModel(
     application: Application,
-    private val requestRepository: RequestRepository,       // injected
+    private val batchRepository: BatchRepository,       // injected
 ) : AndroidViewModel(application) {
     private val novelRepository = NovelRepository.getInstance(application)      // not injected
     private val volumeRepository = VolumeRepository.getInstance(application)    // not injected
@@ -208,7 +208,7 @@ class NovelDetailViewModel(
     private val volumeRepository: VolumeRepository,
     private val chapterRepository: ChapterRepository,
     private val artifactRepository: ArtifactRepository,
-    private val requestRepository: RequestRepository,
+    private val batchRepository: BatchRepository,
     private val requestFactory: RequestFactory,
 ) : ViewModel()
 ```
@@ -270,9 +270,9 @@ spell identically.
 private val _context = MutableStateFlow<Pair<String, String>?>(null)
 // ...
 when (type) {
-    "ALL" -> requestRepository.getRootRequests()
-    "NOVEL" -> requestRepository.getRootRequestByNovelFlow(value)
-    "DEPENDENCY" -> requestRepository.getRequestsByDependenceFlow(value)
+    "ALL" -> batchRepository.getRootRequests()
+    "NOVEL" -> batchRepository.getRootRequestByNovelFlow(value)
+    "DEPENDENCY" -> batchRepository.getRequestsByDependenceFlow(value)
     else -> flowOf(emptyList())
 }
 ```
@@ -292,9 +292,9 @@ sealed interface RequestScope {
 
 ```kotlin
 when (scope) {
-    is RequestScope.All -> requestRepository.getRootRequests()
-    is RequestScope.ByNovel -> requestRepository.getRootRequestByNovelFlow(scope.novelUrl)
-    is RequestScope.ByDependency -> requestRepository.getRequestsByDependenceFlow(scope.requestId)
+    is RequestScope.All -> batchRepository.getRootRequests()
+    is RequestScope.ByNovel -> batchRepository.getRootRequestByNovelFlow(scope.novelUrl)
+    is RequestScope.ByDependency -> batchRepository.getRequestsByDependenceFlow(scope.requestId)
 }
 ```
 
@@ -475,21 +475,21 @@ class NovelDetailViewModel(
 **Do** put a `domain` interface between them:
 
 ```kotlin
-// domain/repository/RequestRepository.kt — pure Kotlin, no Android imports
-interface RequestRepository {
-    suspend fun insertRequests(requests: List<RequestEntity>)
+// domain/repository/BatchRepository.kt — pure Kotlin, no Android imports
+interface BatchRepository {
+    suspend fun insertRequests(batches: List<RequestEntity>)
     fun getRootRequests(): Flow<List<RequestEntity>>
 }
 
-// data/repository/RequestRepositoryImpl.kt — the only file that knows about Room
-class RequestRepositoryImpl(private val dao: RequestDao) : RequestRepository {
-    override suspend fun insertRequests(requests: List<RequestEntity>) = dao.insertAll(requests)
+// data/repository/BatchRepositoryImpl.kt — the only file that knows about Room
+class BatchRepositoryImpl(private val dao: RequestDao) : BatchRepository {
+    override suspend fun insertRequests(batches: List<RequestEntity>) = dao.insertAll(batches)
     override fun getRootRequests(): Flow<List<RequestEntity>> = dao.getRootRequests()
 }
 
 // presentation/NovelDetailViewModel.kt — only ever sees the interface
 class NovelDetailViewModel(
-    private val requestRepository: RequestRepository,
+    private val batchRepository: BatchRepository,
 ) : ViewModel()
 ```
 
@@ -844,7 +844,7 @@ hand.
 
 Run through this on any non-trivial change:
 
-- [ ] Did I build the same kind of object (request, dialog, filter, filename...)
+- [ ] Did I build the same kind of object (batch, dialog, filter, filename...)
   more than once by hand? → extract a factory/builder.
 - [ ] Do I have more than one boolean tracking overlapping UI state? → collapse
   into one sealed state.

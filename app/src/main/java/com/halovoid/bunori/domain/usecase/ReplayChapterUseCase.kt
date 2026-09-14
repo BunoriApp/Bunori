@@ -3,7 +3,7 @@ package com.halovoid.bunori.domain.usecase
 import android.net.Uri
 import com.halovoid.bunori.data.factory.RequestFactory
 import com.halovoid.bunori.data.repository.DownloadRepository
-import com.halovoid.bunori.data.repository.RequestRepository
+import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
@@ -15,7 +15,7 @@ import com.halovoid.bunori.ui.core.logging.AppLog
 class ReplayChapterUseCase(
     private val downloadRepository: DownloadRepository,
     private val storageRepository: StorageRepository,
-    private val requestRepository: RequestRepository,
+    private val batchRepository: BatchRepository,
     private val requestFactory: RequestFactory = RequestFactory()
 ) {
     suspend operator fun invoke(novel: Novel, chapter: Chapter) {
@@ -29,6 +29,6 @@ class ReplayChapterUseCase(
             downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
         }
         val request = requestFactory.chapter(novel, chapter)
-        requestRepository.insertRequests(listOf(request))
+        batchRepository.insertRequests(listOf(request))
     }
 }

@@ -235,20 +235,6 @@ fun NavGraph(navController: NavHostController) {
                 RequestScreen(
                     viewModel = requestViewModel,
                     crawlerViewModel = crawlerViewModel,
-                    onNavigateToPreview = {
-                        navController.navigate(Screen.NovelPreview.route)
-                    },
-                    onNavigateToDetail = { crawlerName, novelUrl ->
-                        navController.navigate(
-                            Screen.NovelDetail.createRoute(
-                                crawlerName,
-                                novelUrl
-                            )
-                        )
-                    },
-                    onNavigateToRequest = {
-                        navController.navigate(Screen.ManualRequest.route)
-                    },
                     onNavigateToSearch = { sourceName ->
                         navController.navigate(Screen.Search.createRoute(sourceName))
                     },
@@ -589,7 +575,7 @@ fun NavGraph(navController: NavHostController) {
                 val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
 
                 NovelActivityScreen(
-                    requests = requests,
+                    batches = requests,
                     onBack = { navController.popBackStack() },
                     onRequestClick = { requestId ->
                         navController.navigate(Screen.RequestDetail.createRoute(requestId))
@@ -650,8 +636,8 @@ fun NavGraph(navController: NavHostController) {
 
                 GroupedRequestsScreen(
                     type = type,
-                    requests = requests,
-                    allRequests = allRequests,
+                    batches = requests,
+                    allBatches = allRequests,
                     statusFilters = statusFilters,
                     onStatusFilterChange = { status, state -> viewModel.setStatusFilter(status, state) },
                     onBack = { navController.popBackStack() },
