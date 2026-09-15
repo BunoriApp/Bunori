@@ -10,7 +10,10 @@ import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.sync.Semaphore
 import java.util.PriorityQueue
 import java.util.concurrent.ConcurrentHashMap
@@ -26,6 +29,7 @@ class JobScheduler(
     private val preferenceRepository: PreferenceRepository? = null,
     private val rateLimiter: CrawlerRateLimiter = CrawlerRateLimiter()
 ) {
+    private val trigger = Channel<Unit>(Channel.CONFLATED)
     private var pollingJob: Job? = null
     private val activeJobs = ConcurrentHashMap<String, Job>()
     private val crawlerPools = ConcurrentHashMap<String, WorkerPool>()
@@ -34,11 +38,22 @@ class JobScheduler(
     private val leaseMonitor = LeaseMonitor(config.abandonedTimeoutMs)
     private var onEmptyListener: (() -> Unit)? = null
 
+    init {
+        preferenceRepository?.maxConcurrentJobs?.onEach {
+            notifyWakeup()
+        }?.launchIn(scope)
+    }
+
     fun setOnEmptyListener(listener: () -> Unit) {
         this.onEmptyListener = listener
     }
 
+    fun notifyWakeup() {
+        trigger.trySend(Unit)
+    }
+
     fun start() {
+        notifyWakeup()
         if (pollingJob?.isActive == true) return
         pollingJob = scope.launch {
             while (isActive) {
@@ -49,7 +64,9 @@ class JobScheduler(
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
-                delay(config.pollingIntervalMs.milliseconds)
+                withTimeoutOrNull(config.pollingIntervalMs.milliseconds) {
+                    trigger.receive()
+                }
             }
         }
     }
@@ -65,6 +82,7 @@ class JobScheduler(
             taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.PAUSED)
             val tasks = taskDao.getTasksByBatchId(batchId)
             tasks.forEach { activeJobs[it.id]?.cancel() }
+            notifyWakeup()
         }
     }
 
@@ -90,6 +108,7 @@ class JobScheduler(
             taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.CANCELLED)
             val tasks = taskDao.getTasksByBatchId(batchId)
             tasks.forEach { activeJobs[it.id]?.cancel() }
+            notifyWakeup()
         }
     }
 
@@ -122,8 +141,10 @@ class JobScheduler(
     }
 
     private fun launchReadyJobs(readyQueue: ReadyQueue) {
+        val saturatedCrawlers = mutableSetOf<String>()
+
         while (true) {
-            val task = readyQueue.pop() ?: break
+            val task = readyQueue.pop(saturatedCrawlers) ?: break
             if (activeJobs.containsKey(task.id)) continue
 
             val crawlerName = task.parsedMetadata.crawlerName
@@ -138,6 +159,9 @@ class JobScheduler(
             }
 
             if (!pool.tryAcquire()) {
+                val key = crawlerName ?: "__global__"
+                saturatedCrawlers.add(key)
+                readyQueue.pushFirst(task)
                 continue
             }
 
@@ -151,6 +175,7 @@ class JobScheduler(
                     activeJobs.remove(task.id)
                 } finally {
                     pool.release()
+                    notifyWakeup()
                 }
             }
             activeJobs[task.id] = job
@@ -196,34 +221,51 @@ internal class ReadyQueue {
         }
     }
 
-    fun pop(): TaskEntity? {
-        val iterator = buckets.iterator()
-        while (iterator.hasNext()) {
-            val (_, novelMap) = iterator.next()
+    fun pushFirst(task: TaskEntity) {
+        val novelMap = buckets.getOrPut(task.priority) { LinkedHashMap() }
+        val queue = novelMap.getOrPut(task.novelUrl ?: "") { ArrayDeque() }
+        queue.addFirst(task)
+    }
+
+    fun pop(saturatedCrawlers: Set<String> = emptySet()): TaskEntity? {
+        val bucketIterator = buckets.iterator()
+        while (bucketIterator.hasNext()) {
+            val (_, novelMap) = bucketIterator.next()
             if (novelMap.isEmpty()) {
-                iterator.remove()
+                bucketIterator.remove()
                 continue
             }
 
             val novelIterator = novelMap.entries.iterator()
-            if (!novelIterator.hasNext()) {
-                iterator.remove()
-                continue
+            var selectedNovelUrl: String? = null
+            var selectedQueue: ArrayDeque<TaskEntity>? = null
+
+            while (novelIterator.hasNext()) {
+                val entry = novelIterator.next()
+                val candidate = entry.value.firstOrNull() ?: continue
+                val crawlerName = candidate.parsedMetadata.crawlerName ?: "__global__"
+                if (saturatedCrawlers.contains(crawlerName)) {
+                    continue
+                }
+                selectedNovelUrl = entry.key
+                selectedQueue = entry.value
+                break
             }
 
-            val (novelUrl, queue) = novelIterator.next()
-            val task = queue.removeFirstOrNull()
+            if (selectedNovelUrl != null && selectedQueue != null) {
+                val task = selectedQueue.removeFirstOrNull()
 
-            novelIterator.remove()
-            if (queue.isNotEmpty()) {
-                novelMap[novelUrl] = queue
+                novelMap.remove(selectedNovelUrl)
+                if (selectedQueue.isNotEmpty()) {
+                    novelMap[selectedNovelUrl] = selectedQueue
+                }
+
+                if (novelMap.isEmpty()) {
+                    bucketIterator.remove()
+                }
+
+                if (task != null) return task
             }
-
-            if (novelMap.isEmpty()) {
-                iterator.remove()
-            }
-
-            if (task != null) return task
         }
         return null
     }
