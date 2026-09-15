@@ -16,8 +16,8 @@ android {
         applicationId = "com.halovoid.bunori"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.0.9"
+        versionCode = 10
+        versionName = "1.0.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,6 +36,9 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 
@@ -65,6 +68,7 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.jedis)
+    implementation(libs.chicory.runtime)
     implementation(project(":extension-api"))
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)

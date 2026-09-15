@@ -16,8 +16,8 @@ import com.halovoid.bunori.data.artifact.generators.EpubGenerator
 import com.halovoid.bunori.data.artifact.generators.PdfGenerator
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.network.CloudflareInterceptor
+import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.api.core.scrapper.Scrapper
-import com.halovoid.bunori.api.loader.SourceLoader
 import com.halovoid.bunori.data.db.AppDatabase
 import com.halovoid.bunori.data.db.dao.BatchDao
 import com.halovoid.bunori.data.db.dao.TaskDao
@@ -30,6 +30,7 @@ import com.halovoid.bunori.data.handlers.RangeDownloadHandler
 import com.halovoid.bunori.data.repository.*
 import com.halovoid.bunori.data.scheduler.jobs.JobHandlerRegistry
 import com.halovoid.bunori.data.scheduler.jobs.JobScheduler
+import com.halovoid.bunori.extension.manager.ExtensionManager
 import com.halovoid.bunori.ui.feature.crawler.cloudflare.CloudflareResolverImpl
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.launchIn
@@ -144,7 +145,7 @@ class SchedulerService : Service() {
         val crawlerFactory = CrawlerFactory
 
         val okHttpClient = OkHttpClient.Builder()
-            .dns(com.halovoid.bunori.api.core.network.NetworkClient.fastDns)
+            .dns(NetworkClient.fastDns)
             .addInterceptor(CloudflareInterceptor(CloudflareResolverImpl.getInstance()))
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -173,7 +174,8 @@ class SchedulerService : Service() {
         createNotificationChannel()
 
         serviceScope.launch {
-            SourceLoader(this@SchedulerService).loadLocalSources()
+            ExtensionManager.getInstance(this@SchedulerService)
+                .loadInstalledExtensions()
         }
 
         observeProgress()

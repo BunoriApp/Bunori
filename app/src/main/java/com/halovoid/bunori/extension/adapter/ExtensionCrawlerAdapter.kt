@@ -1,5 +1,6 @@
 package com.halovoid.bunori.extension.adapter
 
+import com.halovoid.bunori.api.core.config.CrawlerConfig
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
@@ -21,14 +22,14 @@ class ExtensionCrawlerAdapter(
     override val baseUrl: String = extension.metadata.baseUrl
     override val language: String = extension.metadata.lang
     override val webviewNeeded: Boolean = extension.metadata.webviewNeeded
-    override val iconUrl: String?
+    override val iconUrl: String
         get() = extension.metadata.iconUrl ?: run {
             val host = try { java.net.URI(baseUrl).host ?: baseUrl } catch (_: Exception) { baseUrl }
             "https://www.google.com/s2/favicons?domain=$host&sz=128"
         }
 
-    override val config: com.halovoid.bunori.api.core.config.CrawlerConfig
-        get() = com.halovoid.bunori.api.core.config.CrawlerConfig(
+    override val config: CrawlerConfig
+        get() = CrawlerConfig(
             userFolderLocation = "",
             maxAttempts = extension.metadata.maxAttempts,
             runnerConcurrency = extension.metadata.runnerConcurrency,

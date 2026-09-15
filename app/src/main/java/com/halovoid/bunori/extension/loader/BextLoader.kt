@@ -1,19 +1,18 @@
 package com.halovoid.bunori.extension.loader
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import com.halovoid.bunori.extension.api.IExtension
 import com.halovoid.bunori.extension.api.http.ExtensionHttpClient
 import com.halovoid.bunori.extension.api.pkg.BextPackage
 import com.halovoid.bunori.extension.api.pkg.BextUtils
+import com.halovoid.bunori.extension.api.wasm.WasmExtension
 import com.halovoid.bunori.extension.http.ExtensionHttpClientImpl
-import dalvik.system.DexClassLoader
 import java.io.File
 import java.io.FileOutputStream
 
 /**
- * Loads Dalvik bytecode from a .bext package and instantiates the [IExtension] implementation.
+ * Loads WebAssembly bytecode from a .bext package and instantiates the [WasmExtension].
  */
 class BextLoader(
     private val context: Context,
@@ -24,8 +23,8 @@ class BextLoader(
     }
 
     /**
-     * Unpacks a .bext file into app-private storage, initializes DexClassLoader,
-     * and instantiates the entry [IExtension].
+     * Unpacks a .bext archive file, saves assets to isolated storage,
+     * and instantiates the [WasmExtension].
      *
      * @param bextFile The .bext archive file.
      * @return [LoadedExtension] with initialized instance and metadata.
@@ -44,7 +43,7 @@ class BextLoader(
     }
 
     /**
-     * Installs in-memory [BextPackage] into isolated storage and loads it.
+     * Installs in-memory [BextPackage] into isolated storage and loads it into a [WasmExtension].
      */
     fun loadPackage(pkg: BextPackage, sourceBextFile: File): LoadedExtension {
         val extensionId = pkg.manifest.id
@@ -53,19 +52,10 @@ class BextLoader(
             targetDir.mkdirs()
         }
 
-        // 1. Write classes.dex
-        val dexFile = File(targetDir, BextUtils.DEX_FILE_NAME)
-        if (dexFile.exists()) {
-            dexFile.delete() // Reset read-only permissions if present
-        }
-        FileOutputStream(dexFile).use { fos ->
-            fos.write(pkg.dexBytes)
-        }
-
-        // Android 14+ (API 34+) security requirement: Dynamically loaded code must be read-only
-        if (Build.VERSION.SDK_INT >= 34 && dexFile.canWrite()) {
-            dexFile.setReadOnly()
-            Log.i(TAG, "Set DEX file to read-only for Android API 34+ compliance")
+        // 1. Write source.wasm
+        val wasmFile = File(targetDir, BextUtils.WASM_FILE_NAME)
+        FileOutputStream(wasmFile).use { fos ->
+            fos.write(pkg.wasmBytes)
         }
 
         // 2. Write icon if present
@@ -83,51 +73,31 @@ class BextLoader(
             }
         }
 
-        // 3. Initialize DexClassLoader
-        Log.i(TAG, "Loading entry class ${pkg.manifest.entryClass} from ${dexFile.absolutePath}")
-        val classLoader = DexClassLoader(
-            dexFile.absolutePath,
-            null,
-            null,
-            context.classLoader
+        // 3. Instantiate WasmExtension
+        Log.i(TAG, "Initializing WasmExtension for ${pkg.manifest.name} from ${wasmFile.absolutePath}")
+        val extensionInstance: IExtension = WasmExtension(
+            manifest = pkg.manifest,
+            wasmSource = wasmFile,
+            httpClient = httpClient,
+            logger = { level, tag, msg ->
+                when (level) {
+                    1 -> Log.v(tag, msg)
+                    2 -> Log.d(tag, msg)
+                    3 -> Log.i(tag, msg)
+                    4 -> Log.w(tag, msg)
+                    5 -> Log.e(tag, msg)
+                    else -> Log.d(tag, msg)
+                }
+            }
         )
 
-        val entryClass = try {
-            classLoader.loadClass(pkg.manifest.entryClass)
-        } catch (e: ClassNotFoundException) {
-            Log.e(TAG, "Entry class '${pkg.manifest.entryClass}' not found in DEX", e)
-            throw IllegalStateException("Entry class '${pkg.manifest.entryClass}' not found in DEX", e)
-        }
-
-        // 4. Instantiate entry class
-        val rawInstance = try {
-            // Try constructor with ExtensionHttpClient parameter
-            val constructor = entryClass.getDeclaredConstructor(ExtensionHttpClient::class.java)
-            constructor.newInstance(httpClient)
-        } catch (_: NoSuchMethodException) {
-            try {
-                // Fall back to no-arg constructor
-                val noArgConstructor = entryClass.getDeclaredConstructor()
-                noArgConstructor.newInstance()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to instantiate ${entryClass.name}", e)
-                throw IllegalStateException("Could not find a valid constructor for ${entryClass.name}", e)
-            }
-        }
-
-        val extensionInstance = rawInstance as? IExtension
-            ?: throw IllegalStateException(
-                "Class ${entryClass.name} does not implement ${IExtension::class.java.name}"
-            )
-
-        Log.i(TAG, "Successfully loaded extension: ${pkg.manifest.name} (v${pkg.manifest.version})")
+        Log.i(TAG, "Successfully loaded WASM extension: ${pkg.manifest.name} (v${pkg.manifest.version})")
 
         return LoadedExtension(
             manifest = pkg.manifest,
             extension = extensionInstance,
             bextFile = sourceBextFile,
-            iconFile = iconFile,
-            classLoader = classLoader
+            iconFile = iconFile
         )
     }
 }

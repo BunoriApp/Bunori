@@ -11,6 +11,5 @@ data class LoadedExtension(
     val manifest: ExtensionManifest,
     val extension: IExtension,
     val bextFile: File,
-    val iconFile: File? = null,
-    val classLoader: ClassLoader
+    val iconFile: File? = null
 )
