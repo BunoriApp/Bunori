@@ -91,6 +91,66 @@ class WasmExtensionIntegrationTest {
     }
 
     @Test
+    fun testNovelfullDetailsBenchmark() = runBlocking {
+        val wasmFile = File("/home/zenit/Projects/BunoriExtensions/target/wasm32-unknown-unknown/release/novelfull.wasm")
+        if (!wasmFile.exists()) return@runBlocking
+
+        val manifest = ExtensionManifest(
+            id = "novelfull",
+            name = "NovelFull",
+            baseUrl = "https://novelfull.com"
+        )
+
+        // Generate synthetic HTML for novel details with 1000 chapters
+        val optionsBuilder = StringBuilder()
+        for (i in 1..1000) {
+            optionsBuilder.append("<option value=\"/novel-name/chapter-$i\">Chapter $i: Title of Chapter $i</option>\n")
+        }
+
+        val mainHtml = """
+            <html>
+            <body>
+                <h3 class="title">My Awesome Test Novel</h3>
+                <div class="info"><a href="/author/test">Author Name</a></div>
+                <div class="desc-text">Description of the novel.</div>
+                <div id="rating" data-novel-id="12345"></div>
+            </body>
+            </html>
+        """.trimIndent()
+
+        val ajaxHtml = "{\"html\": \"${optionsBuilder.toString().replace("\"", "\\\"").replace("\n", "")}\"}"
+
+        val mockHttp = object : ExtensionHttpClient {
+            override suspend fun get(url: String, headers: Map<String, String>): Response {
+                val bodyStr = if (url.contains("ajax-chapter-option")) ajaxHtml else mainHtml
+                return Response.Builder()
+                    .request(Request.Builder().url(url).build())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(bodyStr.toResponseBody("text/html".toMediaTypeOrNull()))
+                    .build()
+            }
+            override suspend fun post(url: String, headers: Map<String, String>, body: RequestBody?): Response = get(url, headers)
+            override suspend fun fetch(url: String, headers: Map<String, String>): String? = null
+            override suspend fun document(url: String, headers: Map<String, String>): Document? = null
+            override suspend fun download(url: String): ByteArray? = null
+        }
+
+        val extension = WasmExtension(
+            manifest = manifest,
+            wasmSource = wasmFile.readBytes(),
+            httpClient = mockHttp
+        )
+
+        val t0 = System.currentTimeMillis()
+        val details = extension.getNovelDetails("https://novelfull.com/novel-name.html")
+        val elapsed = System.currentTimeMillis() - t0
+
+        println("BENCHMARK: Loaded ${details.chapters.size} chapters in ${elapsed}ms!")
+    }
+
+    @Test
     fun testWasmExtensionSearchExecution() = runBlocking {
         val wasmFile = File("/home/zenit/Projects/BunoriExtensions/target/wasm32-unknown-unknown/release/royalroad.wasm")
         if (!wasmFile.exists()) {
