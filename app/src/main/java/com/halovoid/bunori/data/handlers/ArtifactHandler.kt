@@ -6,6 +6,7 @@ import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.data.scheduler.jobs.JobHandler
@@ -14,6 +15,7 @@ import com.halovoid.bunori.domain.models.Artifact
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.core.net.toUri
+import org.json.JSONObject
 
 class ArtifactHandler(
     private val novelRepository: NovelRepository,
@@ -21,22 +23,52 @@ class ArtifactHandler(
     private val crawlerFactory: CrawlerFactory,
     private val storageRepository: StorageRepository,
     private val generatorFactory: ArtifactGeneratorFactory,
-    private val artifactRepository: ArtifactRepository
+    private val artifactRepository: ArtifactRepository,
+    private val downloadRepository: DownloadRepository
 ) : JobHandler {
     override suspend fun handle(task: TaskEntity): JobResult = withContext(Dispatchers.IO) {
         val metadata = task.parsedMetadata
         val format = metadata.format ?: return@withContext JobResult.Failure(Exception("No Format Provided"))
         val crawlerName = metadata.crawlerName ?: return@withContext JobResult.Failure(Exception("No Crawler Name provided"))
+        val startIndex = metadata.startIndex ?: 1
+        val endIndex = metadata.endIndex ?: Int.MAX_VALUE
+
+        val json = try { JSONObject(task.metadata ?: "{}") } catch (_: Exception) { JSONObject() }
+        val selectedSources = json.optJSONArray("selectedSources")?.let { arr ->
+            (0 until arr.length()).map { arr.getString(it) }.toSet()
+        }
 
         try {
             // 1. Fetch All Necessary data
             val novel = novelRepository.getNovelDetails(task.novelUrl)
                 ?: return@withContext JobResult.Failure(Exception("Novel not found in database"))
-            val chapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl)
+            val allChapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl)
+
+            // Filter by range
+            val rangeChapters = allChapters.filter { it.index in startIndex..endIndex }
+
+            // Filter by selected sources
+            val sourceFiltered = if (!selectedSources.isNullOrEmpty()) {
+                rangeChapters.filter { chapter ->
+                    val src = chapter.scanlationSource
+                    val effective = if (src.isBlank() || src == "NotProvided" || src == "Not Provided") crawlerName else src
+                    selectedSources.contains(src) || selectedSources.contains(effective)
+                }
+            } else {
+                rangeChapters
+            }
+
+            // Filter ONLY those chapters that are actually downloaded!
+            val downloadedUrls = downloadRepository.getDownloadedChapterUrls(task.novelUrl).toSet()
+            val downloadedChapters = sourceFiltered.filter { downloadedUrls.contains(it.url) }
+
+            if (downloadedChapters.isEmpty()) {
+                return@withContext JobResult.Failure(Exception("No downloaded chapters found to export for the selected sources"))
+            }
 
             // 2. Select generator and create temp file
             val generator = generatorFactory.getGenerator(format)
-            val tempFile = generator.generate(novel, chapters, metadata)
+            val tempFile = generator.generate(novel, downloadedChapters, metadata)
             val crawler = crawlerFactory.getCrawler(crawlerName)
                 ?: return@withContext JobResult.Failure(Exception("Crawler '$crawlerName' not found"))
 

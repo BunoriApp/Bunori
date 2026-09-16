@@ -136,8 +136,8 @@ class SchedulerService : Service() {
         val artifactRepository = ArtifactRepository.getInstance(this)
         val downloadRepository = DownloadRepositoryImpl.getInstance(this)
 
-        val epubGenerator = EpubGenerator(storageRepository)
-        val pdfGenerator = PdfGenerator(storageRepository)
+        val epubGenerator = EpubGenerator(storageRepository, downloadRepository)
+        val pdfGenerator = PdfGenerator(storageRepository, downloadRepository)
         val generatorFactory = ArtifactGeneratorFactory(listOf(epubGenerator, pdfGenerator))
 
         val registry = JobHandlerRegistry()
@@ -160,7 +160,7 @@ class SchedulerService : Service() {
             crawlerFactory, novelRepository, chapterRepository, storageRepository
         ))
         registry.register(JobType.ARTIFACT, ArtifactHandler(
-            novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository
+            novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository, downloadRepository
         ))
         registry.register(JobType.BACKUP, BackupService(applicationContext))
         registry.register(JobType.RANGE_DOWNLOAD, RangeDownloadHandler(chapterRepository, taskDao))

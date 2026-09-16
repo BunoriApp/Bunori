@@ -608,7 +608,8 @@ fun NavGraph(navController: NavHostController) {
                     novel = novel,
                     artifacts = artifacts,
                     onBack = { navController.popBackStack() },
-                    onDownload = { _ -> }
+                    onDownload = { _ -> },
+                    viewModel = viewModel
                 )
             }
             composable(Screen.GroupedRequests.route) { backStackEntry ->

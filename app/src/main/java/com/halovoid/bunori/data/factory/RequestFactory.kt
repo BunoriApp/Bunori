@@ -93,12 +93,15 @@ class RequestFactory {
         )
     }
 
-    fun export(novel: Novel, format: ExportFormat, start: Int, end: Int): BatchEntity {
+    fun export(novel: Novel, format: ExportFormat, start: Int, end: Int, selectedSources: Set<String>? = null): BatchEntity {
         val metadata = JSONObject().apply {
             put("format", format.toString())
             put("crawlerName", novel.crawlerName)
             put("startIndex", start)
             put("endIndex", end)
+            if (!selectedSources.isNullOrEmpty()) {
+                put("selectedSources", org.json.JSONArray(selectedSources.toList()))
+            }
         }.toString()
 
         return BatchEntity(

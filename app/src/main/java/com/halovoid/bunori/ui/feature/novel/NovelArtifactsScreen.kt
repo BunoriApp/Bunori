@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.net.toUri
 import com.halovoid.bunori.domain.models.Artifact
+import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.core.components.ExportWarningDialog
@@ -32,7 +33,13 @@ import kotlinx.coroutines.launch
 
 sealed interface ArtifactsDialogState {
     data object SelectFormat : ArtifactsDialogState
-    data class ExportWarning(val format: ExportFormat, val totalSelected: Int, val downloadedCount: Int) : ArtifactsDialogState
+    data class ExportWarning(
+        val format: ExportFormat,
+        val totalSelected: Int,
+        val downloadedCount: Int,
+        val selectedSources: Set<String>,
+        val missingChapters: List<Chapter>
+    ) : ArtifactsDialogState
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,24 +48,33 @@ fun NovelArtifactsScreen(
     novel: Novel?,
     artifacts: List<Artifact>,
     onBack: () -> Unit,
-    onDownload: (Artifact) -> Unit
+    onDownload: (Artifact) -> Unit,
+    viewModel: NovelDetailViewModel? = null
 ) {
     val context = LocalContext.current
+    val actualViewModel: NovelDetailViewModel = viewModel ?: run {
+        val factory = remember { ViewModelFactory(context.applicationContext as Application) }
+        viewModel(factory = factory)
+    }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    
-    val factory = remember { ViewModelFactory(context.applicationContext as Application) }
-    val viewModel: NovelDetailViewModel = viewModel(factory = factory)
 
-    val chapters by viewModel.chapters.collectAsStateWithLifecycle()
-    val chapterRange by viewModel.chapterRange.collectAsStateWithLifecycle()
+    LaunchedEffect(novel?.url) {
+        novel?.url?.let { actualViewModel.loadNovel(it) }
+    }
+
+    val availableSources by actualViewModel.availableSources.collectAsStateWithLifecycle()
+    val selectedSources by actualViewModel.selectedSources.collectAsStateWithLifecycle()
+    val allChapters by actualViewModel.allNovelChapters.collectAsStateWithLifecycle()
+    val chapters by actualViewModel.chapters.collectAsStateWithLifecycle()
+    val chapterRange by actualViewModel.chapterRange.collectAsStateWithLifecycle()
 
     var selectedArtifact by remember { mutableStateOf<Artifact?>(null) }
     var activeDialog by remember { mutableStateOf<ArtifactsDialogState?>(null) }
 
     val launchFileExport = rememberFileExportLauncher(mimeType = "*/*") { destUri ->
         selectedArtifact?.let { artifact ->
-            viewModel.copyArtifactToUri(
+            actualViewModel.copyArtifactToUri(
                 artifact = artifact,
                 destinationUri = destUri,
                 onComplete = { resultUri ->
@@ -185,23 +201,44 @@ fun NovelArtifactsScreen(
 
         when (val dialog = activeDialog) {
             is ArtifactsDialogState.SelectFormat -> {
-                val start = chapterRange.start.toInt()
-                val end = chapterRange.endInclusive.toInt()
-                val rangeChapters = chapters.filter { it.index in start..end }
-                val downloadedCount = rangeChapters.count { it.isDownloaded }
-
                 ArtifactExportDialog(
+                    availableSources = availableSources,
+                    initialSelectedSources = selectedSources,
+                    allChapters = allChapters,
+                    crawlerName = novel?.crawlerName ?: "",
                     onDismiss = { activeDialog = null },
-                    onExport = { format ->
-                        if (downloadedCount < rangeChapters.size) {
+                    onExport = { format, chosenSources ->
+                        val matchingChapters = if (availableSources.isEmpty()) {
+                            allChapters
+                        } else {
+                            allChapters.filter { ch ->
+                                val eff = if (ch.scanlationSource.isBlank() || ch.scanlationSource == "NotProvided" || ch.scanlationSource == "Not Provided") {
+                                    novel?.crawlerName ?: ""
+                                } else {
+                                    ch.scanlationSource
+                                }
+                                chosenSources.contains(ch.scanlationSource) || chosenSources.contains(eff)
+                            }
+                        }
+                        val downloaded = matchingChapters.filter { it.isDownloaded }
+                        val missing = matchingChapters.filter { !it.isDownloaded }
+
+                        if (downloaded.isEmpty()) {
+                            activeDialog = null
+                            scope.launch {
+                                snackbarHostState.showSnackbar("No downloaded chapters found for the selected sources. Please download them first.")
+                            }
+                        } else if (missing.isNotEmpty()) {
                             activeDialog = ArtifactsDialogState.ExportWarning(
                                 format = format,
-                                totalSelected = rangeChapters.size,
-                                downloadedCount = downloadedCount
+                                totalSelected = matchingChapters.size,
+                                downloadedCount = downloaded.size,
+                                selectedSources = chosenSources,
+                                missingChapters = missing
                             )
                         } else {
                             activeDialog = null
-                            novel?.let { viewModel.startBackgroundExport(it, format) }
+                            novel?.let { actualViewModel.startBackgroundExport(it, format, chosenSources) }
                             onBack()
                         }
                     }
@@ -213,11 +250,13 @@ fun NovelArtifactsScreen(
                     downloadedCount = dialog.downloadedCount,
                     onDownloadFirst = {
                         activeDialog = null
-                        novel?.let { viewModel.fetchRange(it) }
+                        novel?.let { nov ->
+                            actualViewModel.downloadChapters(nov, dialog.missingChapters)
+                        }
                     },
                     onExportAnyway = {
                         activeDialog = null
-                        novel?.let { viewModel.startBackgroundExport(it, dialog.format) }
+                        novel?.let { actualViewModel.startBackgroundExport(it, dialog.format, dialog.selectedSources) }
                         onBack()
                     },
                     onDismiss = {

@@ -21,7 +21,8 @@ private data class EpubItem(
     val fileName: String,
     val content: ByteArray,
     val mediaType: String,
-    val id: String
+    val id: String,
+    val title: String = id.replace("_", " ")
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -244,7 +245,7 @@ class EpubGenerator(
             .mapIndexed { index, item ->
                 """
                 |<navPoint id="navPoint-${index + 1}" playOrder="${index + 1}">
-                |    <navLabel><text>${item.id.replace("_", " ")}</text></navLabel>
+                |    <navLabel><text>${item.title}</text></navLabel>
                 |    <content src="${item.fileName}"/>
                 |</navPoint>
             """.trimMargin()
@@ -270,7 +271,7 @@ class EpubGenerator(
     private fun generateNav(novel: Novel, items: List<EpubItem>): String {
         val listItems = items.filter { it.mediaType == "application/xhtml+xml" }
             .joinToString("\n") {
-                """<li><a href="${it.fileName}">${it.id.replace("_", " ")}</a></li>"""
+                """<li><a href="${it.fileName}">${it.title}</a></li>"""
             }
         val content = """
             |<nav xmlns:epub="http://www.idpf.org/2007/ops" epub:type="toc" id="toc">
@@ -357,11 +358,13 @@ class EpubGenerator(
             } ?: "<p><em>Content not available</em></p>"
             val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem)
 
+            val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
             addItem(EpubItem(
                 "chapter_${chapter.id}_${chapter.index.toString().padStart(5, '0')}.xhtml",
                 buildChapterPage(chapter, content).toByteArray(),
                 "application/xhtml+xml",
-                "chapter_${chapter.index}"
+                "chapter_${chapter.id}_${chapter.index}",
+                displayTitle
             ))
         }
 

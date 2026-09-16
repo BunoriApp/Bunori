@@ -138,22 +138,36 @@ class NovelDetailViewModel(
         )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val chapters: StateFlow<List<Chapter>> = combine(
-        novel.filterNotNull().flatMapLatest { nov ->
+    val allNovelChapters: StateFlow<List<Chapter>> = novel
+        .filterNotNull()
+        .flatMapLatest { nov ->
             combine(
                 chapterRepository.getChaptersFlow(nov.url),
                 downloadRepository.getDownloadedChapterUrlsFlow(nov.url)
             ) { rawChapters, downloadedUrls ->
                 val downloadedSet = downloadedUrls.toSet()
                 rawChapters.map { chapter ->
+                    val effSource = if (chapter.scanlationSource.isBlank() || chapter.scanlationSource == "NotProvided" || chapter.scanlationSource == "Not Provided") {
+                        nov.crawlerName
+                    } else {
+                        chapter.scanlationSource
+                    }
                     chapter.copy(isDownloaded = downloadedSet.contains(chapter.url)).apply {
                         sourceUrl = chapter.sourceUrl
-                        scanlationSource = chapter.scanlationSource
+                        scanlationSource = effSource
                         read = chapter.read
                     }
                 }
             }
-        },
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val chapters: StateFlow<List<Chapter>> = combine(
+        allNovelChapters,
         _downloadFilter,
         _selectedSources,
         _sortState
@@ -324,13 +338,30 @@ class NovelDetailViewModel(
         _chapterRange.value = range
     }
 
-    fun startBackgroundExport(novel: Novel, format: ExportFormat) {
+    fun startBackgroundExport(
+        novel: Novel,
+        format: ExportFormat,
+        selectedSources: Set<String>? = null,
+        start: Int? = null,
+        end: Int? = null
+    ) {
         viewModelScope.launch {
-            val start = _chapterRange.value.start.toInt()
-            val end = _chapterRange.value.endInclusive.toInt()
-            val request = requestFactory.export(novel, format, start, end)
+            val startIndex = start ?: 1
+            val endIndex = end ?: Int.MAX_VALUE
+            val request = requestFactory.export(novel, format, startIndex, endIndex, selectedSources)
 
             batchRepository.insertRequests(listOf(request))
+            SchedulerService.startService(getApplication())
+        }
+    }
+
+    fun downloadChapters(novel: Novel, chaptersToDownload: List<Chapter>) {
+        viewModelScope.launch {
+            if (chaptersToDownload.isEmpty()) return@launch
+            val start = chaptersToDownload.minOf { it.index }
+            val end = chaptersToDownload.maxOf { it.index }
+            val request = requestFactory.rangeDownload(novel, start, end, chaptersToDownload.size)
+            batchRepository.insertBatchWithChapterTasks(request, chaptersToDownload)
             SchedulerService.startService(getApplication())
         }
     }
