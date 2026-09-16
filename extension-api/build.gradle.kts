@@ -23,8 +23,6 @@ dependencies {
     api(libs.kotlinx.coroutines.core)
     api(libs.jsoup)
     api(libs.okhttp)
-    api(libs.chicory.runtime)
-    api(libs.quickjs.jvm)
 
     testImplementation(libs.junit)
 }

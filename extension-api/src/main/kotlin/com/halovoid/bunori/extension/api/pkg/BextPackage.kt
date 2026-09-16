@@ -29,15 +29,4 @@ data class BextPackage(
         result = 31 * result + wasmBytes.contentHashCode()
         return result
     }
-
-    /**
-     * Instantiates a [com.halovoid.bunori.extension.api.wasm.WasmExtension] from this package.
-     */
-    fun load(
-        httpClient: com.halovoid.bunori.extension.api.http.ExtensionHttpClient =
-            com.halovoid.bunori.extension.api.http.DefaultExtensionHttpClient(),
-        logger: ((level: Int, tag: String, message: String) -> Unit)? = null
-    ): com.halovoid.bunori.extension.api.wasm.WasmExtension {
-        return com.halovoid.bunori.extension.api.wasm.WasmExtension(manifest, wasmBytes, httpClient, logger)
-    }
 }

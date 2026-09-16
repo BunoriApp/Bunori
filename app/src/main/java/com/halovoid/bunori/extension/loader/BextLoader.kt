@@ -3,28 +3,24 @@ package com.halovoid.bunori.extension.loader
 import android.content.Context
 import android.util.Log
 import com.halovoid.bunori.extension.api.IExtension
-import com.halovoid.bunori.extension.api.http.ExtensionHttpClient
 import com.halovoid.bunori.extension.api.pkg.BextPackage
 import com.halovoid.bunori.extension.api.pkg.BextUtils
-import com.halovoid.bunori.extension.api.wasm.WasmExtension
-import com.halovoid.bunori.extension.http.ExtensionHttpClientImpl
+import com.halovoid.bunori.wasm.WamrExtension
 import java.io.File
 import java.io.FileOutputStream
 
 /**
- * Loads WebAssembly bytecode from a .bext package and instantiates the [WasmExtension].
+ * Unpacks .bext packages into app storage and instantiates native [WamrExtension] runners.
+ * Automatically selects AOT machine code for device CPU architecture if present.
  */
-class BextLoader(
-    private val context: Context,
-    private val httpClient: ExtensionHttpClient = ExtensionHttpClientImpl()
-) {
+class BextLoader(private val context: Context) {
     companion object {
         private const val TAG = "BextLoader"
     }
 
     /**
      * Unpacks a .bext archive file, saves assets to isolated storage,
-     * and instantiates the [WasmExtension].
+     * and instantiates the [WamrExtension].
      *
      * @param bextFile The .bext archive file.
      * @return [LoadedExtension] with initialized instance and metadata.
@@ -43,7 +39,8 @@ class BextLoader(
     }
 
     /**
-     * Installs in-memory [BextPackage] into isolated storage and loads it into a [WasmExtension].
+     * Installs in-memory [BextPackage] into isolated storage and loads it into [WamrExtension].
+     * Prioritizes native AOT machine code matching device ABI, with fallback to source.wasm.
      */
     fun loadPackage(pkg: BextPackage, sourceBextFile: File): LoadedExtension {
         val extensionId = pkg.manifest.id
@@ -52,10 +49,26 @@ class BextLoader(
             targetDir.mkdirs()
         }
 
-        // 1. Write source.wasm
-        val wasmFile = File(targetDir, BextUtils.WASM_FILE_NAME)
-        FileOutputStream(wasmFile).use { fos ->
-            fos.write(pkg.wasmBytes)
+        // 1. Pick the best binary: Native AOT matching device ABI, or portable source.wasm
+        var selectedBytes = pkg.wasmBytes
+        var binaryName = BextUtils.WASM_FILE_NAME
+        var isAot = false
+
+        for (abi in android.os.Build.SUPPORTED_ABIS) {
+            val aotPath = "artifacts/$abi/extension.aot"
+            val aotBytes = pkg.extraFiles[aotPath]
+            if (aotBytes != null && aotBytes.isNotEmpty()) {
+                selectedBytes = aotBytes
+                binaryName = "extension_$abi.aot"
+                isAot = true
+                Log.i(TAG, "Selected native AOT binary for ABI '$abi' (${aotBytes.size} bytes) for ${pkg.manifest.name}")
+                break
+            }
+        }
+
+        val binaryFile = File(targetDir, binaryName)
+        FileOutputStream(binaryFile).use { fos ->
+            fos.write(selectedBytes)
         }
 
         // 2. Write icon if present
@@ -73,25 +86,15 @@ class BextLoader(
             }
         }
 
-        // 3. Instantiate WasmExtension
-        Log.i(TAG, "Initializing WasmExtension for ${pkg.manifest.name} from ${wasmFile.absolutePath}")
-        val extensionInstance: IExtension = WasmExtension(
+        // 3. Instantiate native WamrExtension
+        val mode = if (isAot) "AOT Native Machine Code" else "Fast Interpreter"
+        Log.i(TAG, "Initializing WamrExtension [$mode] for ${pkg.manifest.name} from ${binaryFile.name}")
+        val extensionInstance: IExtension = WamrExtension(
             manifest = pkg.manifest,
-            wasmSource = wasmFile,
-            httpClient = httpClient,
-            logger = { level, tag, msg ->
-                when (level) {
-                    1 -> Log.v(tag, msg)
-                    2 -> Log.d(tag, msg)
-                    3 -> Log.i(tag, msg)
-                    4 -> Log.w(tag, msg)
-                    5 -> Log.e(tag, msg)
-                    else -> Log.d(tag, msg)
-                }
-            }
+            binaryBytes = selectedBytes
         )
 
-        Log.i(TAG, "Successfully loaded WASM extension: ${pkg.manifest.name} (v${pkg.manifest.version})")
+        Log.i(TAG, "Successfully loaded extension: ${pkg.manifest.name} (v${pkg.manifest.version}) in $mode mode")
 
         return LoadedExtension(
             manifest = pkg.manifest,

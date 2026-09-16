@@ -20,7 +20,27 @@ android {
         versionName = "1.0.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf(
+                    "-DANDROID_STL=c++_shared",
+                    "-DWAMR_BUILD_AOT=1",
+                    "-DWAMR_BUILD_INTERP=1"
+                )
+            }
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+        }
     }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
+    }
+    ndkVersion = "30.0.16248370"
 
     buildTypes {
         release {
@@ -74,8 +94,6 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.jedis)
-    implementation(libs.chicory.runtime)
-    implementation(libs.quickjs.android)
     implementation(project(":extension-api"))
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)

@@ -175,17 +175,4 @@ object BextUtils {
         }
         return baos.toByteArray()
     }
-
-    /**
-     * Unpacks a .bext archive and instantiates a [com.halovoid.bunori.extension.api.wasm.WasmExtension].
-     */
-    fun loadExtension(
-        inputStream: InputStream,
-        httpClient: com.halovoid.bunori.extension.api.http.ExtensionHttpClient =
-            com.halovoid.bunori.extension.api.http.DefaultExtensionHttpClient(),
-        logger: ((level: Int, tag: String, message: String) -> Unit)? = null
-    ): com.halovoid.bunori.extension.api.wasm.WasmExtension {
-        val pkg = readPackage(inputStream)
-        return pkg.load(httpClient, logger)
-    }
 }
