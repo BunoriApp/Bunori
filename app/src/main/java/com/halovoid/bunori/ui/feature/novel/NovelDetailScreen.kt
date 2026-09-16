@@ -293,10 +293,16 @@ fun NovelDetailScreen(
                 is NovelDetailDialogState.DownloadRange -> {
                     val minIndex = chapters.minOfOrNull { it.index.toFloat() } ?: 1f
                     val maxIndex = chapters.maxOfOrNull { it.index.toFloat() } ?: currentNovel.chapters.size.toFloat().coerceAtLeast(1f)
+                    val activeSources = if (selectedSources.isNotEmpty()) {
+                        selectedSources.toList()
+                    } else {
+                        availableSources
+                    }
                     DownloadRangeDialog(
                         initialRange = chapterRange,
                         minChapterIndex = minIndex,
                         maxChapterIndex = maxIndex,
+                        sources = activeSources,
                         onConfirm = { range ->
                             viewModel.updateChapterRange(range)
                             viewModel.fetchRange(currentNovel)

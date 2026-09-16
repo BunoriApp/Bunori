@@ -67,7 +67,7 @@ class RequestFactory {
         }.toString()
 
         return BatchEntity(
-            id = "${novel.url}_download_${start}_${end}",
+            id = "${novel.url}_download_${start}_${end}_${System.currentTimeMillis()}",
             type = JobType.RANGE_DOWNLOAD,
             novelUrl = novel.url,
             name = "Download: ${novel.title} ($start-$end)",

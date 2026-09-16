@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import com.halovoid.bunori.data.preferences.appDataStore
 import kotlinx.coroutines.flow.map
@@ -257,6 +258,24 @@ class PreferenceRepository private constructor(
                 preferences.remove(EXTENSION_REPO_URL)
             } else {
                 preferences[EXTENSION_REPO_URL] = trimmed
+            }
+        }
+    }
+
+    fun getSavedSourcesForNovel(novelUrl: String): Flow<Set<String>?> {
+        val key = stringSetPreferencesKey("novel_sources_${novelUrl.hashCode()}")
+        return context.appDataStore.data.map { preferences ->
+            preferences[key]
+        }
+    }
+
+    suspend fun saveSourcesForNovel(novelUrl: String, sources: Set<String>) {
+        val key = stringSetPreferencesKey("novel_sources_${novelUrl.hashCode()}")
+        context.appDataStore.edit { preferences ->
+            if (sources.isEmpty()) {
+                preferences.remove(key)
+            } else {
+                preferences[key] = sources
             }
         }
     }

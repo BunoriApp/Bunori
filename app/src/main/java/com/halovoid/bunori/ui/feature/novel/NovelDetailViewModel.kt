@@ -222,7 +222,11 @@ class NovelDetailViewModel(
                 if (currentNovel != null) {
                     if (currentNovel.chapters.isNotEmpty()) {
                         val sources = currentNovel.chapters.map { it.scanlationSource }.distinct()
-                        if (_selectedSources.value.isEmpty()) {
+                        val saved = preferenceRepository.getSavedSourcesForNovel(currentNovel.url).firstOrNull()
+                        if (!saved.isNullOrEmpty()) {
+                            val validSaved = saved.filter { sources.contains(it) }.toSet()
+                            _selectedSources.value = if (validSaved.isNotEmpty()) validSaved else sources.toSet()
+                        } else if (_selectedSources.value.isEmpty()) {
                             _selectedSources.value = sources.toSet()
                         }
                         val currentRange = _chapterRange.value
@@ -284,15 +288,27 @@ class NovelDetailViewModel(
 
     fun toggleSourceSelection(source: String) {
         val current = _selectedSources.value
-        _selectedSources.value = if (current.contains(source)) {
+        val updated = if (current.contains(source)) {
             if (current.size > 1) current - source else current
         } else {
             current + source
         }
+        _selectedSources.value = updated
+        _novelUrl.value?.let { url ->
+            viewModelScope.launch {
+                preferenceRepository.saveSourcesForNovel(url, updated)
+            }
+        }
     }
 
     fun selectAllSources(sources: List<String>) {
-        _selectedSources.value = sources.toSet()
+        val updated = sources.toSet()
+        _selectedSources.value = updated
+        _novelUrl.value?.let { url ->
+            viewModelScope.launch {
+                preferenceRepository.saveSourcesForNovel(url, updated)
+            }
+        }
     }
     fun markSelectedChaptersRead(isRead: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -333,9 +349,10 @@ class NovelDetailViewModel(
             val start = _chapterRange.value.start.toInt()
             val end = _chapterRange.value.endInclusive.toInt()
             val rangeChapters = chapters.value.filter { it.index in start..end }
-            val request = requestFactory.rangeDownload(novel, start, end, rangeChapters.size)
+            if (rangeChapters.isEmpty()) return@launch
 
-            batchRepository.insertRequests(listOf(request))
+            val request = requestFactory.rangeDownload(novel, start, end, rangeChapters.size)
+            batchRepository.insertBatchWithChapterTasks(request, rangeChapters)
             SchedulerService.startService(getApplication())
         }
     }

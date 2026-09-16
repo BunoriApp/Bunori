@@ -7,11 +7,14 @@ import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.db.entities.TaskEntity
+import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
 import com.halovoid.bunori.domain.models.Batch
+import com.halovoid.bunori.domain.models.Chapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class BatchRepository private constructor(private val context: Context) {
     private val db = AppDatabase.getDatabase(context)
@@ -64,6 +67,33 @@ class BatchRepository private constructor(private val context: Context) {
             batchDao.insertBatch(batch)
             taskDao.insertTask(task)
         }
+    }
+
+    suspend fun insertBatchWithChapterTasks(
+        batch: BatchEntity,
+        chapters: List<Chapter>
+    ) = withContext(Dispatchers.IO) {
+        val crawlerName = batch.parsedMetadata.crawlerName ?: ""
+        val tasks = chapters.map { chapter ->
+            val taskMetadata = JSONObject().apply {
+                put("chapterId", chapter.id)
+                put("crawlerName", crawlerName)
+            }.toString()
+
+            TaskEntity(
+                id = "${batch.id}_ch_${chapter.index}_${chapter.id}",
+                batchId = batch.id,
+                name = chapter.title.ifBlank { "Chapter ${chapter.index}" },
+                url = chapter.url,
+                novelUrl = chapter.novelUrl,
+                type = JobType.CHAPTER,
+                priority = batch.priority,
+                metadata = taskMetadata,
+                status = JobStatus.PENDING
+            )
+        }
+        batchDao.insertBatch(batch)
+        taskDao.insertTasks(tasks)
     }
 
     suspend fun pauseRequest(batchId: String) = withContext(Dispatchers.IO) {

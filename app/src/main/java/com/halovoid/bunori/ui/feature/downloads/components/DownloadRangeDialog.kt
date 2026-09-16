@@ -1,8 +1,12 @@
 package com.halovoid.bunori.ui.feature.downloads.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.ui.core.theme.BrandAccent
@@ -14,6 +18,7 @@ fun DownloadRangeDialog(
     initialRange: ClosedFloatingPointRange<Float>,
     minChapterIndex: Float = 1f,
     maxChapterIndex: Float,
+    sources: List<String> = emptyList(),
     onConfirm: (ClosedFloatingPointRange<Float>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -58,6 +63,40 @@ fun DownloadRangeDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = SecondaryText
                     )
+                }
+
+                if (sources.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Sources info",
+                                tint = PrimaryAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Downloading from ${sources.size} ${if (sources.size == 1) "source" else "sources"}:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SecondaryText
+                                )
+                                Text(
+                                    text = sources.joinToString(", "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             }
         },

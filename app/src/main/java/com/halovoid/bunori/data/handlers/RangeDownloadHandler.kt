@@ -37,7 +37,7 @@ class RangeDownloadHandler(
             }.toString()
 
             TaskEntity(
-                id = "${task.batchId}_ch_${chapter.index}",
+                id = "${task.batchId}_ch_${chapter.index}_${chapter.id}",
                 batchId = task.batchId,
                 name = chapter.title.ifBlank { "Chapter ${chapter.index}" },
                 url = chapter.url,
