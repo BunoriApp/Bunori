@@ -42,6 +42,12 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
+    }
+}
+
 room {
     schemaDirectory("$projectDir/schemas")
 }
@@ -69,6 +75,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.jedis)
     implementation(libs.chicory.runtime)
+    implementation(libs.quickjs.android)
     implementation(project(":extension-api"))
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)

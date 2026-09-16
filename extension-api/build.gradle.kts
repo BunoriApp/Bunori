@@ -14,6 +14,7 @@ java {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
     }
 }
 
@@ -23,8 +24,16 @@ dependencies {
     api(libs.jsoup)
     api(libs.okhttp)
     api(libs.chicory.runtime)
+    api(libs.quickjs.jvm)
 
     testImplementation(libs.junit)
+}
+
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.2.10")
+        force("org.jetbrains.kotlin:kotlin-stdlib-common:2.2.10")
+    }
 }
 
 publishing {

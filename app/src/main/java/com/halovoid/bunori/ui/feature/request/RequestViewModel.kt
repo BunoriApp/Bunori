@@ -103,28 +103,20 @@ class RequestViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+            val start = System.currentTimeMillis()
+            AppLog.i("RequestViewModel", "[TIMING] fetchNovelPreview started for: $url")
             try {
                 val crawler = CrawlerFactory.getCrawlerByUrl(url)
                 if (crawler != null) {
-                    val novel = crawler.getNovelMetadata(url)
+                    val novel = crawler.getNovelDetails(url)
+                    val duration = System.currentTimeMillis() - start
+                    AppLog.i("RequestViewModel", "[TIMING] fetchNovelPreview finished in ${duration}ms, loaded ${novel.chapters.size} chapters")
                     _novelPreview.value = novel
-                    
-                    // Fetch chapters for preview
-                    _isChaptersLoading.value = true
-                    try {
-                        val chapters = crawler.getChapterList(url)
-                        _novelPreview.value = _novelPreview.value?.copy(
-                            chapters = chapters
-                        )
-                    } catch (e: Exception) {
-                        AppLog.e("RequestViewModel", "Failed to load preview chapters: ${e.message}")
-                    } finally {
-                        _isChaptersLoading.value = false
-                    }
                 } else {
                     _error.value = "URL not supported"
                 }
             } catch (e: Exception) {
+                AppLog.e("RequestViewModel", "[TIMING] fetchNovelPreview failed in ${System.currentTimeMillis() - start}ms: ${e.message}")
                 _error.value = "Failed to fetch preview: ${e.message}"
             } finally {
                 _isLoading.value = false

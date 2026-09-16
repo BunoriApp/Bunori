@@ -107,15 +107,25 @@ class WasmExtension(
             longArrayOf()
         }
 
+        val hostTimeMs = HostFunction(
+            "bunori",
+            "host_time_ms",
+            FunctionType.of(emptyList(), listOf(ValType.I64))
+        ) { _, _ ->
+            longArrayOf(System.currentTimeMillis())
+        }
+
         val store = Store()
         store.addFunction(hostHttp)
         store.addFunction(hostLog)
+        store.addFunction(hostTimeMs)
 
+        val initStart = System.currentTimeMillis()
         instance = Instance.builder(wasmModule)
             .withImportValues(store.toImportValues())
             .build()
 
-        logMessage(3, TAG, "Initialized WASM extension: ${manifest.name} (id: ${manifest.id})")
+        logMessage(3, TAG, "Initialized WASM extension (Interpreter) in ${System.currentTimeMillis() - initStart}ms: ${manifest.name} (id: ${manifest.id})")
     }
 
     private fun logMessage(level: Int, tag: String, message: String) {
@@ -134,6 +144,7 @@ class WasmExtension(
     }
 
     private fun executeHttpRequest(req: WasmHttpRequest): WasmHttpResponse {
+        val start = System.currentTimeMillis()
         return runBlocking(Dispatchers.IO) {
             try {
                 val response = if (req.method.equals("POST", ignoreCase = true)) {
@@ -148,6 +159,8 @@ class WasmExtension(
 
                 response.use { res ->
                     val body = res.body?.string() ?: ""
+                    val duration = System.currentTimeMillis() - start
+                    logMessage(3, TAG, "[${metadata.id}] [HTTP ${res.code}] in ${duration}ms: ${req.method} ${req.url} (${body.length} chars)")
                     val headers = mutableMapOf<String, String>()
                     for (i in 0 until res.headers.size) {
                         headers[res.headers.name(i)] = res.headers.value(i)
@@ -159,7 +172,8 @@ class WasmExtension(
                     )
                 }
             } catch (e: Exception) {
-                logMessage(4, TAG, "HTTP error for ${req.url}: ${e.message}")
+                val duration = System.currentTimeMillis() - start
+                logMessage(4, TAG, "[${metadata.id}] [HTTP ERROR in ${duration}ms] ${req.url}: ${e.message}")
                 WasmHttpResponse(
                     statusCode = 500,
                     body = "Host request error: ${e.message}"
@@ -260,31 +274,47 @@ class WasmExtension(
     // =========================================================================
 
     override suspend fun search(query: String, page: Int): List<SearchResultDto> {
+        val start = System.currentTimeMillis()
         val json = searchJson(query, page)
-        return if (json.isBlank()) emptyList()
-        else ExtensionJson.json.decodeFromString(json)
+        val wasmDuration = System.currentTimeMillis() - start
+        val parseStart = System.currentTimeMillis()
+        val result = if (json.isBlank()) emptyList()
+        else ExtensionJson.json.decodeFromString<List<SearchResultDto>>(json)
+        val parseDuration = System.currentTimeMillis() - parseStart
+        logMessage(3, TAG, "[${metadata.id}] [TIMING search] total=${System.currentTimeMillis() - start}ms (wasm=${wasmDuration}ms, json_parse=${parseDuration}ms, results=${result.size})")
+        return result
     }
 
     override suspend fun getNovelDetails(novelUrl: String): NovelDto {
+        val start = System.currentTimeMillis()
         val json = getNovelDetailsJson(novelUrl)
+        val wasmDuration = System.currentTimeMillis() - start
         if (json.isBlank()) {
             throw IllegalStateException("Failed to load novel details for $novelUrl (empty WASM response)")
         }
-        return ExtensionJson.json.decodeFromString(json)
+        val parseStart = System.currentTimeMillis()
+        val dto = ExtensionJson.json.decodeFromString<NovelDto>(json)
+        val parseDuration = System.currentTimeMillis() - parseStart
+        logMessage(3, TAG, "[${metadata.id}] [TIMING getNovelDetails] total=${System.currentTimeMillis() - start}ms (wasm=${wasmDuration}ms, json_parse=${parseDuration}ms, chapters=${dto.chapters.size})")
+        return dto
     }
 
     override suspend fun getChapterContent(chapterUrl: String): String? = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        val start = System.currentTimeMillis()
+        val content = mutex.withLock {
             val (ptr, len) = writeString(chapterUrl)
             try {
                 val exportFn = instance.export("get_chapter_content")
                 val result = exportFn.apply(ptr.toLong(), len.toLong())
-                val content = readPackedString(result[0])
-                content.takeIf { it.isNotBlank() }
+                val res = readPackedString(result[0])
+                res.takeIf { it.isNotBlank() }
             } finally {
                 deallocate(ptr, len)
             }
         }
+        val duration = System.currentTimeMillis() - start
+        logMessage(3, TAG, "[${metadata.id}] [TIMING getChapterContent] duration=${duration}ms (length=${content?.length ?: 0})")
+        content
     }
 
     override fun getListings(): List<ListingDto> {
@@ -294,8 +324,14 @@ class WasmExtension(
     }
 
     override suspend fun getListingNovels(listingId: String, page: Int): List<SearchResultDto> {
+        val start = System.currentTimeMillis()
         val json = getListingNovelsJson(listingId, page)
-        return if (json.isBlank()) emptyList()
-        else ExtensionJson.json.decodeFromString(json)
+        val wasmDuration = System.currentTimeMillis() - start
+        val parseStart = System.currentTimeMillis()
+        val result = if (json.isBlank()) emptyList()
+        else ExtensionJson.json.decodeFromString<List<SearchResultDto>>(json)
+        val parseDuration = System.currentTimeMillis() - parseStart
+        logMessage(3, TAG, "[${metadata.id}] [TIMING getListingNovels] total=${System.currentTimeMillis() - start}ms (wasm=${wasmDuration}ms, json_parse=${parseDuration}ms, results=${result.size})")
+        return result
     }
 }

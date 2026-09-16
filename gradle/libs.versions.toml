@@ -60,6 +60,9 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 jedis = { group = "redis.clients", name = "jedis", version.ref = "jedis" }
 chicory-runtime = { group = "com.dylibso.chicory", name = "runtime", version.ref = "chicory" }
+quickjs = { group = "io.github.dokar3", name = "quickjs-kt", version = "1.0.10" }
+quickjs-jvm = { group = "io.github.dokar3", name = "quickjs-kt-jvm", version = "1.0.10" }
+quickjs-android = { group = "io.github.dokar3", name = "quickjs-kt-android", version = "1.0.10" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
