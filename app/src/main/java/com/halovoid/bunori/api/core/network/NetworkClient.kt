@@ -1,6 +1,7 @@
 package com.halovoid.bunori.api.core.network
 
 import android.content.Context
+import com.halovoid.bunori.ui.feature.crawler.cloudflare.CloudflareResolverImpl
 import okhttp3.Cache
 import okhttp3.Dns
 import okhttp3.OkHttpClient
@@ -44,6 +45,7 @@ object NetworkClient {
                 }
                 chain.proceed(request)
             }
+            .addInterceptor(CloudflareInterceptor(CloudflareResolverImpl.getInstance()))
             .build()
     }
 }

@@ -26,7 +26,7 @@ data class ExtensionRepoEntry(
     val apiVersion: Int = 1,
     val lang: String = "en",
     val baseUrl: String,
-    val entryClass: String,
+    val entryClass: String? = null,
     val iconPath: String? = null,
     val iconUrl: String? = null,
     val bextUrl: String,

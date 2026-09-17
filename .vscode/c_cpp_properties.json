@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "Android",
+            "includePath": [
+                "${workspaceFolder}/app/src/main/cpp/**",
+                "${workspaceFolder}/app/src/main/cpp/wamr/core/iwasm/include",
+                "${workspaceFolder}/app/src/main/cpp/wamr/core/shared/platform/android",
+                "/home/zenit/Android/Sdk/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+            ],
+            "compilerPath": "/home/zenit/Android/Sdk/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/clang",
+            "cStandard": "c11"
+        }
+    ],
+    "version": 4
+}

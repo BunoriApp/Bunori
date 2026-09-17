@@ -7,7 +7,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
-import com.halovoid.bunori.api.loader.SourceLoader
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.UpdateRepository
 import com.halovoid.bunori.extension.api.models.ExtensionRepoEntry
@@ -22,6 +21,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -80,7 +80,6 @@ class CrawlerViewModel(
 ) : AndroidViewModel(application) {
 
     private val extensionManager = ExtensionManager.getInstance(application)
-    private val sourceLoader = SourceLoader(application)
 
     val crawlers: StateFlow<List<Crawler>> = CrawlerFactory.crawlersFlow
     val failedExtensions: StateFlow<List<String>> = extensionManager.failedExtensions
@@ -106,13 +105,9 @@ class CrawlerViewModel(
     val isUpdateAvailable: StateFlow<Boolean> = UpdateRepository.getInstance(application)
         .isCrawlerUpdateAvailable
 
-    val showSyncOption: StateFlow<Boolean> = combine(
-        preferenceRepository.currentDexTag,
-        isUpdateAvailable,
-        crawlers
-    ) { currentTag, updateAvailable, crawlerList ->
-        currentTag == null || updateAvailable || crawlerList.isEmpty()
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val showSyncOption: StateFlow<Boolean> = crawlers
+        .map { it.isEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val extensionItems: StateFlow<List<ExtensionUiItem>> = combine(
         extensionManager.installedExtensions,
@@ -182,7 +177,6 @@ class CrawlerViewModel(
     init {
         viewModelScope.launch {
             extensionManager.loadInstalledExtensions()
-            sourceLoader.loadLocalSources()
             refreshCatalog()
         }
         checkForUpdates()

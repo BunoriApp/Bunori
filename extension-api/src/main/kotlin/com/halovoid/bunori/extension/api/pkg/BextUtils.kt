@@ -21,14 +21,14 @@ class InvalidBextPackageException(message: String, cause: Throwable? = null) :
 object BextUtils {
     const val CURRENT_API_VERSION = 1
     const val MANIFEST_FILE_NAME = "manifest.json"
-    const val DEX_FILE_NAME = "classes.dex"
+    const val WASM_FILE_NAME = "source.wasm"
 
     /**
      * Reads and unpacks a .bext archive from an [InputStream].
      *
      * @param inputStream Input stream reading the .bext ZIP file.
      * @param validateApiVersion If true, verifies that apiVersion <= [CURRENT_API_VERSION].
-     * @throws InvalidBextPackageException if manifest or classes.dex is missing or corrupted.
+     * @throws InvalidBextPackageException if manifest or source.wasm is missing or corrupted.
      * @throws IncompatibleApiException if apiVersion is incompatible.
      */
     fun readPackage(
@@ -36,7 +36,7 @@ object BextUtils {
         validateApiVersion: Boolean = true
     ): BextPackage {
         var manifest: ExtensionManifest? = null
-        var dexBytes: ByteArray? = null
+        var wasmBytes: ByteArray? = null
         var iconBytes: ByteArray? = null
         val extraFiles = mutableMapOf<String, ByteArray>()
 
@@ -59,8 +59,8 @@ object BextUtils {
                             val jsonString = content.toString(Charsets.UTF_8)
                             manifest = ExtensionJson.json.decodeFromString<ExtensionManifest>(jsonString)
                         }
-                        DEX_FILE_NAME -> {
-                            dexBytes = content
+                        WASM_FILE_NAME -> {
+                            wasmBytes = content
                         }
                         else -> {
                             extraFiles[name] = content
@@ -77,7 +77,7 @@ object BextUtils {
         }
 
         val resolvedManifest = manifest ?: throw InvalidBextPackageException("Archive is missing required '$MANIFEST_FILE_NAME'")
-        val resolvedDexBytes = dexBytes ?: throw InvalidBextPackageException("Archive is missing required '$DEX_FILE_NAME'")
+        val resolvedWasmBytes = wasmBytes ?: throw InvalidBextPackageException("Archive is missing required '$WASM_FILE_NAME'")
 
         if (validateApiVersion) {
             validateManifest(resolvedManifest)
@@ -102,7 +102,7 @@ object BextUtils {
 
         return BextPackage(
             manifest = resolvedManifest,
-            dexBytes = resolvedDexBytes,
+            wasmBytes = resolvedWasmBytes,
             iconBytes = iconBytes,
             extraFiles = extraFiles
         )
@@ -119,9 +119,9 @@ object BextUtils {
             zos.write(manifestJson.toByteArray(Charsets.UTF_8))
             zos.closeEntry()
 
-            // 2. Write classes.dex
-            zos.putNextEntry(ZipEntry(DEX_FILE_NAME))
-            zos.write(pkg.dexBytes)
+            // 2. Write source.wasm
+            zos.putNextEntry(ZipEntry(WASM_FILE_NAME))
+            zos.write(pkg.wasmBytes)
             zos.closeEntry()
 
             // 3. Write icon if present and not already in extraFiles
@@ -136,7 +136,7 @@ object BextUtils {
 
             // 4. Write any additional extra files
             for ((name, bytes) in pkg.extraFiles) {
-                if (name != MANIFEST_FILE_NAME && name != DEX_FILE_NAME) {
+                if (name != MANIFEST_FILE_NAME && name != WASM_FILE_NAME) {
                     zos.putNextEntry(ZipEntry(name))
                     zos.write(bytes)
                     zos.closeEntry()
@@ -157,9 +157,6 @@ object BextUtils {
         }
         if (manifest.baseUrl.isBlank()) {
             throw InvalidBextPackageException("Manifest 'baseUrl' cannot be blank")
-        }
-        if (manifest.entryClass.isBlank()) {
-            throw InvalidBextPackageException("Manifest 'entryClass' cannot be blank")
         }
         if (manifest.apiVersion > maxApiVersion) {
             throw IncompatibleApiException(

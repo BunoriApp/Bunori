@@ -1,5 +1,6 @@
 package com.halovoid.bunori.extension.adapter
 
+import com.halovoid.bunori.api.core.config.CrawlerConfig
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
@@ -21,14 +22,14 @@ class ExtensionCrawlerAdapter(
     override val baseUrl: String = extension.metadata.baseUrl
     override val language: String = extension.metadata.lang
     override val webviewNeeded: Boolean = extension.metadata.webviewNeeded
-    override val iconUrl: String?
+    override val iconUrl: String
         get() = extension.metadata.iconUrl ?: run {
             val host = try { java.net.URI(baseUrl).host ?: baseUrl } catch (_: Exception) { baseUrl }
             "https://www.google.com/s2/favicons?domain=$host&sz=128"
         }
 
-    override val config: com.halovoid.bunori.api.core.config.CrawlerConfig
-        get() = com.halovoid.bunori.api.core.config.CrawlerConfig(
+    override val config: CrawlerConfig
+        get() = CrawlerConfig(
             userFolderLocation = "",
             maxAttempts = extension.metadata.maxAttempts,
             runnerConcurrency = extension.metadata.runnerConcurrency,
@@ -46,8 +47,9 @@ class ExtensionCrawlerAdapter(
     }
 
     override suspend fun getSearchResults(query: String): List<Novel> = withContext(Dispatchers.IO) {
+        val start = System.currentTimeMillis()
         val results = extension.search(query, page = 1)
-        results.map { dto ->
+        val mapped = results.map { dto ->
             Novel(
                 url = dto.url,
                 title = dto.title,
@@ -59,25 +61,23 @@ class ExtensionCrawlerAdapter(
                 coverHttpsUrl = dto.coverUrl
             )
         }
+        android.util.Log.i("ExtensionCrawlerAdapter", "[${extension.metadata.id}] [TIMING getSearchResults] ${System.currentTimeMillis() - start}ms (${mapped.size} novels)")
+        mapped
     }
 
     override suspend fun getNovelMetadata(novelUrl: String): Novel = withContext(Dispatchers.IO) {
-        val novelDto = extension.getNovelDetails(novelUrl)
-        Novel(
-            url = novelDto.url,
-            title = novelDto.title,
-            author = novelDto.author,
-            coverUrl = novelDto.coverUrl,
-            description = novelDto.description,
-            chapters = emptyList(),
-            crawlerName = extension.metadata.name,
-            coverHttpsUrl = novelDto.coverUrl
-        )
+        val start = System.currentTimeMillis()
+        val novel = getNovelDetails(novelUrl).copy(chapters = emptyList())
+        android.util.Log.i("ExtensionCrawlerAdapter", "[${extension.metadata.id}] [TIMING getNovelMetadata] ${System.currentTimeMillis() - start}ms")
+        novel
     }
 
     override suspend fun getNovelDetails(novelUrl: String): Novel = withContext(Dispatchers.IO) {
+        val start = System.currentTimeMillis()
         val novelDto = extension.getNovelDetails(novelUrl)
-        Novel(
+        val fetchDuration = System.currentTimeMillis() - start
+        val mapStart = System.currentTimeMillis()
+        val novel = Novel(
             url = novelDto.url,
             title = novelDto.title,
             author = novelDto.author,
@@ -97,21 +97,16 @@ class ExtensionCrawlerAdapter(
             crawlerName = extension.metadata.name,
             coverHttpsUrl = novelDto.coverUrl
         )
+        val mapDuration = System.currentTimeMillis() - mapStart
+        android.util.Log.i("ExtensionCrawlerAdapter", "[${extension.metadata.id}] [TIMING getNovelDetails] total=${System.currentTimeMillis() - start}ms (ext_fetch=${fetchDuration}ms, map=${mapDuration}ms, chapters=${novel.chapters.size})")
+        novel
     }
 
     override suspend fun getChapterList(novelUrl: String): List<Chapter> = withContext(Dispatchers.IO) {
-        val novelDto = extension.getNovelDetails(novelUrl)
-        novelDto.chapters.mapIndexed { idx, chDto ->
-            Chapter(
-                id = 0,
-                url = chDto.url,
-                title = chDto.title,
-                index = if (chDto.index > 0) chDto.index else idx + 1,
-                novelUrl = novelUrl
-            ).apply {
-                scanlationSource = chDto.scanlation?.takeIf { it.isNotBlank() } ?: extension.metadata.name
-            }
-        }
+        val start = System.currentTimeMillis()
+        val chapters = getNovelDetails(novelUrl).chapters
+        android.util.Log.i("ExtensionCrawlerAdapter", "[${extension.metadata.id}] [TIMING getChapterList] ${System.currentTimeMillis() - start}ms (${chapters.size} chapters)")
+        chapters
     }
 
     override suspend fun getChapterContent(chapterUrl: String): String? = withContext(Dispatchers.IO) {

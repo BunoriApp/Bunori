@@ -1,5 +1,6 @@
 package com.halovoid.bunori.extension.manager
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -45,6 +46,7 @@ class ExtensionManager private constructor(private val context: Context) {
     companion object {
         private const val TAG = "ExtensionManager"
 
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var instance: ExtensionManager? = null
 

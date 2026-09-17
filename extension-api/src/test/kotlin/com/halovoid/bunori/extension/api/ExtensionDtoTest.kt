@@ -115,6 +115,24 @@ class ExtensionDtoTest {
         assertEquals("1.0.0", entriesFromArray[0].version)
         assertEquals("novelfull.bext", entriesFromArray[0].bextUrl)
 
+        val wasmCatalogJson = """
+            [
+                {
+                    "id": "novelbins",
+                    "name": "Novel Bins",
+                    "version": "1.0.0",
+                    "apiVersion": 1,
+                    "lang": "en",
+                    "baseUrl": "https://novelbins.com",
+                    "bextUrl": "https://github.com/BunoriApp/BunoriExtensions/releases/download/v1/novelbins.bext"
+                }
+            ]
+        """.trimIndent()
+        val wasmEntries = com.halovoid.bunori.extension.api.models.ExtensionRepoEntry.parseIndex(wasmCatalogJson)
+        assertEquals(1, wasmEntries.size)
+        assertNull(wasmEntries[0].entryClass)
+        assertEquals("novelbins", wasmEntries[0].id)
+
         val jsonObject = """
             {
                 "repoName": "Bunori Extensions",

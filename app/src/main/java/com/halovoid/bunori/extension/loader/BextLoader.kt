@@ -1,31 +1,26 @@
 package com.halovoid.bunori.extension.loader
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import com.halovoid.bunori.extension.api.IExtension
-import com.halovoid.bunori.extension.api.http.ExtensionHttpClient
 import com.halovoid.bunori.extension.api.pkg.BextPackage
 import com.halovoid.bunori.extension.api.pkg.BextUtils
-import com.halovoid.bunori.extension.http.ExtensionHttpClientImpl
-import dalvik.system.DexClassLoader
+import com.halovoid.bunori.wasm.WamrExtension
 import java.io.File
 import java.io.FileOutputStream
 
 /**
- * Loads Dalvik bytecode from a .bext package and instantiates the [IExtension] implementation.
+ * Unpacks .bext packages into app storage and instantiates native [WamrExtension] runners.
+ * Automatically selects AOT machine code for device CPU architecture if present.
  */
-class BextLoader(
-    private val context: Context,
-    private val httpClient: ExtensionHttpClient = ExtensionHttpClientImpl()
-) {
+class BextLoader(private val context: Context) {
     companion object {
         private const val TAG = "BextLoader"
     }
 
     /**
-     * Unpacks a .bext file into app-private storage, initializes DexClassLoader,
-     * and instantiates the entry [IExtension].
+     * Unpacks a .bext archive file, saves assets to isolated storage,
+     * and instantiates the [WamrExtension].
      *
      * @param bextFile The .bext archive file.
      * @return [LoadedExtension] with initialized instance and metadata.
@@ -44,7 +39,8 @@ class BextLoader(
     }
 
     /**
-     * Installs in-memory [BextPackage] into isolated storage and loads it.
+     * Installs in-memory [BextPackage] into isolated storage and loads it into [WamrExtension].
+     * Prioritizes native AOT machine code matching device ABI, with fallback to source.wasm.
      */
     fun loadPackage(pkg: BextPackage, sourceBextFile: File): LoadedExtension {
         val extensionId = pkg.manifest.id
@@ -53,19 +49,26 @@ class BextLoader(
             targetDir.mkdirs()
         }
 
-        // 1. Write classes.dex
-        val dexFile = File(targetDir, BextUtils.DEX_FILE_NAME)
-        if (dexFile.exists()) {
-            dexFile.delete() // Reset read-only permissions if present
-        }
-        FileOutputStream(dexFile).use { fos ->
-            fos.write(pkg.dexBytes)
+        // 1. Pick the best binary: Native AOT matching device ABI, or portable source.wasm
+        var selectedBytes = pkg.wasmBytes
+        var binaryName = BextUtils.WASM_FILE_NAME
+        var isAot = false
+
+        for (abi in android.os.Build.SUPPORTED_ABIS) {
+            val aotPath = "artifacts/$abi/extension.aot"
+            val aotBytes = pkg.extraFiles[aotPath]
+            if (aotBytes != null && aotBytes.isNotEmpty()) {
+                selectedBytes = aotBytes
+                binaryName = "extension_$abi.aot"
+                isAot = true
+                Log.i(TAG, "Selected native AOT binary for ABI '$abi' (${aotBytes.size} bytes) for ${pkg.manifest.name}")
+                break
+            }
         }
 
-        // Android 14+ (API 34+) security requirement: Dynamically loaded code must be read-only
-        if (Build.VERSION.SDK_INT >= 34 && dexFile.canWrite()) {
-            dexFile.setReadOnly()
-            Log.i(TAG, "Set DEX file to read-only for Android API 34+ compliance")
+        val binaryFile = File(targetDir, binaryName)
+        FileOutputStream(binaryFile).use { fos ->
+            fos.write(selectedBytes)
         }
 
         // 2. Write icon if present
@@ -83,51 +86,21 @@ class BextLoader(
             }
         }
 
-        // 3. Initialize DexClassLoader
-        Log.i(TAG, "Loading entry class ${pkg.manifest.entryClass} from ${dexFile.absolutePath}")
-        val classLoader = DexClassLoader(
-            dexFile.absolutePath,
-            null,
-            null,
-            context.classLoader
+        // 3. Instantiate native WamrExtension
+        val mode = if (isAot) "AOT Native Machine Code" else "Fast Interpreter"
+        Log.i(TAG, "Initializing WamrExtension [$mode] for ${pkg.manifest.name} from ${binaryFile.name}")
+        val extensionInstance: IExtension = WamrExtension(
+            manifest = pkg.manifest,
+            binaryBytes = selectedBytes
         )
 
-        val entryClass = try {
-            classLoader.loadClass(pkg.manifest.entryClass)
-        } catch (e: ClassNotFoundException) {
-            Log.e(TAG, "Entry class '${pkg.manifest.entryClass}' not found in DEX", e)
-            throw IllegalStateException("Entry class '${pkg.manifest.entryClass}' not found in DEX", e)
-        }
-
-        // 4. Instantiate entry class
-        val rawInstance = try {
-            // Try constructor with ExtensionHttpClient parameter
-            val constructor = entryClass.getDeclaredConstructor(ExtensionHttpClient::class.java)
-            constructor.newInstance(httpClient)
-        } catch (_: NoSuchMethodException) {
-            try {
-                // Fall back to no-arg constructor
-                val noArgConstructor = entryClass.getDeclaredConstructor()
-                noArgConstructor.newInstance()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to instantiate ${entryClass.name}", e)
-                throw IllegalStateException("Could not find a valid constructor for ${entryClass.name}", e)
-            }
-        }
-
-        val extensionInstance = rawInstance as? IExtension
-            ?: throw IllegalStateException(
-                "Class ${entryClass.name} does not implement ${IExtension::class.java.name}"
-            )
-
-        Log.i(TAG, "Successfully loaded extension: ${pkg.manifest.name} (v${pkg.manifest.version})")
+        Log.i(TAG, "Successfully loaded extension: ${pkg.manifest.name} (v${pkg.manifest.version}) in $mode mode")
 
         return LoadedExtension(
             manifest = pkg.manifest,
             extension = extensionInstance,
             bextFile = sourceBextFile,
-            iconFile = iconFile,
-            classLoader = classLoader
+            iconFile = iconFile
         )
     }
 }

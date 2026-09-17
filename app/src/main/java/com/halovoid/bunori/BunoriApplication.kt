@@ -4,7 +4,7 @@ import android.app.Application
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.crash.CrashActivity
 import com.halovoid.bunori.crash.GlobalExceptionHandler
-import com.halovoid.bunori.api.loader.SourceLoader
+import com.halovoid.bunori.extension.manager.ExtensionManager
 import com.halovoid.bunori.ui.feature.crawler.cloudflare.CloudflareResolverImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,10 +23,9 @@ class BunoriApplication : Application() {
         CloudflareResolverImpl.initialize(this)
         Scrapper.globalResolver = CloudflareResolverImpl.getInstance()
 
-        // Load local sources as early as possible
+        // Load installed extensions as early as possible
         applicationScope.launch {
-            SourceLoader(this@BunoriApplication).loadLocalSources()
-            com.halovoid.bunori.extension.manager.ExtensionManager.getInstance(this@BunoriApplication)
+            ExtensionManager.getInstance(this@BunoriApplication)
                 .loadInstalledExtensions()
         }
 

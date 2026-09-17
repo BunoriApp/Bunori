@@ -26,15 +26,14 @@ class BextPackageTest {
             apiVersion = 1,
             lang = "en",
             baseUrl = "https://novelfull.com",
-            entryClass = "com.halovoid.bunori.extension.novelfull.NovelFullExtension",
             iconPath = "assets/icon.png"
         )
-        val dummyDex = "DEX_DUMMY_BYTECODE_DATA".toByteArray(Charsets.UTF_8)
+        val dummyWasm = "WASM_DUMMY_BYTECODE_DATA".toByteArray(Charsets.UTF_8)
         val dummyIcon = "PNG_ICON_BYTES".toByteArray(Charsets.UTF_8)
 
         val originalPkg = BextPackage(
             manifest = manifest,
-            dexBytes = dummyDex,
+            wasmBytes = dummyWasm,
             iconBytes = dummyIcon
         )
 
@@ -49,15 +48,14 @@ class BextPackageTest {
         assertEquals("2.0.0", unpackedPkg.manifest.version)
         assertEquals(1, unpackedPkg.manifest.apiVersion)
         assertEquals("https://novelfull.com", unpackedPkg.manifest.baseUrl)
-        assertEquals("com.halovoid.bunori.extension.novelfull.NovelFullExtension", unpackedPkg.manifest.entryClass)
 
-        assertArrayEquals(dummyDex, unpackedPkg.dexBytes)
+        assertArrayEquals(dummyWasm, unpackedPkg.wasmBytes)
         assertNotNull(unpackedPkg.iconBytes)
         assertArrayEquals(dummyIcon, unpackedPkg.iconBytes)
     }
 
     @Test
-    fun testMissingDexThrowsException() {
+    fun testMissingWasmThrowsException() {
         val baos = ByteArrayOutputStream()
         ZipOutputStream(baos).use { zos ->
             zos.putNextEntry(ZipEntry("manifest.json"))
@@ -67,8 +65,7 @@ class BextPackageTest {
                     "name": "Test",
                     "version": "1.0.0",
                     "apiVersion": 1,
-                    "baseUrl": "https://example.com",
-                    "entryClass": "com.example.Test"
+                    "baseUrl": "https://example.com"
                 }
             """.trimIndent()
             zos.write(json.toByteArray())
@@ -84,8 +81,8 @@ class BextPackageTest {
     fun testMissingManifestThrowsException() {
         val baos = ByteArrayOutputStream()
         ZipOutputStream(baos).use { zos ->
-            zos.putNextEntry(ZipEntry("classes.dex"))
-            zos.write("DEX".toByteArray())
+            zos.putNextEntry(ZipEntry("source.wasm"))
+            zos.write("WASM".toByteArray())
             zos.closeEntry()
         }
 
@@ -102,26 +99,13 @@ class BextPackageTest {
             version = "1.0.0",
             apiVersion = 999, // Future API version
             lang = "en",
-            baseUrl = "https://example.com",
-            entryClass = "com.example.Future"
+            baseUrl = "https://example.com"
         )
         val baos = ByteArrayOutputStream()
-        BextUtils.writePackage(BextPackage(manifest, "DEX".toByteArray()), baos)
+        BextUtils.writePackage(BextPackage(manifest, "WASM".toByteArray()), baos)
 
         assertThrows(IncompatibleApiException::class.java) {
             BextUtils.readPackage(ByteArrayInputStream(baos.toByteArray()))
-        }
-    }
-
-    @Test
-    fun testRealPackagedBextFromSourcesIfPresent() {
-        val repoFile = java.io.File("/home/zenit/Projects/LNCrawlerSources/repo/novelfull.bext")
-        if (repoFile.exists()) {
-            val pkg = repoFile.inputStream().use { BextUtils.readPackage(it) }
-            assertEquals("novelfull", pkg.manifest.id)
-            assertEquals("Novel Full", pkg.manifest.name)
-            assertEquals("com.halovoid.bunorisources.crawler.NovelFull", pkg.manifest.entryClass)
-            assert(pkg.dexBytes.isNotEmpty())
         }
     }
 }

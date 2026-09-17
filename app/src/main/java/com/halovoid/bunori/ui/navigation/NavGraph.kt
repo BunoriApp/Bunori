@@ -37,7 +37,6 @@ import com.halovoid.bunori.ui.feature.novel.NovelDetailViewModel
 import com.halovoid.bunori.ui.feature.onboarding.FolderScreen
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
 import com.halovoid.bunori.ui.feature.onboarding.PermissionScreen
-import com.halovoid.bunori.ui.feature.onboarding.SourceSyncScreen
 import com.halovoid.bunori.ui.feature.onboarding.WelcomeScreen
 import com.halovoid.bunori.ui.feature.reader.ReaderScreen
 import com.halovoid.bunori.ui.feature.reader.ReaderViewModel
@@ -67,7 +66,6 @@ sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
     object Permissions : Screen("permissions")
     object FolderSelection: Screen("folder_selection")
-    object SourceSync: Screen("source_sync")
     object Request : Screen("request")
     object Search : Screen("search?source={source}") {
         fun createRoute(source: String? = null) = if (source != null) {
@@ -174,13 +172,6 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.Permissions.route) {
                 PermissionScreen(
                     onNext = {
-                        navController.navigate(Screen.SourceSync.route)
-                    }
-                )
-            }
-            composable(Screen.SourceSync.route) {
-                SourceSyncScreen(
-                    onComplete = {
                         scope.launch {
                             preferenceRepository.setOnboardingCompleted(true)
                             navController.navigate(Screen.Request.route) {
