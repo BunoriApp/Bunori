@@ -30,7 +30,6 @@ import com.halovoid.bunori.data.repository.*
 import com.halovoid.bunori.data.scheduler.jobs.JobHandlerRegistry
 import com.halovoid.bunori.data.scheduler.jobs.JobScheduler
 import com.halovoid.bunori.extension.manager.ExtensionManager
-import com.halovoid.bunori.ui.feature.crawler.cloudflare.CloudflareResolverImpl
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach

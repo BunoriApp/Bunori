@@ -24,7 +24,7 @@ fun NovelActivityScreen(
     onReplay: (String) -> Unit,
     onCancel: (String) -> Unit,
     onContinue: (String) -> Unit,
-    onResolveCloudflare: (String, String) -> Unit,
+    onResolveWebview: (String, String) -> Unit,
     cancellingRequestIds: Set<String>,
     activeActionIds: Set<String>
 ) {
@@ -38,7 +38,7 @@ fun NovelActivityScreen(
         containerColor = DarkBackground
     ) { innerPadding ->
         RequestActionHandler(
-            onResolveCloudflare = onResolveCloudflare
+            onResolveWebview = onResolveWebview
         ) { onSecurityClick ->
             if (batches.isEmpty()) {
                 Box(

@@ -71,7 +71,7 @@ fun RequestScreen(
     }
 
     RequestActionHandler(
-        onResolveCloudflare = { id, url -> viewModel.resolveCloudflare(id, url) }
+        onResolveWebview = { id, url -> viewModel.resolveWebView(id, url) }
     ) {
         Scaffold(
             containerColor = DarkBackground

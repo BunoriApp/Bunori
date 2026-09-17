@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.crawler.cloudflare
+package com.halovoid.bunori.ui.feature.crawler.webview
 
 import android.annotation.SuppressLint
 import android.os.Bundle
@@ -21,7 +21,7 @@ import com.halovoid.bunori.ui.core.theme.BunoriTheme
 import com.halovoid.bunori.ui.core.theme.SecondaryText
 import com.halovoid.bunori.ui.core.theme.SuccessGreen
 
-class CloudflareActivity : ComponentActivity() {
+class WebViewActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,11 +30,11 @@ class CloudflareActivity : ComponentActivity() {
 
         setContent {
             BunoriTheme {
-                CloudflareScreen(url = url) { success, userAgent ->
+                WebViewScreen(url = url) { success, userAgent ->
                     if (success && userAgent != null && host.isNotEmpty()) {
-                        CloudflareResolverImpl.getInstance().saveUserAgent(host, userAgent)
+                        WebViewResolverImpl.getInstance().saveUserAgent(host, userAgent)
                     }
-                    CloudflareResolverImpl.onResolutionResult(host, success)
+                    WebViewResolverImpl.onResolutionResult(host, success)
                     finish()
                 }
             }
@@ -45,7 +45,7 @@ class CloudflareActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun CloudflareScreen(url: String, onFinished: (Boolean, String?) -> Unit) {
+fun WebViewScreen(url: String, onFinished: (Boolean, String?) -> Unit) {
     var isLoading by remember { mutableStateOf(true) }
     var hasCookie by remember { mutableStateOf(false) }
     var currentUrl by remember { mutableStateOf(url) }

@@ -117,7 +117,7 @@ class GroupedRequestsViewModel(
         }
     }
 
-    fun resolveCloudflare(requestId: String, url: String) {
+    fun resolveWebView(requestId: String, url: String) {
         viewModelScope.launch {
             com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url)
             batchRepository.replayRequest(requestId)

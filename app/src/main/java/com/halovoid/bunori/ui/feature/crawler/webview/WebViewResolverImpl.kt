@@ -1,34 +1,34 @@
-package com.halovoid.bunori.ui.feature.crawler.cloudflare
+package com.halovoid.bunori.ui.feature.crawler.webview
 
 import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.webkit.WebSettings
-import com.halovoid.bunori.api.core.scrapper.CloudflareResolver
+import androidx.core.content.edit
+import androidx.core.net.toUri
+import com.halovoid.bunori.api.core.scrapper.WebViewResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import androidx.core.content.edit
-import androidx.core.net.toUri
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
-class CloudflareResolverImpl(private val context: Context): CloudflareResolver {
-    private val sharedPrefs = context.getSharedPreferences("cloudfare_prefs", Context.MODE_PRIVATE)
+class WebViewResolverImpl(private val context: Context) : WebViewResolver {
+    private val sharedPrefs = context.getSharedPreferences("webview_prefs", Context.MODE_PRIVATE)
 
     companion object {
         private val activeResolutions = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
-        private var instance: CloudflareResolverImpl? = null
+        private var instance: WebViewResolverImpl? = null
 
         fun initialize(context: Context) {
             if (instance == null) {
-                instance = CloudflareResolverImpl(context)
+                instance = WebViewResolverImpl(context)
             }
         }
 
-        fun getInstance(): CloudflareResolverImpl {
-            return instance ?: throw IllegalStateException("CloudflareResolverImpl not initialized")
+        fun getInstance(): WebViewResolverImpl {
+            return instance ?: throw IllegalStateException("WebViewResolverImpl not initialized")
         }
 
         fun onResolutionResult(host: String, success: Boolean) {
@@ -39,9 +39,9 @@ class CloudflareResolverImpl(private val context: Context): CloudflareResolver {
     override suspend fun resolve(url: String): Boolean = withContext(Dispatchers.IO) {
         val host = url.toUri().host ?: return@withContext false
 
-        Log.i("CloudflareResolver", "Resolution requested for host: $host ($url)")
+        Log.i("WebViewResolver", "Resolution requested for host: $host ($url)")
         activeResolutions[host]?.let { existingDeferred ->
-            Log.i("CloudflarResolver", "Waiting for ongoing resolution for $host")
+            Log.i("WebViewResolver", "Waiting for ongoing resolution for $host")
             return@withContext existingDeferred.await()
         }
 
@@ -52,7 +52,7 @@ class CloudflareResolverImpl(private val context: Context): CloudflareResolver {
         }
 
         try {
-            val intent = Intent(context, CloudflareActivity::class.java).apply {
+            val intent = Intent(context, WebViewActivity::class.java).apply {
                 putExtra("url", url)
                 putExtra("host", host)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -66,7 +66,7 @@ class CloudflareResolverImpl(private val context: Context): CloudflareResolver {
             }
             result
         } catch (e: Exception) {
-            Log.e("CloudflareResolver", "Failed to launch Cloudflare Activity for $host", e)
+            Log.e("WebViewResolver", "Failed to launch WebView Activity for $host", e)
             activeResolutions.remove(host)
             false
         }
@@ -82,6 +82,6 @@ class CloudflareResolverImpl(private val context: Context): CloudflareResolver {
     }
 
     fun saveUserAgent(host: String, userAgent: String) {
-        sharedPrefs.edit {putString("ua_$host", userAgent)}
+        sharedPrefs.edit { putString("ua_$host", userAgent) }
     }
 }

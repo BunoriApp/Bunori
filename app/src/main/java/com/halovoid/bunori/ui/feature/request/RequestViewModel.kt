@@ -68,9 +68,9 @@ class RequestViewModel(
     val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
     val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
-    fun resolveCloudflare(requestId: String, url: String) {
+    fun resolveWebView(requestId: String, url: String) {
         viewModelScope.launch {
-            AppLog.i("RequestViewModel", "Starting Cloudflare resolution for $requestId at $url")
+            AppLog.i("RequestViewModel", "Starting WebView resolution for $requestId at $url")
             val success = Scrapper.globalResolver?.resolve(url) ?: false
             AppLog.i("RequestViewModel", "Resolution result: $success")
             if (success) {

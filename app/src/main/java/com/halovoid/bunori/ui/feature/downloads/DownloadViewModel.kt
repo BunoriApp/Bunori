@@ -64,7 +64,7 @@ class DownloadViewModel(
         }
     }
 
-    fun resolveCloudflare(requestId: String, url: String) {
+    fun resolveWebView(requestId: String, url: String) {
         viewModelScope.launch {
             val success = Scrapper.globalResolver?.resolve(url) ?: false
             if (success) {

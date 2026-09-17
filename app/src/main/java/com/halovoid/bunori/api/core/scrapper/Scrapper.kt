@@ -12,17 +12,16 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-
-class CloudflareBlockedException(val url: String) : Exception("Cloudflare blocked the request to $url")
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Interface for resolving Cloudflare challenges.
+ * Interface for resolving WebView challenges and logins.
  * Implemented in the :app module to show a WebView.
  */
-interface CloudflareResolver {
+interface WebViewResolver {
     /**
-     * Attempts to solve Cloudflare challenge for the given URL.
-     * @return true if challenge was likely solved, false otherwise.
+     * Attempts to resolve security challenges or login for the given URL.
+     * @return true if resolution was successful, false otherwise.
      */
     suspend fun resolve(url: String): Boolean
 
@@ -40,7 +39,7 @@ class Scrapper(
     private var client: OkHttpClient = NetworkClient.okHttpClient
 ) {
     companion object {
-        var globalResolver: CloudflareResolver? = null
+        var globalResolver: WebViewResolver? = null
     }
 
     private var userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
@@ -95,7 +94,7 @@ class Scrapper(
                         return@withContext responseBody
                     } else if (response.code in listOf(429, 500, 502, 503, 504) && currentAttempt < maxAttempts) {
                         Log.w("Scrapper", "HTTP ${response.code} for $url. Retrying attempt ${currentAttempt + 1}/$maxAttempts...")
-                        delay(currentAttempt * 1000L)
+                        delay((currentAttempt * 1000L).milliseconds)
                         currentAttempt++
                     } else {
                         Log.e("Scrapper", "HTTP Error ${response.code} for $url. Body: $responseBody")
@@ -105,7 +104,7 @@ class Scrapper(
             } catch (e: IOException) {
                 if (currentAttempt < maxAttempts) {
                     Log.w("Scrapper", "IO Error fetching from $url. Retrying attempt ${currentAttempt + 1}/$maxAttempts...", e)
-                    delay(currentAttempt * 1000L)
+                    delay((currentAttempt * 1000L).milliseconds)
                     currentAttempt++
                 } else {
                     Log.e("Scrapper", "IO Error fetching from $url after $maxAttempts attempts", e)

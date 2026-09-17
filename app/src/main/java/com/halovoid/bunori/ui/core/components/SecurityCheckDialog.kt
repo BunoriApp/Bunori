@@ -18,10 +18,10 @@ fun SecurityCheckDialog(
         title = { Text("Verify: $novelName", color = PrimaryText) },
         text = {
             Text(
-                "This website is protected by Cloudflare. You need to complete a verification check in a browser window.\n\n" +
+                "This website requires security or browser verification.\n\n" +
                 "1. A browser window will open.\n" +
-                "2. Complete the 'Just a moment' or Captcha check.\n" +
-                "3. Once you can see the novel page, click 'DONE' in the browser window.\n\n" +
+                "2. Complete the verification check, captcha, or login if required.\n" +
+                "3. Once the page is loaded, click 'DONE' in the top bar.\n\n" +
                 "The app will then automatically resume your request.",
                 color = SecondaryText
             )

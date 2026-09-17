@@ -49,7 +49,7 @@ fun DownloadScreen(
     var showFilterMenu by remember { mutableStateOf(false) }
 
     RequestActionHandler(
-        onResolveCloudflare = { id, url -> viewModel.resolveCloudflare(id, url) }
+        onResolveWebview = { id, url -> viewModel.resolveWebView(id, url) }
     ) { onSecurityClick ->
         Scaffold(
             containerColor = DarkBackground

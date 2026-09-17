@@ -3,7 +3,7 @@ package com.halovoid.bunori.extension.http
 import android.webkit.CookieManager
 import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.extension.api.http.ExtensionHttpClient
-import com.halovoid.bunori.ui.feature.crawler.cloudflare.CloudflareResolverImpl
+import com.halovoid.bunori.ui.feature.crawler.webview.WebViewResolverImpl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -18,18 +18,18 @@ import java.io.IOException
 /**
  * Android host implementation of [ExtensionHttpClient].
  *
- * Backed by OkHttp and integrates with Cloudflare cookie handling and User-Agent resolution.
+ * Backed by OkHttp and integrates with WebView cookie handling and User-Agent resolution.
  */
 class ExtensionHttpClientImpl(
     private val client: OkHttpClient = NetworkClient.okHttpClient
 ) : ExtensionHttpClient {
 
     private val defaultUserAgent =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
     private fun getResolverUserAgent(url: String): String {
         return try {
-            val resolver = CloudflareResolverImpl.getInstance()
+            val resolver = WebViewResolverImpl.getInstance()
             val ua = resolver.getUserAgent(url)
             if (ua.isNotBlank()) ua else defaultUserAgent
         } catch (_: Exception) {

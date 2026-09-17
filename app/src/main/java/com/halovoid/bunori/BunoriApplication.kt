@@ -5,7 +5,7 @@ import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.crash.CrashActivity
 import com.halovoid.bunori.crash.GlobalExceptionHandler
 import com.halovoid.bunori.extension.manager.ExtensionManager
-import com.halovoid.bunori.ui.feature.crawler.cloudflare.CloudflareResolverImpl
+import com.halovoid.bunori.ui.feature.crawler.webview.WebViewResolverImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,9 +19,9 @@ class BunoriApplication : Application() {
         GlobalExceptionHandler.initialize(this, CrashActivity::class.java)
         com.halovoid.bunori.api.core.network.NetworkClient.init(this)
 
-        // Initialize Cloudflare Resolver
-        CloudflareResolverImpl.initialize(this)
-        Scrapper.globalResolver = CloudflareResolverImpl.getInstance()
+        // Initialize WebView Resolver
+        WebViewResolverImpl.initialize(this)
+        Scrapper.globalResolver = WebViewResolverImpl.getInstance()
 
         // Load installed extensions as early as possible
         applicationScope.launch {

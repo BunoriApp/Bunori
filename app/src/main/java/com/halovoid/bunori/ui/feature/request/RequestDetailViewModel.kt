@@ -39,9 +39,9 @@ class RequestDetailViewModel(
     val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
     val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
-    fun resolveCloudflare(requestId: String, url: String) {
+    fun resolveWebView(requestId: String, url: String) {
         viewModelScope.launch {
-            AppLog.i("RequestDetailViewModel", "Starting Cloudflare resolution for $requestId at $url")
+            AppLog.i("RequestDetailViewModel", "Starting WebView resolution for $requestId at $url")
             val success = com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url) ?: false
             AppLog.i("RequestDetailViewModel", "Resolution result: $success")
             if (success) {

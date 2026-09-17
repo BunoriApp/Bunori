@@ -574,8 +574,8 @@ fun NavGraph(navController: NavHostController) {
                     onReplay = { viewModel.replayRequest(it) },
                     onCancel = { viewModel.cancelRequest(it) },
                     onContinue = { viewModel.resumeRequest(it) },
-                    onResolveCloudflare = { requestId, url ->
-                        viewModel.resolveCloudflare(requestId, url)
+                    onResolveWebview = { requestId, url ->
+                        viewModel.resolveWebView(requestId, url)
                     },
                     cancellingRequestIds = cancellingRequestIds,
                     activeActionIds = activeActionIds
@@ -639,8 +639,8 @@ fun NavGraph(navController: NavHostController) {
                     onReplay = { viewModel.replayRequest(it) },
                     onCancel = { viewModel.cancelRequest(it) },
                     onContinue = { viewModel.resumeRequest(it) },
-                    onResolveCloudflare = { requestId, url ->
-                        viewModel.resolveCloudflare(requestId, url)
+                    onResolveWebview = { requestId, url ->
+                        viewModel.resolveWebView(requestId, url)
                     },
                     cancellingRequestIds = cancellingRequestIds,
                     activeActionIds = activeActionIds,

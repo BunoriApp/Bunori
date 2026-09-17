@@ -90,7 +90,7 @@ fun LazyListScope.requestHistorySection(
 
 @Composable
 fun RequestActionHandler(
-    onResolveCloudflare: (String, String) -> Unit,
+    onResolveWebview: (String, String) -> Unit,
     content: @Composable (onSecurityClick: (Batch) -> Unit) -> Unit
 ) {
     var securityDialogBatch by remember { mutableStateOf<Batch?>(null) }
@@ -101,7 +101,7 @@ fun RequestActionHandler(
             onConfirm = {
                 val req = securityDialogBatch!!
                 securityDialogBatch = null
-                onResolveCloudflare(req.id, req.url ?: req.novelUrl)
+                onResolveWebview(req.id, req.url ?: req.novelUrl)
             },
             onDismiss = { securityDialogBatch = null }
         )

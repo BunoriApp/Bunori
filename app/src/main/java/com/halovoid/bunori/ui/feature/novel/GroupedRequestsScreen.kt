@@ -29,7 +29,7 @@ fun GroupedRequestsScreen(
     onReplay: (String) -> Unit = {},
     onCancel: (String) -> Unit = {},
     onContinue: (String) -> Unit = {},
-    onResolveCloudflare: (String, String) -> Unit = { _, _ -> },
+    onResolveWebview: (String, String) -> Unit = { _, _ -> },
     cancellingRequestIds: Set<String> = emptySet(),
     activeActionIds: Set<String> = emptySet(),
     allowAction: Boolean = false
@@ -42,7 +42,7 @@ fun GroupedRequestsScreen(
     val isFilterActive = statusFilters.values.any { it != FilterState.NONE }
 
     RequestActionHandler(
-        onResolveCloudflare = onResolveCloudflare
+        onResolveWebview = onResolveWebview
     ) { onSecurityClick ->
         val title = when (type) {
             JobType.NOVEL_METADATA -> "Metadata"

@@ -40,7 +40,7 @@
             android:theme="@style/Theme.Bunori" />
 
         <activity
-            android:name=".ui.feature.crawler.cloudflare.CloudflareActivity"
+            android:name=".ui.feature.crawler.webview.WebViewActivity"
             android:exported="false"
             android:theme="@style/Theme.Bunori" />
 

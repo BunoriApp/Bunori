@@ -69,7 +69,7 @@ fun RequestDetailScreen(
             onConfirm = {
                 val req = securityDialogBatch!!
                 securityDialogBatch = null
-                viewModel.resolveCloudflare(req.id, req.url ?: req.novelUrl)
+                viewModel.resolveWebView(req.id, req.url ?: req.novelUrl)
             },
             onDismiss = { securityDialogBatch = null }
         )
