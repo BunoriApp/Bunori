@@ -29,9 +29,15 @@ android {
                     "-DWAMR_BUILD_INTERP=1"
                 )
             }
-            ndk {
-                abiFilters += listOf("arm64-v8a", "x86_64")
-            }
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
 

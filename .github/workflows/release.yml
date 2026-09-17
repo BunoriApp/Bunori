@@ -116,27 +116,42 @@ jobs:
       - name: Sign APK
         run: |
           echo "${{ secrets.SIGNING_KEY }}" | base64 -d > release.jks
-
-          UNSIGNED_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          echo "Signing APK: $UNSIGNED_APK"
-
+          
           BUILD_TOOLS_PATH=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
           echo "Using Build Tools from: $BUILD_TOOLS_PATH"
-
-          $BUILD_TOOLS_PATH/apksigner sign \
-            --ks release.jks \
-            --ks-key-alias "${{ secrets.ALIAS }}" \
-            --ks-pass pass:"${{ secrets.KEY_STORE_PASSWORD }}" \
-            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
-            --out Bunori.apk \
-            "$UNSIGNED_APK"
+          
+          mkdir -p release_apks
+          
+          for APK in $(find app/build/outputs/apk/release -name "*.apk"); do
+            BASENAME=$(basename "$APK")
+            echo "Processing $BASENAME..."
+            
+            if [[ "$BASENAME" == *"arm64-v8a"* ]]; then
+              OUT_NAME="Bunori_arm64-v8a.apk"
+            elif [[ "$BASENAME" == *"x86_64"* ]]; then
+              OUT_NAME="Bunori_x86_64.apk"
+            elif [[ "$BASENAME" == *"universal"* ]]; then
+              OUT_NAME="Bunori_universal.apk"
+            else
+              OUT_NAME="Bunori_${BASENAME}"
+            fi
+          
+            echo "Signing $APK -> release_apks/$OUT_NAME"
+            $BUILD_TOOLS_PATH/apksigner sign \
+              --ks release.jks \
+              --ks-key-alias "${{ secrets.ALIAS }}" \
+              --ks-pass pass:"${{ secrets.KEY_STORE_PASSWORD }}" \
+              --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+              --out "release_apks/$OUT_NAME" \
+              "$APK"
+          done
 
           rm release.jks
 
       - name: Create Github Release
         uses: softprops/action-gh-release@v2
         with:
-          files: Bunori.apk
+          files: release_apks/*.apk
           tag_name: v${{ needs.check-version.outputs.new_version }}
           name: Release v${{ needs.check-version.outputs.new_version }}
           draft: true
