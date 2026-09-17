@@ -55,13 +55,6 @@ class ExtensionHttpClientImpl(
         // Set User-Agent
         builder.header("User-Agent", getResolverUserAgent(url))
 
-        // Set Cookies from Android CookieManager if available
-        getCookiesForUrl(url)?.let { cookies ->
-            if (cookies.isNotBlank()) {
-                builder.header("Cookie", cookies)
-            }
-        }
-
         // Apply custom headers (can override default User-Agent/Cookie if needed)
         headers.forEach { (k, v) -> builder.header(k, v) }
 

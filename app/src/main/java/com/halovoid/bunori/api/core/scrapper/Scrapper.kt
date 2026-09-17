@@ -1,6 +1,7 @@
 package com.halovoid.bunori.api.core.scrapper
 
 import android.util.Log
+import com.halovoid.bunori.api.core.network.NetworkClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -36,17 +37,13 @@ interface CloudflareResolver {
  * Responsible for HTTP requests, session management (cookies), and HTML parsing.
  */
 class Scrapper(
-    private var client: OkHttpClient = OkHttpClient.Builder()
-        .dns(com.halovoid.bunori.api.core.network.NetworkClient.fastDns)
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private var client: OkHttpClient = NetworkClient.okHttpClient
 ) {
     companion object {
         var globalResolver: CloudflareResolver? = null
     }
 
-    private var userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    private var userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
     /**
      * Fetches the content of a URL as a String with automatic retries for transient errors.
@@ -105,10 +102,7 @@ class Scrapper(
                         return@withContext null
                     }
                 }
-            } catch (e: CloudflareBlockedException) {
-                throw e
             } catch (e: IOException) {
-                if (e.cause is CloudflareBlockedException) throw e.cause as CloudflareBlockedException
                 if (currentAttempt < maxAttempts) {
                     Log.w("Scrapper", "IO Error fetching from $url. Retrying attempt ${currentAttempt + 1}/$maxAttempts...", e)
                     delay(currentAttempt * 1000L)

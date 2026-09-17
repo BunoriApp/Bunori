@@ -3,7 +3,6 @@ package com.halovoid.bunori.data.handlers
 import android.net.Uri
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
-import com.halovoid.bunori.api.core.scrapper.CloudflareBlockedException
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ChapterRepository
@@ -82,10 +81,12 @@ class NovelMetadataHandler(
             // Metadata for totalProgressUpdate is not changed in this request
             // Currently user would need to manually do a full novel fetch
             JobResult.Success
-        } catch (e: CloudflareBlockedException) {
-            JobResult.Blocked
         } catch (e: Exception) {
-            JobResult.Failure(e)
+            if (crawler.webviewNeeded == true) {
+                JobResult.Blocked
+            } else {
+                JobResult.Failure(e)
+            }
         }
     }
 

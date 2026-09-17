@@ -3,7 +3,6 @@ package com.halovoid.bunori.data.handlers
 import android.net.Uri
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
-import com.halovoid.bunori.api.core.scrapper.CloudflareBlockedException
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
@@ -42,7 +41,11 @@ class ChapterHandler(
         // 1. Load the Chapter and Save it
         try {
             val fileLocation = loadAndSaveFile(task.url, crawler, chapter)
-                ?: return JobResult.Failure(Exception("Failed to Load Content"))
+                ?: return if (crawler.webviewNeeded == true) {
+                    JobResult.Blocked
+                } else {
+                    JobResult.Failure(Exception("Failed to Load Content"))
+                }
 
             // 2. Save into the Download table
             downloadRepository.saveDownload(
@@ -58,10 +61,12 @@ class ChapterHandler(
             )
 
             return JobResult.Success
-        } catch (e: CloudflareBlockedException) {
-            return JobResult.Blocked
         } catch (e: Exception) {
-            return JobResult.Failure(e)
+            return if (crawler.webviewNeeded == true) {
+                JobResult.Blocked
+            } else {
+                JobResult.Failure(e)
+            }
         }
     }
 

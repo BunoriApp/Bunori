@@ -1,7 +1,6 @@
 package com.halovoid.bunori.api.core.network
 
 import android.content.Context
-import com.halovoid.bunori.ui.feature.crawler.cloudflare.CloudflareResolverImpl
 import okhttp3.Cache
 import okhttp3.Dns
 import okhttp3.OkHttpClient
@@ -32,20 +31,20 @@ object NetworkClient {
         OkHttpClient.Builder()
             .cache(cache)
             .dns(fastDns)
+            .cookieJar(WebKitCookieJar())
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val request = if (originalRequest.header("User-Agent").isNullOrBlank()) {
                     originalRequest.newBuilder()
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
                         .build()
                 } else {
                     originalRequest
                 }
                 chain.proceed(request)
             }
-            .addInterceptor(CloudflareInterceptor(CloudflareResolverImpl.getInstance()))
             .build()
     }
 }

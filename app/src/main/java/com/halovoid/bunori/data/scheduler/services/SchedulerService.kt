@@ -15,7 +15,6 @@ import com.halovoid.bunori.data.artifact.ArtifactGeneratorFactory
 import com.halovoid.bunori.data.artifact.generators.EpubGenerator
 import com.halovoid.bunori.data.artifact.generators.PdfGenerator
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
-import com.halovoid.bunori.api.core.network.CloudflareInterceptor
 import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.db.AppDatabase
@@ -144,14 +143,7 @@ class SchedulerService : Service() {
         val registry = JobHandlerRegistry()
         val crawlerFactory = CrawlerFactory
 
-        val okHttpClient = OkHttpClient.Builder()
-            .dns(NetworkClient.fastDns)
-            .addInterceptor(CloudflareInterceptor(CloudflareResolverImpl.getInstance()))
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
-
-        val scrapper = Scrapper(okHttpClient)
+        val scrapper = Scrapper(NetworkClient.okHttpClient)
 
         registry.register(JobType.CHAPTER, ChapterHandler(
             scrapper, chapterRepository, storageRepository, crawlerFactory,

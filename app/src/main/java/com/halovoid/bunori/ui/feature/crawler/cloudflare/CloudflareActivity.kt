@@ -100,7 +100,7 @@ fun CloudflareScreen(url: String, onFinished: (Boolean, String?) -> Unit) {
                                 url?.let { currentUrl = it }
                                 
                                 val cookies = CookieManager.getInstance().getCookie(url)
-                                if (cookies?.contains("cf_clearance") == true) {
+                                if (!cookies.isNullOrBlank()) {
                                     hasCookie = true
                                 }
                             }
