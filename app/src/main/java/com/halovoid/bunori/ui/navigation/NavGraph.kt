@@ -49,6 +49,8 @@ import com.halovoid.bunori.ui.feature.request.RequestViewModel
 import com.halovoid.bunori.ui.feature.search.SearchScreen
 import com.halovoid.bunori.ui.feature.search.SearchViewModel
 import com.halovoid.bunori.ui.feature.settings.AdvancedSettingsScreen
+import com.halovoid.bunori.ui.feature.settings.WebViewSettingsScreen
+import com.halovoid.bunori.ui.feature.settings.ManualCookieScreen
 import com.halovoid.bunori.ui.feature.settings.BackupSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.DownloadPreferencesScreen
 import com.halovoid.bunori.ui.feature.settings.ExtensionSettingsScreen
@@ -87,6 +89,8 @@ sealed class Screen(val route: String) {
         fun createRoute(extensionId: String) = "extension_info/${URLEncoder.encode(extensionId, "UTF-8")}"
     }
     object AdvancedSettings : Screen("advanced_settings")
+    object WebViewSettings : Screen("webview_settings")
+    object ManualCookies : Screen("manual_cookies")
     object SupportSettings : Screen("support_settings")
     object BackupSettings : Screen("backup_settings")
     object UpdateDetail : Screen("update_detail")
@@ -500,6 +504,26 @@ fun NavGraph(navController: NavHostController) {
                 )
                 AdvancedSettingsScreen(
                     viewModel = settingsViewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToWebView = { navController.navigate(Screen.WebViewSettings.route) }
+                )
+            }
+            composable(Screen.WebViewSettings.route) { backStackEntry ->
+                val supportEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(Screen.Support.route)
+                }
+                val settingsViewModel: SettingsViewModel = viewModel(
+                    viewModelStoreOwner = supportEntry,
+                    factory = remember { ViewModelFactory(application) }
+                )
+                WebViewSettingsScreen(
+                    viewModel = settingsViewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToManualCookies = { navController.navigate(Screen.ManualCookies.route) }
+                )
+            }
+            composable(Screen.ManualCookies.route) {
+                ManualCookieScreen(
                     onBack = { navController.popBackStack() }
                 )
             }

@@ -21,8 +21,9 @@ import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.ui.ViewModelFactory
-import com.halovoid.bunori.ui.core.components.ConfirmDeleteDialog
+import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
 import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.ui.core.components.ConfirmDeleteDialog
 import com.halovoid.bunori.ui.feature.downloads.components.DownloadRangeDialog
 import com.halovoid.bunori.ui.feature.novel.components.*
 import androidx.compose.material.icons.Icons
@@ -192,7 +193,10 @@ fun NovelDetailScreen(
                             onDownloadClick = { activeDialog = NovelDetailDialogState.DownloadRange },
                             onArtifactsClick = onArtifactsClick,
                             onWebViewClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, currentNovel.url.toUri())
+                                val intent = Intent(context, WebViewActivity::class.java).apply {
+                                    putExtra("url", currentNovel.url)
+                                    putExtra("host", currentNovel.url.toUri().host ?: "")
+                                }
                                 context.startActivity(intent)
                             }
                         )

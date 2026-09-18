@@ -1,6 +1,7 @@
 package com.halovoid.bunori.ui.feature.request
 
 import android.content.Intent
+import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -363,7 +364,10 @@ fun NovelPreviewContent(
                     isAdding = isLoading,
                     onAddClick = { onConfirm(novel) },
                     onWebViewClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, novel.url.toUri())
+                        val intent = Intent(context, WebViewActivity::class.java).apply {
+                            putExtra("url", novel.url)
+                            putExtra("host", novel.url.toUri().host ?: "")
+                        }
                         context.startActivity(intent)
                     }
                 )

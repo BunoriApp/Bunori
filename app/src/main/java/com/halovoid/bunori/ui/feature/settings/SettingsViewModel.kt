@@ -63,6 +63,12 @@ class SettingsViewModel(
         initialValue = false
     )
 
+    val customUserAgent: StateFlow<String?> = preferenceRepository.customUserAgent.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
     val extensionRepoUrl: StateFlow<String> = preferenceRepository.extensionRepoUrl.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -375,6 +381,14 @@ class SettingsViewModel(
             }.onFailure { err ->
                 onResult(false, "Failed to install: ${err.message}")
             }
+        }
+    }
+
+    fun setCustomUserAgent(userAgent: String?) {
+        viewModelScope.launch {
+            preferenceRepository.setCustomUserAgent(userAgent)
+            com.halovoid.bunori.api.core.network.NetworkClient.currentUserAgent =
+                userAgent?.takeIf { it.isNotBlank() } ?: com.halovoid.bunori.api.core.network.NetworkClient.DEFAULT_USER_AGENT
         }
     }
 }

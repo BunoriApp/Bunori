@@ -31,6 +31,7 @@ private val THEME_MODE = stringPreferencesKey("theme_mode")
 private val SELECTED_THEME_ID = stringPreferencesKey("selected_theme_id")
 private val IS_AMOLED_MODE = booleanPreferencesKey("is_amoled_mode")
 private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
+private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
 
 class PreferenceRepository private constructor(
@@ -276,6 +277,21 @@ class PreferenceRepository private constructor(
                 preferences.remove(key)
             } else {
                 preferences[key] = sources
+            }
+        }
+    }
+
+    val customUserAgent: Flow<String?> =
+        context.appDataStore.data.map { preferences ->
+            preferences[CUSTOM_USER_AGENT]
+        }
+
+    suspend fun setCustomUserAgent(userAgent: String?) {
+        context.appDataStore.edit { preferences ->
+            if (userAgent.isNullOrBlank()) {
+                preferences.remove(CUSTOM_USER_AGENT)
+            } else {
+                preferences[CUSTOM_USER_AGENT] = userAgent.trim()
             }
         }
     }

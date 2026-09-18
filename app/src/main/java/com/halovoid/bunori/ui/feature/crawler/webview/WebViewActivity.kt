@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.halovoid.bunori.api.core.network.NetworkClient.DEFAULT_USER_AGENT
+import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.ui.core.theme.BunoriTheme
 import com.halovoid.bunori.ui.core.theme.SecondaryText
 
@@ -40,6 +41,16 @@ class WebViewActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onPause() {
+        super.onPause()
+        CookieManager.getInstance().flush()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        CookieManager.getInstance().flush()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,11 +65,24 @@ fun WebViewScreen(url: String, onFinished: (Boolean, String?) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = {
+                        CookieManager.getInstance().flush()
+                        onFinished(true, NetworkClient.currentUserAgent)
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
                 title = { 
                     Column {
-                        Text("Security Verification", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            if (pageTitle.isNotBlank()) "$pageTitle ($currentUrl)" else currentUrl, 
+                            text = pageTitle.ifBlank { "WebView" },
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = currentUrl, 
                             style = MaterialTheme.typography.labelSmall, 
                             color = SecondaryText,
                             maxLines = 1,
@@ -73,7 +97,7 @@ fun WebViewScreen(url: String, onFinished: (Boolean, String?) -> Unit) {
                             val cookies = CookieManager.getInstance().getCookie(currentUrl) ?: ""
                             android.util.Log.i("WebViewActivity", "=== [WEBVIEW DONE CLICKED] url=$currentUrl ===")
                             android.util.Log.i("WebViewActivity", "Flushed Cookies (${cookies.length} chars): $cookies")
-                            onFinished(true, DEFAULT_USER_AGENT) 
+                            onFinished(true, NetworkClient.currentUserAgent) 
                         },
                         modifier = Modifier.padding(end = 8.dp)
                     ) {
@@ -100,7 +124,7 @@ fun WebViewScreen(url: String, onFinished: (Boolean, String?) -> Unit) {
                         settings.domStorageEnabled = true
                         settings.databaseEnabled = true
                         settings.useWideViewPort = true
-                        settings.userAgentString = DEFAULT_USER_AGENT
+                        settings.userAgentString = NetworkClient.currentUserAgent
                         
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
@@ -110,6 +134,7 @@ fun WebViewScreen(url: String, onFinished: (Boolean, String?) -> Unit) {
                                 pageTitle = view?.title ?: ""
                                 
                                 val cookies = CookieManager.getInstance().getCookie(url) ?: ""
+                                CookieManager.getInstance().flush()
                                 android.util.Log.i("WebViewActivity", "=== [WEBVIEW LOADED] url=$url ===")
                                 android.util.Log.i("WebViewActivity", "Cookies (${cookies.length} chars): $cookies")
                             }

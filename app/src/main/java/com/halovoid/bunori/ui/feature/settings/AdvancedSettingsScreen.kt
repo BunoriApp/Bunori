@@ -15,13 +15,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+
 @Composable
 fun AdvancedSettingsScreen(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToWebView: () -> Unit = {}
 ) {
     val appBeta by viewModel.betaModeApp.collectAsStateWithLifecycle()
-    val crawlerBeta by viewModel.betaModeCrawlers.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -75,38 +78,36 @@ fun AdvancedSettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SectionHeader(text = "Web & Network")
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { viewModel.setBetaModeCrawlers(!crawlerBeta) }
+                    .clickable { onNavigateToWebView() }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Beta Crawler Bundle",
+                        text = "WebView",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         color = PrimaryText
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Get notified of pre-release crawler parser scripts.",
+                        text = "User agent, cookies, and webview data",
                         style = MaterialTheme.typography.bodyMedium,
                         color = SecondaryText
                     )
                 }
-                Switch(
-                    checked = crawlerBeta,
-                    onCheckedChange = { viewModel.setBetaModeCrawlers(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = PrimaryText,
-                        checkedTrackColor = BrandAccent,
-                        uncheckedThumbColor = SecondaryText,
-                        uncheckedTrackColor = DarkBackground
-                    )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = SecondaryText,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 

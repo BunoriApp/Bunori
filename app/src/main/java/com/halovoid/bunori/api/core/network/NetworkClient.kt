@@ -34,6 +34,9 @@ object NetworkClient {
 
     const val DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0"
 
+    @Volatile
+    var currentUserAgent: String = DEFAULT_USER_AGENT
+
     val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .cache(cache)
@@ -44,7 +47,7 @@ object NetworkClient {
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val request = originalRequest.newBuilder()
-                    .header("User-Agent", DEFAULT_USER_AGENT)
+                    .header("User-Agent", currentUserAgent)
                     .build()
                 chain.proceed(request)
             }
