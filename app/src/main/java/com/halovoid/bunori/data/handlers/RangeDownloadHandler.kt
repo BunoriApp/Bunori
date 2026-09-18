@@ -36,11 +36,13 @@ class RangeDownloadHandler(
                 put("crawlerName", metadata.crawlerName)
             }.toString()
 
+            val effectiveUrl = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url
+
             TaskEntity(
                 id = "${task.batchId}_ch_${chapter.index}_${chapter.id}",
                 batchId = task.batchId,
                 name = chapter.title.ifBlank { "Chapter ${chapter.index}" },
-                url = chapter.url,
+                url = effectiveUrl,
                 novelUrl = chapter.novelUrl,
                 type = JobType.CHAPTER,
                 priority = task.priority,

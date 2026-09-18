@@ -1,14 +1,19 @@
 package com.halovoid.bunori.api.core.network
 
 import android.content.Context
+import android.util.Log
+import android.webkit.CookieManager
 import okhttp3.Cache
 import okhttp3.Dns
 import okhttp3.OkHttpClient
+import okhttp3.Response
+import okio.Buffer
 import java.io.File
 import java.net.Inet4Address
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
+    private const val TAG = "NetworkClient"
     private var cache: Cache? = null
 
     val fastDns: Dns = object : Dns {
@@ -27,6 +32,8 @@ object NetworkClient {
         cache = Cache(cacheDirectory, cacheSize)
     }
 
+    const val DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0"
+
     val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .cache(cache)
@@ -36,14 +43,68 @@ object NetworkClient {
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
-                val request = if (originalRequest.header("User-Agent").isNullOrBlank()) {
-                    originalRequest.newBuilder()
-                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
-                        .build()
-                } else {
-                    originalRequest
-                }
+                val request = originalRequest.newBuilder()
+                    .header("User-Agent", DEFAULT_USER_AGENT)
+                    .build()
                 chain.proceed(request)
+            }
+            .addNetworkInterceptor { chain ->
+                val request = chain.request()
+                val url = request.url.toString()
+                val method = request.method
+                val startNs = System.nanoTime()
+
+                val cookieManagerCookies = try {
+                    CookieManager.getInstance().getCookie(url)
+                } catch (e: Exception) {
+                    "Error getting cookie: ${e.message}"
+                }
+
+                val reqBodyStr = request.body?.let { body ->
+                    try {
+                        val buffer = Buffer()
+                        body.writeTo(buffer)
+                        buffer.readUtf8()
+                    } catch (e: Exception) {
+                        "[Error reading body: ${e.message}]"
+                    }
+                }
+
+                val reqHeaders = (0 until request.headers.size).map { i ->
+                    "${request.headers.name(i)}: ${request.headers.value(i)}"
+                }
+
+                Log.d(TAG, "--> [NETWORK REQ] $method $url")
+                Log.d(TAG, "    [CookieManager for URL]: $cookieManagerCookies")
+                reqHeaders.forEach { Log.d(TAG, "    [Header] $it") }
+                if (reqBodyStr != null) {
+                    Log.d(TAG, "    [Body] (${reqBodyStr.length} chars): ${reqBodyStr.take(1000)}")
+                }
+
+                val response: Response
+                try {
+                    response = chain.proceed(request)
+                } catch (e: Exception) {
+                    Log.e(TAG, "<-- [NETWORK FAIL] $method $url: ${e.message}", e)
+                    throw e
+                }
+
+                val tookMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs)
+                val respHeaders = (0 until response.headers.size).map { i ->
+                    "${response.headers.name(i)}: ${response.headers.value(i)}"
+                }
+
+                val peekBody = try {
+                    response.peekBody(4096).string()
+                } catch (e: Exception) {
+                    "[Error reading peekBody: ${e.message}]"
+                }
+
+                Log.d(TAG, "<-- [NETWORK RESP] ${response.code} ${response.message} $method $url (${tookMs}ms)")
+                respHeaders.forEach { Log.d(TAG, "    [Header] $it") }
+                Log.d(TAG, "    [Body Preview] (${peekBody.length} chars): ${peekBody.take(1500)}")
+
+                response
             }
             .build()
     }

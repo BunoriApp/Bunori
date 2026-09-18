@@ -15,6 +15,8 @@ import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Download
 
+import com.halovoid.bunori.ui.core.logging.AppLog
+
 class ChapterHandler(
     private val scrapper: Scrapper,
     private val chapterRepository: ChapterRepository,
@@ -25,27 +27,34 @@ class ChapterHandler(
 ) : JobHandler {
     override suspend fun handle(task: TaskEntity): JobResult {
         val metadata = task.parsedMetadata
-        if (metadata.chapterId == null || task.url == null) {
-            return JobResult.Failure(Exception("Failure to complete request"))
+        val chapterId = metadata.chapterId
+            ?: return JobResult.Failure(Exception("Failure to complete request: missing chapter ID"))
+
+        val chapter = try {
+            chapterRepository.getChapterById(chapterId)
+        } catch (e: Exception) {
+            return JobResult.Failure(Exception("Chapter not found for ID: $chapterId", e))
         }
-        if (metadata.crawlerName == null) {
-            return JobResult.Failure(Exception("No Crawler Found"))
-        }
-        val crawler = crawlerFactory.getCrawler(metadata.crawlerName)
+
+        val crawlerName = metadata.crawlerName
+            ?: chapter.scanlationSource.takeIf { it.isNotBlank() && it != "NotProvided" && it != "Not Provided" }
             ?: return JobResult.Failure(Exception("No Crawler Found"))
 
-        val chapter = chapterRepository.getChapterById(metadata.chapterId)
+        val crawler = crawlerFactory.getCrawler(crawlerName)
+            ?: crawlerFactory.getCrawler(chapter.scanlationSource)
+            ?: return JobResult.Failure(Exception("No Crawler Found for name: $crawlerName"))
+
         val novel = novelRepository.getNovelDetails(chapter.novelUrl)
         val novelTitle = novel?.title ?: "Novel"
 
+        val targetUrl = task.url?.takeIf { it.isNotBlank() }
+            ?: chapter.sourceUrl?.takeIf { it.isNotBlank() }
+            ?: chapter.url.takeIf { it.isNotBlank() }
+            ?: return JobResult.Failure(Exception("No valid URL found for chapter ${chapter.title}"))
+
         // 1. Load the Chapter and Save it
-        try {
-            val fileLocation = loadAndSaveFile(task.url, crawler, chapter)
-                ?: return if (crawler.webviewNeeded == true) {
-                    JobResult.Blocked
-                } else {
-                    JobResult.Failure(Exception("Failed to Load Content"))
-                }
+        return try {
+            val fileLocation = loadAndSaveFile(targetUrl, crawler, chapter)
 
             // 2. Save into the Download table
             downloadRepository.saveDownload(
@@ -60,9 +69,10 @@ class ChapterHandler(
                 )
             )
 
-            return JobResult.Success
+            JobResult.Success
         } catch (e: Exception) {
-            return if (crawler.webviewNeeded == true) {
+            AppLog.e("ChapterHandler", "Failed to download chapter ${chapter.title} ($targetUrl)", e)
+            if (crawler.webviewNeeded == true) {
                 JobResult.Blocked
             } else {
                 JobResult.Failure(e)
@@ -70,31 +80,28 @@ class ChapterHandler(
         }
     }
 
-    suspend fun loadAndSaveFile(url: String, crawler: Crawler, chapter: Chapter): Uri? {
-        if (!url.startsWith("content://")) {
-            try {
-                val chapterContent = crawler.getChapterContent(url)
-                if (!chapterContent.isNullOrBlank() && chapterContent.trim().length > 100) {
-                    val novelKey = crawler.getNovelKey(chapter.novelUrl)
-                    val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html"
-                    val relativePath = "novels/$novelKey/chapters"
-
-                    val localUri = storageRepository.saveText(
-                        relativePath = relativePath,
-                        fileName = fileName,
-                        mimeType = "text/html",
-                        content = chapterContent
-                    )
-
-                    return localUri
-                } else {
-                    val errorMsg = if (chapterContent.isNullOrBlank()) "Empty content" else "Content too short (${chapterContent.length} chars)"
-                    throw Exception("Failed to fetch valid content: $errorMsg")
-                }
-            } catch (e: Exception) {
-                return null
-            }
+    suspend fun loadAndSaveFile(url: String, crawler: Crawler, chapter: Chapter): Uri {
+        if (url.startsWith("content://")) {
+            return Uri.parse(url)
         }
-        return null
+
+        val chapterContent = crawler.getChapterContent(url)
+        if (chapterContent.isNullOrBlank()) {
+            throw IllegalStateException("Empty content returned from source for chapter ${chapter.title}")
+        }
+        if (chapterContent.trim().length <= 50) {
+            throw IllegalStateException("Content too short (${chapterContent.trim().length} chars) for chapter ${chapter.title}")
+        }
+
+        val novelKey = crawler.getNovelKey(chapter.novelUrl)
+        val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html"
+        val relativePath = "novels/$novelKey/chapters"
+
+        return storageRepository.saveText(
+            relativePath = relativePath,
+            fileName = fileName,
+            mimeType = "text/html",
+            content = chapterContent
+        )
     }
 }

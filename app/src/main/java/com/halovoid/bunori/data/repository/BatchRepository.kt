@@ -80,11 +80,13 @@ class BatchRepository private constructor(private val context: Context) {
                 put("crawlerName", crawlerName)
             }.toString()
 
+            val effectiveUrl = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url
+
             TaskEntity(
                 id = "${batch.id}_ch_${chapter.index}_${chapter.id}",
                 batchId = batch.id,
                 name = chapter.title.ifBlank { "Chapter ${chapter.index}" },
-                url = chapter.url,
+                url = effectiveUrl,
                 novelUrl = chapter.novelUrl,
                 type = JobType.CHAPTER,
                 priority = batch.priority,

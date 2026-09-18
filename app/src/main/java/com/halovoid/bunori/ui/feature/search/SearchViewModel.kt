@@ -142,6 +142,58 @@ class SearchViewModel(
         }
     }
 
+    fun retryFailed() {
+        val currentState = _searchState.value as? SearchState.Searching ?: return
+        val failedSources = currentState.sourceStates
+            .filterValues { it is SourceSearchStatus.Error }
+            .keys
+
+        if (failedSources.isEmpty()) return
+
+        val query = currentState.query
+        val crawlers = try {
+            CrawlerFactory.getCrawlers().filter { crawler ->
+                failedSources.any { it.equals(crawler.name, ignoreCase = true) }
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+
+        if (crawlers.isEmpty()) return
+
+        val updatedMap = currentState.sourceStates.toMutableMap().apply {
+            crawlers.forEach { put(it.name, SourceSearchStatus.Loading) }
+        }
+        _searchState.value = currentState.copy(
+            sourceStates = updatedMap,
+            isComplete = false
+        )
+
+        crawlers.forEach { crawler ->
+            viewModelScope.launch {
+                try {
+                    val results = withContext(Dispatchers.IO) {
+                        crawler.getSearchResults(query)
+                    }
+                    val searchItems = results.map { novel ->
+                        SearchItem(
+                            title = novel.title,
+                            source = novel.crawlerName,
+                            url = novel.url,
+                            description = novel.description ?: "",
+                            score = 0.0,
+                            imageUrl = novel.coverHttpsUrl ?: novel.coverUrl
+                        )
+                    }
+                    updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
+                } catch (e: Exception) {
+                    AppLog.e("SearchViewModel", "Error searching ${crawler.name}: ${e.message}", e)
+                    updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
+                }
+            }
+        }
+    }
+
     fun resetState() {
         _searchState.value = SearchState.Idle
     }

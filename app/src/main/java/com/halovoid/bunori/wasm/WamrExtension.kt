@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 
 class WamrExtension(
     val manifest: ExtensionManifest,
@@ -49,13 +50,17 @@ class WamrExtension(
 
     override suspend fun search(query: String, page: Int): List<SearchResultDto> = withContext(Dispatchers.IO) {
         val start = System.currentTimeMillis()
+        Log.i(TAG, "[${metadata.name}] [${metadata.id}] Starting search for '$query' (page $page)...")
         val json = mutex.withLock {
             WamrBridge.nativeCallString(instPtr, "search", query, page)
+        } ?: run {
+            Log.e(TAG, "[${metadata.name}] [${metadata.id}] nativeCallString('search', '$query', $page) returned NULL! Search failed.")
+            throw IOException("Search failed in extension ${metadata.name}")
         }
         val duration = System.currentTimeMillis() - start
-        val results = if (json.isNullOrBlank()) emptyList()
+        val results = if (json.isBlank()) emptyList()
         else ExtensionJson.json.decodeFromString<List<SearchResultDto>>(json)
-        Log.i(TAG, "[${metadata.id}] [WAMR search] total=${duration}ms (results=${results.size})")
+        Log.i(TAG, "[${metadata.name}] [${metadata.id}] [WAMR search] total=${duration}ms (results=${results.size})")
         results
     }
 
@@ -93,7 +98,7 @@ class WamrExtension(
         val start = System.currentTimeMillis()
         val json = mutex.withLock {
             WamrBridge.nativeCallString(instPtr, "get_listing_novels", listingId, page)
-        }
+        } ?: throw IOException("Failed to fetch listing novels in extension ${metadata.name}")
         val duration = System.currentTimeMillis() - start
         val results = if (json.isNullOrBlank()) emptyList()
         else ExtensionJson.json.decodeFromString<List<SearchResultDto>>(json)

@@ -1,8 +1,10 @@
 package com.halovoid.bunori.ui.feature.search
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,11 +21,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -31,15 +35,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.domain.models.SearchItem
 import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
 import com.halovoid.bunori.ui.feature.request.RequestViewModel
 import com.halovoid.bunori.ui.feature.request.components.CompactSearchResultCard
 import com.halovoid.bunori.ui.feature.request.components.SearchResultCard
 import com.halovoid.bunori.ui.feature.request.components.SourceHeader
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
@@ -51,6 +59,9 @@ fun SearchScreen(
     initialSource: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    var showFailedSourcesSheet by remember { mutableStateOf(false) }
+
     var searchQuery by remember { mutableStateOf("") }
     var selectedSource by remember(initialSource) { mutableStateOf(initialSource) }
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -234,6 +245,13 @@ fun SearchScreen(
 
             // 2. Small Note at top if any source failed to load (NOT IN RED)
             if (allFailedSources.isNotEmpty()) {
+                val singleFailedSource = if (allFailedSources.size == 1) allFailedSources.first() else null
+                val singleCrawler = remember(singleFailedSource) {
+                    singleFailedSource?.let { src ->
+                        CrawlerFactory.getCrawlers().find { it.name.equals(src, ignoreCase = true) }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(6.dp))
                 Surface(
                     color = DarkSurface,
@@ -242,26 +260,77 @@ fun SearchScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Info,
+                            imageVector = if (singleCrawler?.webviewNeeded == true) Icons.Default.Shield else Icons.Default.Info,
                             contentDescription = null,
-                            tint = SecondaryText.copy(alpha = 0.7f),
+                            tint = if (singleCrawler?.webviewNeeded == true) MaterialTheme.colorScheme.primary else SecondaryText.copy(alpha = 0.7f),
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (allFailedSources.size == 1) {
-                                "${allFailedSources.first()} could not be reached"
+                            text = if (singleFailedSource != null) {
+                                "$singleFailedSource could not be reached"
                             } else {
                                 "${allFailedSources.size} sources could not be reached"
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = SecondaryText,
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f)
                         )
+
+                        if (singleCrawler != null && singleCrawler.baseUrl.isNotBlank()) {
+                            Text(
+                                text = if (singleCrawler.webviewNeeded == true) "Open in WebView" else "WebView",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        val targetUrl = singleCrawler.baseUrl
+                                        val intent = Intent(context, WebViewActivity::class.java).apply {
+                                            putExtra("url", targetUrl)
+                                            putExtra("host", singleCrawler.baseUrl.toUri().host ?: "")
+                                        }
+                                        context.startActivity(intent)
+                                    }
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        } else if (allFailedSources.size > 1) {
+                            Text(
+                                text = "Resolve",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { showFailedSourcesSheet = true }
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+
+                        if (searchState is SearchState.Searching) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Retry",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = PrimaryText,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 11.sp,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.retryFailed() }
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -535,6 +604,94 @@ fun SearchScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (showFailedSourcesSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFailedSourcesSheet = false },
+            containerColor = DarkSurface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "Sources Could Not Be Reached",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryText
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Some sources may require Cloudflare security clearance in WebView.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SecondaryText
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                allFailedSources.forEach { sourceName ->
+                    val crawler = remember(sourceName) {
+                        CrawlerFactory.getCrawlers().find { it.name.equals(sourceName, ignoreCase = true) }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = sourceName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = PrimaryText
+                            )
+                            if (crawler?.webviewNeeded == true) {
+                                Text(
+                                    text = "Security check required",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                        if (crawler != null && crawler.baseUrl.isNotBlank()) {
+                            Button(
+                                onClick = {
+                                    val targetUrl = crawler.baseUrl
+                                    val intent = Intent(context, WebViewActivity::class.java).apply {
+                                        putExtra("url", targetUrl)
+                                        putExtra("host", crawler.baseUrl.toUri().host ?: "")
+                                    }
+                                    context.startActivity(intent)
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Text("Open in WebView", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.2f))
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        showFailedSourcesSheet = false
+                        viewModel.retryFailed()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Retry Failed Searches")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

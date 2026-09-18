@@ -391,8 +391,7 @@ class NovelDetailViewModel(
     fun fetchChapter(novel: Novel, chapter: Chapter) {
         viewModelScope.launch {
             val request = requestFactory.chapter(novel, chapter)
-
-            batchRepository.insertRequests(listOf(request))
+            batchRepository.insertBatchWithChapterTasks(request, listOf(chapter))
             SchedulerService.startService(getApplication())
         }
     }

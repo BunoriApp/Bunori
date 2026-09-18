@@ -16,6 +16,8 @@ object WamrHttpBridge {
     fun execute(requestJson: String): ByteArray {
         return try {
             val req = ExtensionJson.json.decodeFromString<WasmHttpRequest>(requestJson)
+            Log.i(TAG, "--> [WASM HTTP REQ] ${req.method} ${req.url} (headers: ${req.headers}, body: ${req.body?.take(300)})")
+
             val requestBuilder = Request.Builder().url(req.url)
 
             req.headers.forEach { (key, value) ->
@@ -38,10 +40,13 @@ object WamrHttpBridge {
                     responseHeaders[response.headers.name(i)] = response.headers.value(i)
                 }
 
+                val bodyStr = response.body?.string() ?: ""
+                Log.i(TAG, "<-- [WASM HTTP RESP] status=${response.code} for ${req.url} (body length: ${bodyStr.length} chars, preview: ${bodyStr.take(300)})")
+
                 val httpResponse = WasmHttpResponse(
                     statusCode = response.code,
                     headers = responseHeaders,
-                    body = response.body?.string() ?: ""
+                    body = bodyStr
                 )
                 ExtensionJson.json.encodeToString(WasmHttpResponse.serializer(), httpResponse).toByteArray(Charsets.UTF_8)
             }

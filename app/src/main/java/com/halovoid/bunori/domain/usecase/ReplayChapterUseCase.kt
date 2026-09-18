@@ -29,6 +29,6 @@ class ReplayChapterUseCase(
             downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
         }
         val request = requestFactory.chapter(novel, chapter)
-        batchRepository.insertRequests(listOf(request))
+        batchRepository.insertBatchWithChapterTasks(request, listOf(chapter))
     }
 }
