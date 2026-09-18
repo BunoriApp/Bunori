@@ -14,12 +14,14 @@ import android.text.TextUtils
 import androidx.core.net.toUri
 import com.halovoid.bunori.data.artifact.ArtifactGenerator
 import com.halovoid.bunori.data.repository.DownloadRepository
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.data.scheduler.RequestMetadata
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -217,7 +219,8 @@ private class PagedPdfWriter(
 
 class PdfGenerator(
     private val storageRepository: StorageRepository,
-    private val downloadRepository: DownloadRepository? = null
+    private val downloadRepository: DownloadRepository? = null,
+    private val preferenceRepository: PreferenceRepository? = null
 ) : ArtifactGenerator {
     override val format: String = "PDF"
 
@@ -294,26 +297,13 @@ class PdfGenerator(
     // HTML -> content blocks
     // ---------------------------------------------------------------------------------------
 
-    private fun cleanHtmlSegment(html: String): String {
-        return html
-            .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
-            .replace(Regex("</p>", RegexOption.IGNORE_CASE), "\n\n")
-            .replace(Regex("<[^>]*>"), "")
-            .replace("&nbsp;", " ")
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
-            .replace("&#39;", "'")
-            .trim()
-    }
-
-    private fun buildTextBlockOrNull(segment: String, paint: TextPaint, width: Int): ContentBlock.Text? {
-        val cleaned = cleanHtmlSegment(segment)
-        if (cleaned.isBlank()) return null
-        val layout = StaticLayout.Builder.obtain(cleaned, 0, cleaned.length, paint, width)
+    /** Wraps a segment of text into a [StaticLayout], returning null if the text is empty/blank. */
+    private fun buildTextBlockOrNull(text: String, paint: TextPaint, widthPx: Int): ContentBlock.Text? {
+        val clean = text.replace(Regex("<[^>]*>"), "").trim()
+        if (clean.isBlank()) return null
+        val layout = StaticLayout.Builder.obtain(clean, 0, clean.length, paint, widthPx)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setLineSpacing(2f, 1.2f)
+            .setLineSpacing(2f, 1.25f)
             .build()
         return ContentBlock.Text(layout)
     }
@@ -323,8 +313,14 @@ class PdfGenerator(
         html: String,
         bodyPaint: TextPaint,
         printableWidthPx: Int,
-        imageCache: MutableMap<String, Bitmap?>
+        imageCache: MutableMap<String, Bitmap?>,
+        ignoreImages: Boolean = false
     ): List<ContentBlock> {
+        if (ignoreImages) {
+            val cleanHtml = html.replace(imgTagRegex, "")
+            val block = buildTextBlockOrNull(cleanHtml, bodyPaint, printableWidthPx)
+            return if (block != null) listOf(block) else emptyList()
+        }
         val blocks = mutableListOf<ContentBlock>()
         var lastIndex = 0
         for (match in imgTagRegex.findAll(html)) {
@@ -355,6 +351,8 @@ class PdfGenerator(
         metadata: RequestMetadata
     ): File = withContext(Dispatchers.IO) {
 
+        val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false
+
         // --- Paints --------------------------------------------------------------------------
         val coverTitlePaint = TextPaint().apply { isAntiAlias = true; textSize = 26f; color = Color.BLACK; isFakeBoldText = true }
         val coverAuthorPaint = TextPaint().apply { isAntiAlias = true; textSize = 15f; color = Color.DKGRAY }
@@ -384,10 +382,10 @@ class PdfGenerator(
             val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
             val rawContent = download?.fileLocation?.let { loc -> storageRepository.readText(loc.toUri()) }
                 ?: "<p><em>Content not available</em></p>"
-            chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache)
+            chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache, ignoreImages)
         }
 
-        val coverBitmap = loadCoverBitmap(novel, printableWidthPx * 2)
+        val coverBitmap = if (!ignoreImages) loadCoverBitmap(novel, printableWidthPx * 2) else null
 
         val tocEntries = sortedChapters.map { chapter ->
             TocEntry(chapter.title.ifBlank { "Chapter ${chapter.index}" })

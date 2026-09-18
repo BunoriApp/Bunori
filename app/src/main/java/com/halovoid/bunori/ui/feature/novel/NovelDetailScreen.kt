@@ -39,6 +39,7 @@ sealed interface NovelDetailDialogState {
     data object FilterSheet : NovelDetailDialogState
     data object NovelDetails : NovelDetailDialogState
     data object SourceFilterSheet : NovelDetailDialogState
+    data object JumpToChapter : NovelDetailDialogState
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -272,6 +273,7 @@ fun NovelDetailScreen(
                     onMarkAsUnread = { viewModel.markSelectedChaptersRead(false) },
                     onSelectAll = { viewModel.selectAllChapters(chapters) },
                     onUnselectAll = { viewModel.clearSelection() },
+                    onJumpToChapterClick = { activeDialog = NovelDetailDialogState.JumpToChapter },
                     onFilterClick = { activeDialog = NovelDetailDialogState.FilterSheet },
                     isFilterActive = isFilterActive || isSortModified,
                     onSourceFilterClick = { activeDialog = NovelDetailDialogState.SourceFilterSheet },
@@ -336,6 +338,25 @@ fun NovelDetailScreen(
                         availableSources = availableSources,
                         selectedSources = selectedSources,
                         onToggleSource = { viewModel.toggleSourceSelection(it) },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
+                is NovelDetailDialogState.JumpToChapter -> {
+                    JumpToChapterBottomSheet(
+                        chapters = chapters,
+                        onChapterClick = { chapter ->
+                            onChapterClick(currentNovel.url, chapter.id)
+                        },
+                        onScrollToChapter = { chapter ->
+                            val activeReq = requestHistory.find { it.rstatus in ongoingStatuses }
+                            val headerItemCount = if (activeReq != null) 7 else 6
+                            val chapterIndexInList = chapters.indexOf(chapter)
+                            if (chapterIndexInList >= 0) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(headerItemCount + chapterIndexInList)
+                                }
+                            }
+                        },
                         onDismiss = { activeDialog = null }
                     )
                 }

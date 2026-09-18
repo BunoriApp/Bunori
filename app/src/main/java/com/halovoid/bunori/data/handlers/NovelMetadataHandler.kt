@@ -3,13 +3,17 @@ package com.halovoid.bunori.data.handlers
 import android.net.Uri
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
+import com.halovoid.bunori.api.core.network.interceptor.CloudflareBypassException
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.NovelRepository
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.data.scheduler.jobs.JobHandler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
+import com.halovoid.bunori.wasm.WamrHttpBridge
+import kotlinx.coroutines.flow.first
 
 /**
  * Handler for [JobType.NOVEL_METADATA] requests.
@@ -19,7 +23,8 @@ class NovelMetadataHandler(
     private val crawlerFactory: CrawlerFactory,
     private val novelRepository: NovelRepository,
     private val chapterRepository: ChapterRepository,
-    private val storageRepository: StorageRepository
+    private val storageRepository: StorageRepository,
+    private val preferenceRepository: PreferenceRepository
 ) : JobHandler {
 
     override suspend fun handle(task: TaskEntity): JobResult {
@@ -34,12 +39,17 @@ class NovelMetadataHandler(
             // 1. Fetch latest details from the source
             val novel = crawler.getNovelDetails(task.novelUrl)
 
-            // 2. Refresh cover image if available
-            val coverUri = downloadAndSaveCover(novel.coverUrl, crawler, novel.url)
+            // 2. Refresh cover image if available and not ignored
+            val shouldIgnoreImages = preferenceRepository.ignoreImages.first()
+            val coverUri = if (!shouldIgnoreImages) {
+                downloadAndSaveCover(novel.coverUrl, crawler, novel.url)
+            } else {
+                null
+            }
 
             // 3. Prepare the updated novel domain model (formats titles)
             val updatedNovel = crawler.prepareNovel(novel).let {
-                val coverLocalUrl = if (coverUri != null) coverUri.toString() else it.coverUrl
+                val coverLocalUrl = if (coverUri != null) coverUri.toString() else if (shouldIgnoreImages) null else it.coverUrl
                 it.copy(
                     coverUrl = coverLocalUrl,
                     coverHttpsUrl = novel.coverUrl
@@ -82,7 +92,13 @@ class NovelMetadataHandler(
             // Currently user would need to manually do a full novel fetch
             JobResult.Success
         } catch (e: Exception) {
-            if (crawler.webviewNeeded == true) {
+            val isCloudflare = crawler.webviewNeeded == true || 
+                WamrHttpBridge.consumeCloudflareBlocked() ||
+                e is CloudflareBypassException ||
+                e.cause is CloudflareBypassException ||
+                e.message?.contains("Cloudflare", ignoreCase = true) == true
+
+            if (isCloudflare) {
                 JobResult.Blocked
             } else {
                 JobResult.Failure(e)

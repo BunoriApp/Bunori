@@ -2,6 +2,7 @@ package com.halovoid.bunori.wasm
 
 import android.util.Log
 import com.halovoid.bunori.api.core.network.NetworkClient
+import com.halovoid.bunori.api.core.network.interceptor.CloudflareBypassException
 import com.halovoid.bunori.extension.api.ExtensionJson
 import com.halovoid.bunori.extension.api.wasm.WasmHttpRequest
 import com.halovoid.bunori.extension.api.wasm.WasmHttpResponse
@@ -12,10 +13,21 @@ import okhttp3.RequestBody.Companion.toRequestBody
 object WamrHttpBridge {
     private const val TAG = "WamrHttpBridge"
 
+    @Volatile
+    var lastCloudflareBlockedUrl: String? = null
+
+    fun consumeCloudflareBlocked(): Boolean {
+        val blocked = lastCloudflareBlockedUrl != null
+        lastCloudflareBlockedUrl = null
+        return blocked
+    }
+
     @JvmStatic
     fun execute(requestJson: String): ByteArray {
+        var currentUrl: String? = null
         return try {
             val req = ExtensionJson.json.decodeFromString<WasmHttpRequest>(requestJson)
+            currentUrl = req.url
             Log.i(TAG, "--> [WASM HTTP REQ] ${req.method} ${req.url} (headers: ${req.headers}, body: ${req.body?.take(300)})")
 
             val requestBuilder = Request.Builder().url(req.url)
@@ -43,6 +55,10 @@ object WamrHttpBridge {
                 val bodyStr = response.body?.string() ?: ""
                 Log.i(TAG, "<-- [WASM HTTP RESP] status=${response.code} for ${req.url} (body length: ${bodyStr.length} chars, preview: ${bodyStr.take(300)})")
 
+                if (response.code in listOf(403, 429) && (response.header("cf-mitigated") == "challenge" || bodyStr.contains("<title>Just a moment...</title>"))) {
+                    lastCloudflareBlockedUrl = req.url
+                }
+
                 val httpResponse = WasmHttpResponse(
                     statusCode = response.code,
                     headers = responseHeaders,
@@ -52,6 +68,12 @@ object WamrHttpBridge {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error executing HTTP request in WamrHttpBridge: ${e.message}", e)
+            if (e is CloudflareBypassException ||
+                e.cause is CloudflareBypassException ||
+                e.message?.contains("Cloudflare", ignoreCase = true) == true
+            ) {
+                lastCloudflareBlockedUrl = currentUrl
+            }
             val errorResponse = WasmHttpResponse(
                 statusCode = 500,
                 headers = emptyMap(),

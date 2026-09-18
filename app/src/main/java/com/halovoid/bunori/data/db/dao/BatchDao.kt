@@ -78,7 +78,7 @@ interface BatchDao {
     @Query("UPDATE batches SET status = :status, error = :error, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateStatusWithError(id: String, status: JobStatus, error: String?, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE batches SET status = :status, completedAt = :completedAt, updatedAt = :updatedAt WHERE id = :id")
+    @Query("UPDATE batches SET status = :status, error = CASE WHEN :status = 'SUCCESS' THEN NULL ELSE error END, completedAt = :completedAt, updatedAt = :updatedAt WHERE id = :id")
     suspend fun markCompleted(id: String, status: JobStatus, completedAt: Long = System.currentTimeMillis(), updatedAt: Long = System.currentTimeMillis())
 
     @Query("DELETE FROM batches WHERE id = :id")

@@ -26,9 +26,14 @@ object NetworkClient {
         }
     }
 
+    private var appContext: Context? = null
+    val cookieJar = WebKitCookieJar()
+
     fun init(context: Context) {
+        val appCtx = context.applicationContext
+        appContext = appCtx
         val cacheSize = 5 * 1024 * 1024L // 5 MiB
-        val cacheDirectory = File(context.cacheDir, "http_cache")
+        val cacheDirectory = File(appCtx.cacheDir, "http_cache")
         cache = Cache(cacheDirectory, cacheSize)
     }
 
@@ -38,10 +43,10 @@ object NetworkClient {
     var currentUserAgent: String = DEFAULT_USER_AGENT
 
     val okHttpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .cache(cache)
             .dns(fastDns)
-            .cookieJar(WebKitCookieJar())
+            .cookieJar(cookieJar)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor { chain ->
@@ -51,6 +56,12 @@ object NetworkClient {
                     .build()
                 chain.proceed(request)
             }
+
+        appContext?.let { ctx ->
+            builder.addInterceptor(com.halovoid.bunori.api.core.network.interceptor.CloudflareInterceptor(ctx, cookieJar) { currentUserAgent })
+        }
+
+        builder
             .addNetworkInterceptor { chain ->
                 val request = chain.request()
                 val url = request.url.toString()

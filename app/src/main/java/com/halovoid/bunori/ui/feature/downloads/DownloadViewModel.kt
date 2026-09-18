@@ -68,7 +68,7 @@ class DownloadViewModel(
         viewModelScope.launch {
             val success = Scrapper.globalResolver?.resolve(url) ?: false
             if (success) {
-                batchRepository.replayRequest(requestId)
+                batchRepository.resumeRequest(requestId)
             }
         }
     }

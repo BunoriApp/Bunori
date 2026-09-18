@@ -339,7 +339,7 @@ fun TaskDetailItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (!task.error.isNullOrBlank()) {
+                if (!task.error.isNullOrBlank() && task.status != JobStatus.SUCCESS) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = task.error,

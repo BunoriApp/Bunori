@@ -119,8 +119,10 @@ class GroupedRequestsViewModel(
 
     fun resolveWebView(requestId: String, url: String) {
         viewModelScope.launch {
-            com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url)
-            batchRepository.replayRequest(requestId)
+            val success = com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url) ?: false
+            if (success) {
+                batchRepository.resumeRequest(requestId)
+            }
         }
     }
 }

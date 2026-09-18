@@ -101,9 +101,12 @@ class BatchRepository private constructor(private val context: Context) {
     suspend fun pauseRequest(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
-            batchDao.updateStatus(batchId, JobStatus.PAUSED)
-            taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.PAUSED)
-            SchedulerService.pauseJob(context, batchId)
+            val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+                ?: taskDao.getTaskById(batchId)?.batchId
+                ?: batchId
+            batchDao.updateStatus(effectiveBatchId, JobStatus.PAUSED)
+            taskDao.updateUnfinishedStatusForBatch(effectiveBatchId, JobStatus.PAUSED)
+            SchedulerService.pauseJob(context, effectiveBatchId)
         } finally {
             _activeActionIds.update { it - batchId }
         }
@@ -112,9 +115,12 @@ class BatchRepository private constructor(private val context: Context) {
     suspend fun resumeRequest(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
-            batchDao.updateStatus(batchId, JobStatus.RUNNING)
-            taskDao.updateStatusForBatch(batchId, JobStatus.PAUSED, JobStatus.PENDING)
-            SchedulerService.resumeJob(context, batchId)
+            val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+                ?: taskDao.getTaskById(batchId)?.batchId
+                ?: batchId
+            batchDao.updateStatusWithError(effectiveBatchId, JobStatus.RUNNING, null)
+            taskDao.resumeTasksForBatch(effectiveBatchId)
+            SchedulerService.resumeJob(context, effectiveBatchId)
         } finally {
             _activeActionIds.update { it - batchId }
         }
@@ -123,9 +129,12 @@ class BatchRepository private constructor(private val context: Context) {
     suspend fun replayRequest(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
-            batchDao.updateStatus(batchId, JobStatus.PENDING)
-            taskDao.resetAllTasksForBatch(batchId)
-            SchedulerService.replayJob(context, batchId)
+            val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+                ?: taskDao.getTaskById(batchId)?.batchId
+                ?: batchId
+            batchDao.updateStatusWithError(effectiveBatchId, JobStatus.PENDING, null)
+            taskDao.resetAllTasksForBatch(effectiveBatchId)
+            SchedulerService.replayJob(context, effectiveBatchId)
         } finally {
             _activeActionIds.update { it - batchId }
         }
@@ -134,17 +143,23 @@ class BatchRepository private constructor(private val context: Context) {
     suspend fun cancelRequest(batchId: String) = withContext(Dispatchers.IO) {
         _cancellingRequestIds.update { it + batchId }
         try {
-            batchDao.updateStatus(batchId, JobStatus.CANCELLED)
-            taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.CANCELLED)
-            SchedulerService.cancelJob(context, batchId)
+            val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+                ?: taskDao.getTaskById(batchId)?.batchId
+                ?: batchId
+            batchDao.updateStatus(effectiveBatchId, JobStatus.CANCELLED)
+            taskDao.updateUnfinishedStatusForBatch(effectiveBatchId, JobStatus.CANCELLED)
+            SchedulerService.cancelJob(context, effectiveBatchId)
         } finally {
             _cancellingRequestIds.update { it - batchId }
         }
     }
 
     suspend fun deleteRequest(batchId: String) = withContext(Dispatchers.IO) {
-        batchDao.deleteById(batchId)
-        taskDao.deleteByBatchId(batchId)
+        val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+            ?: taskDao.getTaskById(batchId)?.batchId
+            ?: batchId
+        batchDao.deleteById(effectiveBatchId)
+        taskDao.deleteByBatchId(effectiveBatchId)
     }
 
     companion object {

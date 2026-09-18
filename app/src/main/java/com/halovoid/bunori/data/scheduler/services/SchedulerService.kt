@@ -135,8 +135,8 @@ class SchedulerService : Service() {
         val artifactRepository = ArtifactRepository.getInstance(this)
         val downloadRepository = DownloadRepositoryImpl.getInstance(this)
 
-        val epubGenerator = EpubGenerator(storageRepository, downloadRepository)
-        val pdfGenerator = PdfGenerator(storageRepository, downloadRepository)
+        val epubGenerator = EpubGenerator(storageRepository, downloadRepository, preferenceRepository)
+        val pdfGenerator = PdfGenerator(storageRepository, downloadRepository, preferenceRepository)
         val generatorFactory = ArtifactGeneratorFactory(listOf(epubGenerator, pdfGenerator))
 
         val registry = JobHandlerRegistry()
@@ -149,7 +149,7 @@ class SchedulerService : Service() {
             downloadRepository, novelRepository
         ))
         registry.register(JobType.NOVEL_METADATA, NovelMetadataHandler(
-            crawlerFactory, novelRepository, chapterRepository, storageRepository
+            crawlerFactory, novelRepository, chapterRepository, storageRepository, preferenceRepository
         ))
         registry.register(JobType.ARTIFACT, ArtifactHandler(
             novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository, downloadRepository

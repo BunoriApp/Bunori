@@ -378,7 +378,10 @@ fun RequestCard(
                 trackColor = DarkSurfaceVariant
             )
 
-            if (!batch.error.isNullOrBlank()) {
+            val isCompleted = batch.rstatus == JobStatus.SUCCESS || 
+                (batch.progressTotal > 0 && batch.progressSuccess >= batch.progressTotal)
+
+            if (!batch.error.isNullOrBlank() && !isCompleted) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Surface(
                     color = ErrorRed.copy(alpha = 0.08f),

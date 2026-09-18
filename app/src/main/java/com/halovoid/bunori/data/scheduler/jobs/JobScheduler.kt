@@ -78,9 +78,12 @@ class JobScheduler(
 
     fun pauseJob(batchId: String) {
         scope.launch {
-            batchDao.updateStatus(batchId, JobStatus.PAUSED)
-            taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.PAUSED)
-            val tasks = taskDao.getTasksByBatchId(batchId)
+            val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+                ?: taskDao.getTaskById(batchId)?.batchId
+                ?: batchId
+            batchDao.updateStatus(effectiveBatchId, JobStatus.PAUSED)
+            taskDao.updateUnfinishedStatusForBatch(effectiveBatchId, JobStatus.PAUSED)
+            val tasks = taskDao.getTasksByBatchId(effectiveBatchId)
             tasks.forEach { activeJobs[it.id]?.cancel() }
             notifyWakeup()
         }
@@ -88,25 +91,34 @@ class JobScheduler(
 
     fun resumeJob(batchId: String) {
         scope.launch {
-            batchDao.updateStatus(batchId, JobStatus.RUNNING)
-            taskDao.updateStatusForBatch(batchId, JobStatus.PAUSED, JobStatus.PENDING)
+            val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+                ?: taskDao.getTaskById(batchId)?.batchId
+                ?: batchId
+            batchDao.updateStatusWithError(effectiveBatchId, JobStatus.RUNNING, null)
+            taskDao.resumeTasksForBatch(effectiveBatchId)
             start()
         }
     }
 
     fun replayJob(batchId: String) {
         scope.launch {
-            batchDao.updateStatus(batchId, JobStatus.PENDING)
-            taskDao.resetAllTasksForBatch(batchId)
+            val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+                ?: taskDao.getTaskById(batchId)?.batchId
+                ?: batchId
+            batchDao.updateStatusWithError(effectiveBatchId, JobStatus.PENDING, null)
+            taskDao.resetAllTasksForBatch(effectiveBatchId)
             start()
         }
     }
 
     fun cancelActiveJob(batchId: String) {
         scope.launch {
-            batchDao.updateStatus(batchId, JobStatus.CANCELLED)
-            taskDao.updateUnfinishedStatusForBatch(batchId, JobStatus.CANCELLED)
-            val tasks = taskDao.getTasksByBatchId(batchId)
+            val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+                ?: taskDao.getTaskById(batchId)?.batchId
+                ?: batchId
+            batchDao.updateStatus(effectiveBatchId, JobStatus.CANCELLED)
+            taskDao.updateUnfinishedStatusForBatch(effectiveBatchId, JobStatus.CANCELLED)
+            val tasks = taskDao.getTasksByBatchId(effectiveBatchId)
             tasks.forEach { activeJobs[it.id]?.cancel() }
             notifyWakeup()
         }

@@ -7,8 +7,10 @@ import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import androidx.core.net.toUri
 import com.halovoid.bunori.data.repository.DownloadRepository
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -49,7 +51,8 @@ private data class EpubItem(
 
 class EpubGenerator(
     private val storageRepository: StorageRepository,
-    private val downloadRepository: DownloadRepository? = null
+    private val downloadRepository: DownloadRepository? = null,
+    private val preferenceRepository: PreferenceRepository? = null
 ) : ArtifactGenerator {
     override val format: String = "EPUB"
 
@@ -114,8 +117,12 @@ class EpubGenerator(
         chapterId: String,
         html: String,
         imageCache: MutableMap<String, String>,
-        addItem: (EpubItem) -> Unit
+        addItem: (EpubItem) -> Unit,
+        ignoreImages: Boolean = false
     ): String {
+        if (ignoreImages) {
+            return html.replace(imgTagRegex, "")
+        }
         val sources = imgTagRegex.findAll(html).map { it.groupValues[1] }.distinct().toList()
         if (sources.isEmpty()) return html
 
@@ -302,47 +309,51 @@ class EpubGenerator(
             }
         }
 
+        val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false
+
 // 0. Add Cover Image and Page
-        val coverUrl = novel.coverUrl
-        val coverHttpsUrl = novel.coverHttpsUrl
-        var coverBytes: ByteArray? = null
-        var resolvedUrl: String? = null
+        if (!ignoreImages) {
+            val coverUrl = novel.coverUrl
+            val coverHttpsUrl = novel.coverHttpsUrl
+            var coverBytes: ByteArray? = null
+            var resolvedUrl: String? = null
 
-        // Try reading from local coverUrl first
-        if (!coverUrl.isNullOrBlank()) {
-            try {
-                val coverUri = coverUrl.toUri()
-                storageRepository.openInputStream(coverUri)?.use { input ->
-                    coverBytes = input.readBytes()
-                    resolvedUrl = coverUrl
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        // If local cover failed/missing, fall back to coverHttpsUrl
-        if (coverBytes == null && !coverHttpsUrl.isNullOrBlank()) {
-            try {
-                val request = okhttp3.Request.Builder().url(coverHttpsUrl).build()
-                com.halovoid.bunori.api.core.network.NetworkClient.okHttpClient.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        coverBytes = response.body?.bytes()
-                        resolvedUrl = coverHttpsUrl
+            // Try reading from local coverUrl first
+            if (!coverUrl.isNullOrBlank()) {
+                try {
+                    val coverUri = coverUrl.toUri()
+                    storageRepository.openInputStream(coverUri)?.use { input ->
+                        coverBytes = input.readBytes()
+                        resolvedUrl = coverUrl
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
-        }
 
-        coverBytes?.let { bytes ->
-            val extension = if (resolvedUrl?.contains(".png", ignoreCase = true) == true) "png" else "jpg"
-            val imageFileName = "cover.$extension"
-            val mediaType = if (extension == "png") "image/png" else "image/jpeg"
+            // If local cover failed/missing, fall back to coverHttpsUrl
+            if (coverBytes == null && !coverHttpsUrl.isNullOrBlank()) {
+                try {
+                    val request = okhttp3.Request.Builder().url(coverHttpsUrl).build()
+                    com.halovoid.bunori.api.core.network.NetworkClient.okHttpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            coverBytes = response.body?.bytes()
+                            resolvedUrl = coverHttpsUrl
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
 
-            addItem(EpubItem(imageFileName, bytes, mediaType, "cover-image"))
-            addItem(EpubItem("cover.xhtml", buildCoverPage(imageFileName).toByteArray(), "application/xhtml+xml", "cover"))
+            coverBytes?.let { bytes ->
+                val extension = if (resolvedUrl?.contains(".png", ignoreCase = true) == true) "png" else "jpg"
+                val imageFileName = "cover.$extension"
+                val mediaType = if (extension == "png") "image/png" else "image/jpeg"
+
+                addItem(EpubItem(imageFileName, bytes, mediaType, "cover-image"))
+                addItem(EpubItem("cover.xhtml", buildCoverPage(imageFileName).toByteArray(), "application/xhtml+xml", "cover"))
+            }
         }
 
         // 1. Add static assets
@@ -356,7 +367,7 @@ class EpubGenerator(
             val rawContent = download?.fileLocation?.let { loc ->
                 storageRepository.readText(loc.toUri())
             } ?: "<p><em>Content not available</em></p>"
-            val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem)
+            val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem, ignoreImages)
 
             val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
             addItem(EpubItem(

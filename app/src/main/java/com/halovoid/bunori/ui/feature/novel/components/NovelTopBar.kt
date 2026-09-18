@@ -34,6 +34,7 @@ fun NovelTopBar(
     onMarkAsUnread: () -> Unit,
     onSelectAll: () -> Unit,
     onUnselectAll: () -> Unit,
+    onJumpToChapterClick: () -> Unit,
     onFilterClick: () -> Unit,
     isFilterActive: Boolean,
     onSourceFilterClick: () -> Unit,
@@ -137,6 +138,14 @@ fun NovelTopBar(
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
                     }
+                }
+
+                IconButton(onClick = onJumpToChapterClick) {
+                    Icon(
+                        imageVector = Icons.Default.Tag,
+                        contentDescription = "Jump to Chapter",
+                        tint = PrimaryText
+                    )
                 }
 
                 IconButton(

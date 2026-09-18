@@ -74,8 +74,8 @@ class RequestViewModel(
             val success = Scrapper.globalResolver?.resolve(url) ?: false
             AppLog.i("RequestViewModel", "Resolution result: $success")
             if (success) {
-                AppLog.i("RequestViewModel", "Replaying request $requestId")
-                batchRepository.replayRequest(requestId)
+                AppLog.i("RequestViewModel", "Resuming request $requestId")
+                batchRepository.resumeRequest(requestId)
             }
         }
     }

@@ -45,8 +45,8 @@ class RequestDetailViewModel(
             val success = com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url) ?: false
             AppLog.i("RequestDetailViewModel", "Resolution result: $success")
             if (success) {
-                AppLog.i("RequestDetailViewModel", "Replaying request $requestId")
-                batchRepository.replayRequest(requestId)
+                AppLog.i("RequestDetailViewModel", "Resuming request $requestId")
+                batchRepository.resumeRequest(requestId)
             }
         }
     }
