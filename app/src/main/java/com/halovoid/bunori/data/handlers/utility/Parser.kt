@@ -1,5 +1,6 @@
 package com.halovoid.bunori.data.handlers.utility
 
+import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.domain.models.Batch
@@ -24,6 +25,10 @@ val Batch.parsedMetadata: RequestMetadata
         }
     }
 
+val Batch.crawlerName: String?
+    get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() }
+        ?: novelUrl.let { CrawlerFactory.getCrawlerByUrl(it)?.name }
+
 val BatchEntity.parsedMetadata: RequestMetadata
     get() {
         if (this.metadata.isNullOrBlank()) return RequestMetadata()
@@ -42,6 +47,10 @@ val BatchEntity.parsedMetadata: RequestMetadata
         }
     }
 
+val BatchEntity.crawlerName: String?
+    get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() }
+        ?: novelUrl.let { CrawlerFactory.getCrawlerByUrl(it)?.name }
+
 val TaskEntity.parsedMetadata: RequestMetadata
     get() {
         if (this.metadata.isNullOrBlank()) return RequestMetadata()
@@ -59,3 +68,8 @@ val TaskEntity.parsedMetadata: RequestMetadata
             RequestMetadata()
         }
     }
+
+val TaskEntity.crawlerName: String?
+    get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() }
+        ?: url?.let { CrawlerFactory.getCrawlerByUrl(it)?.name }
+        ?: novelUrl.let { CrawlerFactory.getCrawlerByUrl(it)?.name }

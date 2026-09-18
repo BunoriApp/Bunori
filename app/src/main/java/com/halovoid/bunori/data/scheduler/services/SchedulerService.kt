@@ -60,8 +60,10 @@ class SchedulerService : Service() {
         const val ACTION_PAUSE_JOB = "ACTION_PAUSE_JOB"
         const val ACTION_RESUME_JOB = "ACTION_RESUME_JOB"
         const val ACTION_REPLAY_JOB = "ACTION_REPLAY_JOB"
+        const val ACTION_UNBLOCK_CRAWLER = "ACTION_UNBLOCK_CRAWLER"
 
         const val EXTRA_JOB_ID = "EXTRA_JOB_ID"
+        const val EXTRA_CRAWLER_NAME = "EXTRA_CRAWLER_NAME"
 
         fun startService(context: Context) {
             val intent = Intent(context, SchedulerService::class.java).apply {
@@ -101,6 +103,18 @@ class SchedulerService : Service() {
             val intent = Intent(context, SchedulerService::class.java).apply {
                 action = ACTION_RESUME_JOB
                 putExtra(EXTRA_JOB_ID, jobId)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun unblockCrawler(context: Context, crawlerName: String) {
+            val intent = Intent(context, SchedulerService::class.java).apply {
+                action = ACTION_UNBLOCK_CRAWLER
+                putExtra(EXTRA_CRAWLER_NAME, crawlerName)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -205,6 +219,15 @@ class SchedulerService : Service() {
                 ensureForeground()
                 if (jobId != null) {
                     scheduler.replayJob(jobId)
+                } else {
+                    scheduler.start()
+                }
+            }
+            ACTION_UNBLOCK_CRAWLER -> {
+                ensureForeground()
+                val crawlerName = intent?.getStringExtra(EXTRA_CRAWLER_NAME)
+                if (crawlerName != null) {
+                    scheduler.unblockCrawlerAsync(crawlerName)
                 } else {
                     scheduler.start()
                 }

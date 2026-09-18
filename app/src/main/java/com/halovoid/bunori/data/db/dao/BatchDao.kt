@@ -69,6 +69,9 @@ interface BatchDao {
     @Query("SELECT * FROM batches WHERE status IN ('RUNNING', 'PENDING')")
     suspend fun getActiveBatches(): List<BatchEntity>
 
+    @Query("SELECT * FROM batches WHERE status = 'BLOCKED'")
+    suspend fun getBlockedBatches(): List<BatchEntity>
+
     @Query("SELECT EXISTS(SELECT 1 FROM batches WHERE status IN ('RUNNING', 'PENDING', 'PAUSED') LIMIT 1)")
     suspend fun hasActiveOrPendingBatches(): Boolean
 

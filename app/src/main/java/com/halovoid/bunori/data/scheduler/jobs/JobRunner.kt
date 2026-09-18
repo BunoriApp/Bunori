@@ -6,6 +6,7 @@ import com.halovoid.bunori.data.db.dao.BatchDao
 import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
+import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
 import kotlinx.coroutines.CancellationException
@@ -18,7 +19,8 @@ class JobRunner(
     private val handlerRegistry: JobHandlerRegistry,
     private val retryPolicy: RetryPolicy,
     private val config: SchedulerConfig,
-    private val rateLimiter: CrawlerRateLimiter? = null
+    private val rateLimiter: CrawlerRateLimiter? = null,
+    private val onCrawlerBlocked: (suspend (crawlerName: String, task: TaskEntity) -> Unit)? = null
 ) {
     companion object {
         private const val DEFAULT_MAX_ATTEMPTS = 3
@@ -44,7 +46,7 @@ class JobRunner(
             val maxAttempts = maxAttemptsFor(currentTask)
 
             while (true) {
-                val crawlerName = currentTask.parsedMetadata.crawlerName
+                val crawlerName = currentTask.crawlerName
                 if (crawlerName != null && rateLimiter != null) {
                     val crawler = CrawlerFactory.getCrawler(crawlerName)
                     val cooldownMs = crawler?.config?.runnerCooldownMs ?: 1000L
@@ -123,7 +125,7 @@ class JobRunner(
     }
 
     private fun maxAttemptsFor(task: TaskEntity): Int {
-        val crawlerName = task.parsedMetadata.crawlerName
+        val crawlerName = task.crawlerName
         val crawlerMax = crawlerName?.let { CrawlerFactory.getCrawler(it)?.config?.maxAttempts }
         return crawlerMax ?: task.maxAttempts.takeIf { it > 0 } ?: DEFAULT_MAX_ATTEMPTS
     }
@@ -146,6 +148,10 @@ class JobRunner(
     private suspend fun markBlocked(task: TaskEntity) {
         taskDao.updateStatus(task.id, JobStatus.BLOCKED)
         batchDao.updateStatus(task.batchId, JobStatus.BLOCKED)
+        val crawler = task.crawlerName
+        if (crawler != null) {
+            onCrawlerBlocked?.invoke(crawler, task)
+        }
     }
 
     private suspend fun syncBatchCompletion(batchId: String) {
@@ -153,7 +159,7 @@ class JobRunner(
         if (tasks.isEmpty()) return
 
         val batch = batchDao.getBatchById(batchId) ?: return
-        if (batch.status == JobStatus.CANCELLED || batch.status == JobStatus.PAUSED) {
+        if (batch.status == JobStatus.CANCELLED || batch.status == JobStatus.PAUSED || batch.status == JobStatus.BLOCKED) {
             return
         }
 

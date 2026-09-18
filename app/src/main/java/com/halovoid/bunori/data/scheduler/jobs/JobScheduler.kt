@@ -6,6 +6,7 @@ import com.halovoid.bunori.data.db.dao.BatchDao
 import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
+import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
@@ -33,6 +34,7 @@ class JobScheduler(
     private var pollingJob: Job? = null
     private val activeJobs = ConcurrentHashMap<String, Job>()
     private val crawlerPools = ConcurrentHashMap<String, WorkerPool>()
+    private val blockedCrawlers = ConcurrentHashMap.newKeySet<String>()
     private var currentGlobalLimit = config.maxConcurrentJobs
     private var globalPool = WorkerPool(currentGlobalLimit)
     private val leaseMonitor = LeaseMonitor(config.abandonedTimeoutMs)
@@ -42,6 +44,45 @@ class JobScheduler(
         preferenceRepository?.maxConcurrentJobs?.onEach {
             notifyWakeup()
         }?.launchIn(scope)
+    }
+
+    fun isCrawlerBlocked(crawlerName: String): Boolean = blockedCrawlers.contains(crawlerName)
+
+    fun getBlockedCrawlers(): Set<String> = blockedCrawlers.toSet()
+
+    suspend fun blockCrawler(crawlerName: String) {
+        blockedCrawlers.add(crawlerName)
+        val activeBatches = batchDao.getActiveBatches()
+        for (batch in activeBatches) {
+            if (batch.crawlerName == crawlerName) {
+                batchDao.updateStatus(batch.id, JobStatus.BLOCKED)
+            }
+        }
+        notifyWakeup()
+    }
+
+    fun blockCrawlerAsync(crawlerName: String) {
+        scope.launch {
+            blockCrawler(crawlerName)
+        }
+    }
+
+    suspend fun unblockCrawler(crawlerName: String) {
+        blockedCrawlers.remove(crawlerName)
+        val blockedBatches = batchDao.getBlockedBatches()
+        for (batch in blockedBatches) {
+            if (batch.crawlerName == crawlerName) {
+                batchDao.updateStatusWithError(batch.id, JobStatus.RUNNING, null)
+                taskDao.resumeTasksForBatch(batch.id)
+            }
+        }
+        start()
+    }
+
+    fun unblockCrawlerAsync(crawlerName: String) {
+        scope.launch {
+            unblockCrawler(crawlerName)
+        }
     }
 
     fun setOnEmptyListener(listener: () -> Unit) {
@@ -94,9 +135,17 @@ class JobScheduler(
             val effectiveBatchId = batchDao.getBatchById(batchId)?.id
                 ?: taskDao.getTaskById(batchId)?.batchId
                 ?: batchId
-            batchDao.updateStatusWithError(effectiveBatchId, JobStatus.RUNNING, null)
-            taskDao.resumeTasksForBatch(effectiveBatchId)
-            start()
+            val batch = batchDao.getBatchById(effectiveBatchId)
+            val crawlerName = batch?.crawlerName
+                ?: taskDao.getTaskById(effectiveBatchId)?.crawlerName
+
+            if (crawlerName != null && blockedCrawlers.contains(crawlerName)) {
+                unblockCrawler(crawlerName)
+            } else {
+                batchDao.updateStatusWithError(effectiveBatchId, JobStatus.RUNNING, null)
+                taskDao.resumeTasksForBatch(effectiveBatchId)
+                start()
+            }
         }
     }
 
@@ -135,7 +184,13 @@ class JobScheduler(
         // 1. Recover abandoned / crashed tasks (e.g. app force closed while tasks were running)
         recoverAbandoned()
 
-        // 2. Fetch runnable tasks
+        // 2. Sync blocked crawlers with currently BLOCKED batches from DB
+        val blockedBatches = batchDao.getBlockedBatches()
+        val activeBlockedCrawlerNames = blockedBatches.mapNotNull { it.crawlerName }.toSet()
+        blockedCrawlers.clear()
+        blockedCrawlers.addAll(activeBlockedCrawlerNames)
+
+        // 3. Fetch runnable tasks
         val runnableTasks = taskDao.getRunnableTasks()
 
         val readyQueue = ReadyQueue()
@@ -154,12 +209,13 @@ class JobScheduler(
 
     private fun launchReadyJobs(readyQueue: ReadyQueue) {
         val saturatedCrawlers = mutableSetOf<String>()
+        saturatedCrawlers.addAll(blockedCrawlers)
 
         while (true) {
             val task = readyQueue.pop(saturatedCrawlers) ?: break
             if (activeJobs.containsKey(task.id)) continue
 
-            val crawlerName = task.parsedMetadata.crawlerName
+            val crawlerName = task.crawlerName
             val pool = if (crawlerName != null) {
                 crawlerPools.getOrPut(crawlerName) {
                     val crawler = CrawlerFactory.getCrawler(crawlerName)
@@ -179,7 +235,17 @@ class JobScheduler(
 
             val job = scope.launch {
                 try {
-                    val runner = JobRunner(batchDao, taskDao, handlerRegistry, retryPolicy, config, rateLimiter)
+                    val runner = JobRunner(
+                        batchDao,
+                        taskDao,
+                        handlerRegistry,
+                        retryPolicy,
+                        config,
+                        rateLimiter,
+                        onCrawlerBlocked = { blockedName, _ ->
+                            blockCrawler(blockedName)
+                        }
+                    )
                     runner.run(task) {
                         activeJobs.remove(task.id)
                     }
@@ -204,6 +270,7 @@ class JobScheduler(
                 when (batch?.status) {
                     JobStatus.CANCELLED -> taskDao.updateStatus(task.id, JobStatus.CANCELLED)
                     JobStatus.PAUSED -> taskDao.updateStatus(task.id, JobStatus.PAUSED)
+                    JobStatus.BLOCKED -> taskDao.updateStatus(task.id, JobStatus.BLOCKED)
                     else -> taskDao.updateStatus(task.id, JobStatus.PENDING)
                 }
             }
@@ -255,7 +322,7 @@ internal class ReadyQueue {
             while (novelIterator.hasNext()) {
                 val entry = novelIterator.next()
                 val candidate = entry.value.firstOrNull() ?: continue
-                val crawlerName = candidate.parsedMetadata.crawlerName ?: "__global__"
+                val crawlerName = candidate.crawlerName ?: "__global__"
                 if (saturatedCrawlers.contains(crawlerName)) {
                     continue
                 }

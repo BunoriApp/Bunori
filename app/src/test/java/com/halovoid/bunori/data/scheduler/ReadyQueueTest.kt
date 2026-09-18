@@ -151,4 +151,65 @@ class ReadyQueueTest {
         assertEquals("h1_high_1", queue.pop()?.id)
         assertNull(queue.pop())
     }
+
+    @Test
+    fun testBlockedCrawlerSkipsAllBatchesOfBlockedSourceWhileOtherSourcesRun() {
+        val queue = ReadyQueue()
+
+        // Two batches for NovelUpdates: novelA and novelB
+        val nuBatch1 = listOf(
+            TaskEntity(
+                id = "nu_a_1", batchId = "batch_nu_1", name = "Novel A Ch 1", url = "https://novelupdates.com/a/1", novelUrl = "https://novelupdates.com/a",
+                priority = 0, type = JobType.CHAPTER, metadata = "{\"crawlerName\":\"NovelUpdates\"}"
+            ),
+            TaskEntity(
+                id = "nu_a_2", batchId = "batch_nu_1", name = "Novel A Ch 2", url = "https://novelupdates.com/a/2", novelUrl = "https://novelupdates.com/a",
+                priority = 0, type = JobType.CHAPTER, metadata = "{\"crawlerName\":\"NovelUpdates\"}"
+            )
+        )
+        val nuBatch2 = listOf(
+            TaskEntity(
+                id = "nu_b_1", batchId = "batch_nu_2", name = "Novel B Ch 1", url = "https://novelupdates.com/b/1", novelUrl = "https://novelupdates.com/b",
+                priority = 0, type = JobType.CHAPTER, metadata = "{\"crawlerName\":\"NovelUpdates\"}"
+            ),
+            TaskEntity(
+                id = "nu_b_2", batchId = "batch_nu_2", name = "Novel B Ch 2", url = "https://novelupdates.com/b/2", novelUrl = "https://novelupdates.com/b",
+                priority = 0, type = JobType.CHAPTER, metadata = "{\"crawlerName\":\"NovelUpdates\"}"
+            )
+        )
+
+        // One batch for RoyalRoad: novelC
+        val rrBatch = listOf(
+            TaskEntity(
+                id = "rr_c_1", batchId = "batch_rr", name = "Novel C Ch 1", url = "https://royalroad.com/c/1", novelUrl = "https://royalroad.com/c",
+                priority = 0, type = JobType.CHAPTER, metadata = "{\"crawlerName\":\"RoyalRoad\"}"
+            ),
+            TaskEntity(
+                id = "rr_c_2", batchId = "batch_rr", name = "Novel C Ch 2", url = "https://royalroad.com/c/2", novelUrl = "https://royalroad.com/c",
+                priority = 0, type = JobType.CHAPTER, metadata = "{\"crawlerName\":\"RoyalRoad\"}"
+            )
+        )
+
+        queue.pushAll(nuBatch1 + nuBatch2 + rrBatch)
+
+        // Mark NovelUpdates as blocked
+        val blockedCrawlers = setOf("NovelUpdates")
+
+        // While NovelUpdates is blocked, RoyalRoad tasks run
+        assertEquals("rr_c_1", queue.pop(blockedCrawlers)?.id)
+        assertEquals("rr_c_2", queue.pop(blockedCrawlers)?.id)
+
+        // No more RoyalRoad tasks; calling pop with NovelUpdates blocked returns null
+        assertNull(queue.pop(blockedCrawlers))
+
+        // Once NovelUpdates is unblocked, tasks from both Novel A and Novel B run in round-robin!
+        val poppedAfterUnblock = mutableListOf<String>()
+        while (true) {
+            val task = queue.pop() ?: break
+            poppedAfterUnblock.add(task.id)
+        }
+
+        assertEquals(listOf("nu_a_1", "nu_b_1", "nu_a_2", "nu_b_2"), poppedAfterUnblock)
+        assertTrue(queue.isEmpty())
+    }
 }

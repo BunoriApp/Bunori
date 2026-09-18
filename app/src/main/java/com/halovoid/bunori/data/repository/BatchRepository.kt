@@ -7,6 +7,7 @@ import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.db.entities.TaskEntity
+import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
 import com.halovoid.bunori.domain.models.Batch
@@ -118,8 +119,23 @@ class BatchRepository private constructor(private val context: Context) {
             val effectiveBatchId = batchDao.getBatchById(batchId)?.id
                 ?: taskDao.getTaskById(batchId)?.batchId
                 ?: batchId
+            val batch = batchDao.getBatchById(effectiveBatchId)
+            val crawlerName = batch?.crawlerName
+                ?: taskDao.getTaskById(effectiveBatchId)?.crawlerName
+
             batchDao.updateStatusWithError(effectiveBatchId, JobStatus.RUNNING, null)
             taskDao.resumeTasksForBatch(effectiveBatchId)
+
+            if (crawlerName != null) {
+                val blockedBatches = batchDao.getBlockedBatches()
+                for (b in blockedBatches) {
+                    if (b.crawlerName == crawlerName) {
+                        batchDao.updateStatusWithError(b.id, JobStatus.RUNNING, null)
+                        taskDao.resumeTasksForBatch(b.id)
+                    }
+                }
+                SchedulerService.unblockCrawler(context, crawlerName)
+            }
             SchedulerService.resumeJob(context, effectiveBatchId)
         } finally {
             _activeActionIds.update { it - batchId }
