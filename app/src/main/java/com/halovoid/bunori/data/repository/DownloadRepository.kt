@@ -99,7 +99,9 @@ class DownloadRepositoryImpl private constructor(context: Context) : DownloadRep
         scanlationSource = scanlationSource,
         novelTitle = novelTitle,
         sizeBytes = sizeBytes,
-        downloadedAt = downloadedAt
+        downloadedAt = downloadedAt,
+        isCache = isCache,
+        expirationTime = expirationTime
     )
 
     private fun Download.toEntity(): DownloadEntity = DownloadEntity(
@@ -112,6 +114,8 @@ class DownloadRepositoryImpl private constructor(context: Context) : DownloadRep
         scanlationSource = scanlationSource,
         novelTitle = novelTitle,
         sizeBytes = sizeBytes,
-        downloadedAt = downloadedAt
+        downloadedAt = downloadedAt,
+        isCache = isCache,
+        expirationTime = expirationTime
     )
 }

@@ -2,6 +2,7 @@ package com.halovoid.bunori.ui.feature.crawler
 
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.outlined.AltRoute
@@ -58,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -206,13 +209,14 @@ fun ExtensionInfoScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. TOP CENTER: Extension Icon (large & stylish)
+            // 1. TOP CENTER: Extension Icon (scaled to fill space)
             SourceIcon(
                 model = item.iconModel,
                 fallbackText = item.name,
                 size = 84.dp,
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = 12.dp
+                shape = RoundedCornerShape(18.dp),
+                contentPadding = 0.dp,
+                contentScale = ContentScale.Crop
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -226,7 +230,7 @@ fun ExtensionInfoScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // 3. BELOW IT: Website Name (clickable to open in browser)
             if (item.baseUrl.isNotBlank()) {
@@ -243,258 +247,253 @@ fun ExtensionInfoScreen(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = hostName,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = BrandAccent,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = "Open Website",
                             tint = BrandAccent,
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // 4. VERSION ROW & LANGUAGE ROW
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = DarkSurface,
-                border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.35f))
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Row 1: Version number with version text below it
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 14.dp)
-                    ) {
-                        val versionText = when {
-                            item.hasUpdate -> "v${item.installedVersion} → v${item.repoVersion}"
-                            item.installedVersion != null -> "v${item.installedVersion}"
-                            item.repoVersion != null -> "v${item.repoVersion}"
-                            else -> "v1.0.0"
-                        }
-                        Text(
-                            text = versionText,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = if (item.hasUpdate) BrandAccent else PrimaryText
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Version",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryText
-                        )
-                    }
-
-                    HorizontalDivider(
-                        color = BorderColor.copy(alpha = 0.3f),
-                        thickness = 1.dp
-                    )
-
-                    // Row 2: Language with language text below it
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 14.dp)
-                    ) {
-                        Text(
-                            text = languageDisplayName,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryText
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Language",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryText
-                        )
-                    }
-                }
+            // 4. VERSION & LANGUAGE (Side-by-side with separator, no card background)
+            val versionText = when {
+                item.hasUpdate -> "v${item.installedVersion} → v${item.repoVersion}"
+                item.installedVersion != null -> "v${item.installedVersion}"
+                item.repoVersion != null -> "v${item.repoVersion}"
+                else -> "v1.0.0"
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // 5. UNINSTALL AND UPDATE OPTIONS SIDE BY SIDE
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Uninstall Button
-                OutlinedButton(
-                    onClick = { showUninstallConfirmation = true },
-                    enabled = !isActionInProgress,
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.6f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = ErrorRed
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Uninstall",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
-
-                // Update Button (Disabled unless update is available)
-                val updateEnabled = item.hasUpdate && !isActionInProgress
-                Button(
-                    onClick = {
-                        item.repoEntry?.let { entry ->
-                            viewModel.installExtension(entry)
-                        }
-                    },
-                    enabled = updateEnabled,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BrandAccent,
-                        disabledContainerColor = DarkSurfaceVariant.copy(alpha = 0.6f),
-                        contentColor = Color.White,
-                        disabledContentColor = SecondaryText.copy(alpha = 0.5f)
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                ) {
-                    if (isActionInProgress) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Updating...",
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Update,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (item.hasUpdate) "Update" else "Up to date",
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // 6. CRAWLER CONFIGURATIONS SECTION
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
             ) {
                 Text(
-                    text = "Crawler Configurations",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = PrimaryText
+                    text = versionText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (item.hasUpdate) BrandAccent else PrimaryText,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "•",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SecondaryText.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                Text(
+                    text = languageDisplayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SecondaryText
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            // 5. UNINSTALL AND UPDATE ACTIONS (Integrated native feel)
+            if (item.hasUpdate) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = { showUninstallConfirmation = true },
+                        enabled = !isActionInProgress,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Uninstall",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = DarkSurface,
-                border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.35f))
-            ) {
-                Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    ConfigItemRow(
-                        icon = Icons.Outlined.Speed,
-                        title = "Rate Limit (Cooldown)",
-                        subtitle = "Pause delay between consecutive network requests",
-                        value = "${cooldownMs} ms (${cooldownMs / 1000.0}s)"
-                    )
-
-                    ConfigDivider()
-
-                    ConfigItemRow(
-                        icon = Icons.Outlined.AltRoute,
-                        title = "Max Concurrency",
-                        subtitle = "Simultaneous background worker threads",
-                        value = "$concurrency workers"
-                    )
-
-                    ConfigDivider()
-
-                    ConfigItemRow(
-                        icon = Icons.Outlined.Replay,
-                        title = "Max Attempts",
-                        subtitle = "Automatic retry attempts on failure",
-                        value = "$maxAttempts retries"
-                    )
-
-                    ConfigDivider()
-
-                    ConfigItemRow(
-                        icon = Icons.Outlined.Security,
-                        title = "WebView Bypass",
-                        subtitle = "Bypasses Cloudflare or bot protection with browser session",
-                        value = if (webviewNeeded) "Required" else "Not required"
-                    )
-
-                    ConfigDivider()
-
-                    ConfigItemRow(
-                        icon = Icons.Outlined.Code,
-                        title = "API Contract Version",
-                        subtitle = "Target Bunori extension interface specification",
-                        value = "v$apiVersion"
-                    )
-
-                    ConfigDivider()
-
-                    ConfigItemRow(
-                        icon = Icons.Outlined.Folder,
-                        title = "Package Size",
-                        subtitle = "Storage footprint of the extension bytecode package",
-                        value = packageSizeFormatted
-                    )
-
-                    ConfigDivider()
-
-                    ConfigItemRow(
-                        icon = Icons.Outlined.DataObject,
-                        title = "Entry Class",
-                        subtitle = entryClass,
-                        value = "Active"
-                    )
+                    Button(
+                        onClick = {
+                            item.repoEntry?.let { entry -> viewModel.installExtension(entry) }
+                        },
+                        enabled = !isActionInProgress,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BrandAccent,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                    ) {
+                        if (isActionInProgress) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Updating...",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Update,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Update",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
                 }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(DarkSurfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = BrandAccent,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Up to date",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = SecondaryText
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = { showUninstallConfirmation = true },
+                        enabled = !isActionInProgress,
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.4f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Uninstall",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 6. SOURCE CONFIGURATION SECTION (List presentation without card background)
+            Text(
+                text = "Source Configuration",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = PrimaryText,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp)
+            )
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                ConfigItemRow(
+                    icon = Icons.Outlined.Speed,
+                    title = "Rate Limit (Cooldown)",
+                    subtitle = "Pause delay between consecutive network requests",
+                    value = "${cooldownMs} ms (${cooldownMs / 1000.0}s)"
+                )
+
+                ConfigDivider()
+
+                ConfigItemRow(
+                    icon = Icons.Outlined.AltRoute,
+                    title = "Max Concurrency",
+                    subtitle = "Simultaneous background worker threads",
+                    value = "$concurrency workers"
+                )
+
+                ConfigDivider()
+
+                ConfigItemRow(
+                    icon = Icons.Outlined.Replay,
+                    title = "Max Attempts",
+                    subtitle = "Automatic retry attempts on failure",
+                    value = "$maxAttempts retries"
+                )
+
+                ConfigDivider()
+
+                ConfigItemRow(
+                    icon = Icons.Outlined.Security,
+                    title = "WebView Bypass",
+                    subtitle = "Bypasses Cloudflare or bot protection with browser session",
+                    value = if (webviewNeeded) "Required" else "Not required"
+                )
+
+                ConfigDivider()
+
+                ConfigItemRow(
+                    icon = Icons.Outlined.Code,
+                    title = "API Contract Version",
+                    subtitle = "Target Bunori extension interface specification",
+                    value = "v$apiVersion"
+                )
+
+                ConfigDivider()
+
+                ConfigItemRow(
+                    icon = Icons.Outlined.Folder,
+                    title = "Package Size",
+                    subtitle = "Storage footprint of the extension bytecode package",
+                    value = packageSizeFormatted
+                )
+
+                ConfigDivider()
+
+                ConfigItemRow(
+                    icon = Icons.Outlined.DataObject,
+                    title = "Entry Class",
+                    subtitle = entryClass,
+                    value = "Active"
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -553,23 +552,15 @@ private fun ConfigItemRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.size(36.dp),
-            shape = CircleShape,
-            color = DarkSurfaceVariant.copy(alpha = 0.5f)
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = BrandAccent,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = SecondaryText,
+            modifier = Modifier.size(20.dp)
+        )
 
         Spacer(modifier = Modifier.width(14.dp))
 
@@ -577,7 +568,7 @@ private fun ConfigItemRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 color = PrimaryText
             )
             Text(
@@ -590,21 +581,14 @@ private fun ConfigItemRow(
             )
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
-        Surface(
-            shape = RoundedCornerShape(6.dp),
-            color = DarkSurfaceVariant.copy(alpha = 0.8f),
-            border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.3f))
-        ) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = PrimaryText,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = PrimaryText
+        )
     }
 }
 
@@ -612,7 +596,6 @@ private fun ConfigItemRow(
 private fun ConfigDivider() {
     HorizontalDivider(
         color = BorderColor.copy(alpha = 0.2f),
-        thickness = 1.dp,
-        modifier = Modifier.padding(horizontal = 16.dp)
+        thickness = 0.5.dp
     )
 }

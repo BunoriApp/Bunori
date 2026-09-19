@@ -54,7 +54,6 @@ fun SearchScreen(
     requestViewModel: RequestViewModel,
     onBack: () -> Unit,
     onNavigateToRequest: () -> Unit,
-    onNavigateToPreview: () -> Unit,
     onNavigateToDetail: (String, String) -> Unit,
     initialSource: String? = null,
     modifier: Modifier = Modifier
@@ -110,7 +109,7 @@ fun SearchScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 1. Space-Efficient Full-Width Search Bar with Embedded Source Box
+            // 1. Search Bar
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -142,46 +141,6 @@ fun SearchScreen(
                             tint = PrimaryText,
                             modifier = Modifier.size(20.dp)
                         )
-                    }
-
-                    // Embedded Source Filter Box
-                    selectedSource?.let { source ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BrandAccent.copy(alpha = 0.15f),
-                            border = BorderStroke(1.dp, BrandAccent.copy(alpha = 0.35f)),
-                            modifier = Modifier.padding(start = 2.dp, end = 4.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(start = 8.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Text(
-                                    text = source,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = BrandAccent,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                IconButton(
-                                    onClick = {
-                                        selectedSource = null
-                                        viewModel.setSelectedSource(null)
-                                    },
-                                    modifier = Modifier.size(16.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Clear source filter",
-                                        tint = BrandAccent,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                }
-                            }
-                        }
                     }
 
                     Box(
@@ -237,6 +196,64 @@ fun SearchScreen(
                                 contentDescription = "Clear",
                                 tint = SecondaryText,
                                 modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = {
+                            if (searchQuery.isNotBlank()) {
+                                viewModel.search(searchQuery.trim(), selectedSource)
+                                keyboardController?.hide()
+                            }
+                        },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TravelExplore,
+                            contentDescription = "Search",
+                            tint = if (searchQuery.isNotBlank()) BrandAccent else SecondaryText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // Filter chip row below the search input
+            selectedSource?.let { source ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Transparent,
+                        border = BorderStroke(1.dp, BrandAccent.copy(alpha = 0.7f)),
+                        modifier = Modifier.clickable {
+                            selectedSource = null
+                            viewModel.setSelectedSource(null)
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(start = 10.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = source,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = PrimaryText,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear source filter",
+                                tint = SecondaryText,
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                     }
@@ -545,8 +562,7 @@ fun SearchScreen(
                                                                     item = item,
                                                                     isInLibrary = isInLibrary,
                                                                     onNavigateToDetail = onNavigateToDetail,
-                                                                    requestViewModel = requestViewModel,
-                                                                    onNavigateToPreview = onNavigateToPreview
+                                                                    requestViewModel = requestViewModel
                                                                 )
                                                             }
                                                         )
@@ -567,8 +583,7 @@ fun SearchScreen(
                                                                             item = item,
                                                                             isInLibrary = isInLibrary,
                                                                             onNavigateToDetail = onNavigateToDetail,
-                                                                            requestViewModel = requestViewModel,
-                                                                            onNavigateToPreview = onNavigateToPreview
+                                                                            requestViewModel = requestViewModel
                                                                         )
                                                                     }
                                                                 )
@@ -701,23 +716,23 @@ private fun handleSearchResultClick(
     item: SearchItem,
     isInLibrary: Boolean,
     onNavigateToDetail: (String, String) -> Unit,
-    requestViewModel: RequestViewModel,
-    onNavigateToPreview: () -> Unit
+    requestViewModel: RequestViewModel
 ) {
     if (isInLibrary) {
         onNavigateToDetail(item.source, item.url)
     } else {
-        requestViewModel.setPreviewUrl(item.url)
-        requestViewModel.setPreviewNovel(
-            Novel(
-                url = item.url,
-                title = item.title,
-                description = item.description,
-                coverUrl = item.imageUrl,
-                coverHttpsUrl = item.imageUrl,
-                crawlerName = item.source
-            )
+        val novel = Novel(
+            url = item.url,
+            title = item.title,
+            description = item.description,
+            coverUrl = item.imageUrl,
+            coverHttpsUrl = item.imageUrl,
+            crawlerName = item.source,
+            inLibrary = false,
+            refreshExpiry = 0L
         )
-        onNavigateToPreview()
+        requestViewModel.saveNovelStub(novel) {
+            onNavigateToDetail(item.source, item.url)
+        }
     }
 }

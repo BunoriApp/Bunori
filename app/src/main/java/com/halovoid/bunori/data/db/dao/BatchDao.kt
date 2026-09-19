@@ -75,6 +75,9 @@ interface BatchDao {
     @Query("SELECT EXISTS(SELECT 1 FROM batches WHERE status IN ('RUNNING', 'PENDING', 'PAUSED') LIMIT 1)")
     suspend fun hasActiveOrPendingBatches(): Boolean
 
+    @Query("SELECT EXISTS(SELECT 1 FROM batches WHERE novelUrl = :novelUrl AND type = 'NOVEL_METADATA' AND status IN ('RUNNING', 'PENDING', 'BLOCKED') LIMIT 1)")
+    suspend fun hasActiveMetadataBatch(novelUrl: String): Boolean
+
     @Query("UPDATE batches SET status = :status, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateStatus(id: String, status: JobStatus, updatedAt: Long = System.currentTimeMillis())
 

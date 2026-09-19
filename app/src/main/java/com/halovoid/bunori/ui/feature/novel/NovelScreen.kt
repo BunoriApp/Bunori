@@ -2,18 +2,54 @@ package com.halovoid.bunori.ui.feature.novel
 
 import android.app.Application
 import android.content.Intent
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -21,30 +57,40 @@ import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.ui.ViewModelFactory
-import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
-import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.core.components.ConfirmDeleteDialog
+import com.halovoid.bunori.ui.core.theme.BrandAccent
+import com.halovoid.bunori.ui.core.theme.DarkBackground
+import com.halovoid.bunori.ui.core.theme.DarkSurface
+import com.halovoid.bunori.ui.core.theme.PrimaryAccent
+import com.halovoid.bunori.ui.core.theme.PrimaryText
+import com.halovoid.bunori.ui.core.theme.SecondaryText
+import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
 import com.halovoid.bunori.ui.feature.downloads.components.DownloadRangeDialog
-import com.halovoid.bunori.ui.feature.novel.components.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import com.halovoid.bunori.ui.feature.novel.components.ActiveRequestCard
+import com.halovoid.bunori.ui.feature.novel.components.ChapterFilterSortSheet
+import com.halovoid.bunori.ui.feature.novel.components.JumpToChapterBottomSheet
+import com.halovoid.bunori.ui.feature.novel.components.NovelActionRow
+import com.halovoid.bunori.ui.feature.novel.components.NovelDetailsBottomSheet
+import com.halovoid.bunori.ui.feature.novel.components.NovelHeroSection
+import com.halovoid.bunori.ui.feature.novel.components.NovelMetadataTable
+import com.halovoid.bunori.ui.feature.novel.components.NovelSynopsisSection
+import com.halovoid.bunori.ui.feature.novel.components.NovelTopBar
+import com.halovoid.bunori.ui.feature.novel.components.SourceFilterBottomSheet
+import com.halovoid.bunori.ui.feature.novel.components.novelTableOfContents
 import kotlinx.coroutines.launch
 
-sealed interface NovelDetailDialogState {
-    data object ConfirmDelete : NovelDetailDialogState
-    data object DownloadRange : NovelDetailDialogState
-    data object FilterSheet : NovelDetailDialogState
-    data object NovelDetails : NovelDetailDialogState
-    data object SourceFilterSheet : NovelDetailDialogState
-    data object JumpToChapter : NovelDetailDialogState
+sealed interface NovelDialogState {
+    data object ConfirmDelete : NovelDialogState
+    data object DownloadRange : NovelDialogState
+    data object FilterSheet : NovelDialogState
+    data object NovelDetails : NovelDialogState
+    data object SourceFilterSheet : NovelDialogState
+    data object JumpToChapter : NovelDialogState
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NovelDetailScreen(
+fun NovelScreen(
     novelUrl: String,
     onRequestClick: (String) -> Unit,
     onChapterClick: (String, Int) -> Unit,
@@ -55,7 +101,7 @@ fun NovelDetailScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val factory = remember { ViewModelFactory(context.applicationContext as Application) }
-    val viewModel: NovelDetailViewModel = viewModel(factory = factory)
+    val viewModel: NovelViewModel = viewModel(factory = factory)
     
     val novel by viewModel.novel.collectAsState()
     val chapters by viewModel.chapters.collectAsStateWithLifecycle()
@@ -67,7 +113,7 @@ fun NovelDetailScreen(
     val selectedSources by viewModel.selectedSources.collectAsStateWithLifecycle()
     val availableSources by viewModel.availableSources.collectAsStateWithLifecycle()
 
-    androidx.activity.compose.BackHandler(enabled = isSelectionMode) {
+    BackHandler(enabled = isSelectionMode) {
         viewModel.clearSelection()
     }
     val listState = rememberLazyListState()
@@ -122,7 +168,7 @@ fun NovelDetailScreen(
         Pair(ids, ranges)
     }
 
-    var activeDialog by remember { mutableStateOf<NovelDetailDialogState?>(null) }
+    var activeDialog by remember { mutableStateOf<NovelDialogState?>(null) }
 
     val isFilterActive = downloadFilter != DownloadFilter.ALL
     val isSourceFilterActive = availableSources.isNotEmpty() && selectedSources.size < availableSources.size
@@ -173,95 +219,95 @@ fun NovelDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 32.dp)
                     ) {
-                    item {
-                        NovelHeroSection(novel = currentNovel)
-                    }
-
-                    item {
-                        NovelMetadataTable(
-                            novel = currentNovel,
-                            onClick = { activeDialog = NovelDetailDialogState.NovelDetails }
-                        )
-                    }
-
-                    item {
-                        NovelActionRow(
-                            activityExists = requestHistory.isNotEmpty(),
-                            isActivityRunning = requestHistory.any { it.rstatus in ongoingStatuses },
-                            artifactsExist = chapters.isNotEmpty(),
-                            downloadEnabled = chapters.isNotEmpty(),
-                            onActivityClick = onActivityClick,
-                            onDownloadClick = { activeDialog = NovelDetailDialogState.DownloadRange },
-                            onArtifactsClick = onArtifactsClick,
-                            onWebViewClick = {
-                                val intent = Intent(context, WebViewActivity::class.java).apply {
-                                    putExtra("url", currentNovel.url)
-                                    putExtra("host", currentNovel.url.toUri().host ?: "")
-                                }
-                                context.startActivity(intent)
-                            }
-                        )
-                    }
-
-                    val activeRequest = requestHistory.find { it.rstatus in ongoingStatuses }
-                    if (activeRequest != null) {
                         item {
-                            ActiveRequestCard(
-                                batch = activeRequest,
-                                onClick = { onRequestClick(activeRequest.id) }
+                            NovelHeroSection(novel = currentNovel)
+                        }
+
+                        item {
+                            NovelMetadataTable(
+                                novel = currentNovel,
+                                onClick = { activeDialog = NovelDialogState.NovelDetails }
                             )
                         }
-                    }
 
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                        item {
+                            NovelActionRow(
+                                inLibrary = currentNovel.inLibrary,
+                                isActivityRunning = requestHistory.any { it.rstatus in ongoingStatuses },
+                                artifactsExist = chapters.isNotEmpty(),
+                                downloadEnabled = chapters.isNotEmpty(),
+                                onFavoriteClick = { viewModel.toggleLibrary(currentNovel) },
+                                onDownloadClick = { activeDialog = NovelDialogState.DownloadRange },
+                                onArtifactsClick = onArtifactsClick,
+                                onWebViewClick = {
+                                    val intent = Intent(context, WebViewActivity::class.java).apply {
+                                        putExtra("url", currentNovel.url)
+                                        putExtra("host", currentNovel.url.toUri().host ?: "")
+                                    }
+                                    context.startActivity(intent)
+                                }
+                            )
+                        }
 
-                    item {
-                        NovelSynopsisSection(
-                            novel = currentNovel,
-                            isExpanded = descriptionExpanded,
-                            onExpandClick = { descriptionExpanded = !descriptionExpanded }
-                        )
-                    }
+                        val activeRequest = requestHistory.find { it.rstatus in ongoingStatuses }
+                        if (activeRequest != null) {
+                            item {
+                                ActiveRequestCard(
+                                    batch = activeRequest,
+                                    onClick = { onRequestClick(activeRequest.id) }
+                                )
+                            }
+                        }
 
-                    item {
-                        Row(
-                            modifier = Modifier
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
+
+                        item {
+                            NovelSynopsisSection(
+                                novel = currentNovel,
+                                isExpanded = descriptionExpanded,
+                                onExpandClick = { descriptionExpanded = !descriptionExpanded }
+                            )
+                        }
+
+                        item {
+                            Row(
+                                modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp, vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
-                                contentDescription = null,
-                                tint = SecondaryText,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "${chapters.size} Chapters",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryText
-                            )
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
+                                    contentDescription = null,
+                                    tint = SecondaryText,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "${chapters.size} Chapters",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PrimaryText
+                                )
+                            }
                         }
+
+                        novelTableOfContents(
+                            chapters = chapters,
+                            downloadingChapters = downloadingChapters,
+                            isSelectionMode = isSelectionMode,
+                            selectedChapterIds = selectedChapterIds,
+                            onFetchChapter = { viewModel.fetchChapter(currentNovel, it) },
+                            onDeleteChapter = { viewModel.deleteChapter(it) },
+                            onReplayChapter = { viewModel.replayChapter(currentNovel, it) },
+                            onChapterClick = { onChapterClick(currentNovel.url, it.id) },
+                            onChapterLongClick = { viewModel.selectChapter(it.id) },
+                            onChapterToggleSelect = { viewModel.toggleChapterSelection(it.id) }
+                        )
                     }
-
-                    novelTableOfContents(
-                        chapters = chapters,
-                        downloadingChapters = downloadingChapters,
-                        isSelectionMode = isSelectionMode,
-                        selectedChapterIds = selectedChapterIds,
-                        onFetchChapter = { viewModel.fetchChapter(currentNovel, it) },
-                        onDeleteChapter = { viewModel.deleteChapter(it) },
-                        onReplayChapter = { viewModel.replayChapter(currentNovel, it) },
-                        onChapterClick = { onChapterClick(currentNovel.url, it.id) },
-                        onChapterLongClick = { viewModel.selectChapter(it.id) },
-                        onChapterToggleSelect = { viewModel.toggleChapterSelection(it.id) }
-                    )
                 }
-            }
 
-            NovelTopBar(
+                NovelTopBar(
                     novel = currentNovel,
                     isOpaque = isTopBarOpaque,
                     showTitle = showTitleInTopBar,
@@ -273,21 +319,22 @@ fun NovelDetailScreen(
                     onMarkAsUnread = { viewModel.markSelectedChaptersRead(false) },
                     onSelectAll = { viewModel.selectAllChapters(chapters) },
                     onUnselectAll = { viewModel.clearSelection() },
-                    onJumpToChapterClick = { activeDialog = NovelDetailDialogState.JumpToChapter },
-                    onFilterClick = { activeDialog = NovelDetailDialogState.FilterSheet },
+                    onJumpToChapterClick = { activeDialog = NovelDialogState.JumpToChapter },
+                    onFilterClick = { activeDialog = NovelDialogState.FilterSheet },
                     isFilterActive = isFilterActive || isSortModified,
-                    onSourceFilterClick = { activeDialog = NovelDetailDialogState.SourceFilterSheet },
+                    onSourceFilterClick = { activeDialog = NovelDialogState.SourceFilterSheet },
                     isSourceFilterActive = isSourceFilterActive,
                     onRefreshMetadata = { viewModel.fetchNovelMetadata(currentNovel) },
-                    onDeleteNovel = { activeDialog = NovelDetailDialogState.ConfirmDelete }
+                    onDeleteNovel = { activeDialog = NovelDialogState.ConfirmDelete },
+                    onActivityClick = onActivityClick
                 )
             }
 
             when (activeDialog) {
-                is NovelDetailDialogState.ConfirmDelete -> {
+                is NovelDialogState.ConfirmDelete -> {
                     ConfirmDeleteDialog(
-                        title = "Delete request?",
-                        message = "This will permanently remove \"${currentNovel.title}\" from your request history. This action cannot be undone.",
+                        title = "Delete novel?",
+                        message = "This will permanently remove \"${currentNovel.title}\" from your library and storage. This action cannot be undone.",
                         onConfirm = {
                             activeDialog = null
                             viewModel.deleteNovelPermanently(currentNovel)
@@ -296,7 +343,7 @@ fun NovelDetailScreen(
                         onDismiss = { activeDialog = null }
                     )
                 }
-                is NovelDetailDialogState.DownloadRange -> {
+                is NovelDialogState.DownloadRange -> {
                     val minIndex = chapters.minOfOrNull { it.index.toFloat() } ?: 1f
                     val maxIndex = chapters.maxOfOrNull { it.index.toFloat() } ?: currentNovel.chapters.size.toFloat().coerceAtLeast(1f)
                     val activeSources = if (selectedSources.isNotEmpty()) {
@@ -317,7 +364,7 @@ fun NovelDetailScreen(
                         onDismiss = { activeDialog = null }
                     )
                 }
-                is NovelDetailDialogState.FilterSheet -> {
+                is NovelDialogState.FilterSheet -> {
                     ChapterFilterSortSheet(
                         downloadFilter = downloadFilter,
                         sortState = sortState,
@@ -327,13 +374,13 @@ fun NovelDetailScreen(
                         onDismiss = { activeDialog = null }
                     )
                 }
-                is NovelDetailDialogState.NovelDetails -> {
+                is NovelDialogState.NovelDetails -> {
                     NovelDetailsBottomSheet(
                         novel = currentNovel,
                         onDismiss = { activeDialog = null }
                     )
                 }
-                is NovelDetailDialogState.SourceFilterSheet -> {
+                is NovelDialogState.SourceFilterSheet -> {
                     SourceFilterBottomSheet(
                         availableSources = availableSources,
                         selectedSources = selectedSources,
@@ -341,7 +388,7 @@ fun NovelDetailScreen(
                         onDismiss = { activeDialog = null }
                     )
                 }
-                is NovelDetailDialogState.JumpToChapter -> {
+                is NovelDialogState.JumpToChapter -> {
                     JumpToChapterBottomSheet(
                         chapters = chapters,
                         onChapterClick = { chapter ->

@@ -12,17 +12,19 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,7 +47,7 @@ enum class BrowseTab(val title: String) {
 
 /**
  * Modern BrowseScreen adhering to Bunori's dark aesthetic guidelines:
- * - Minimalist Top App Bar with large left-aligned "Browse" title, Search, and MoreVert
+ * - Minimalist Top App Bar with large left-aligned "Browse" title, Search, Refresh, and Settings
  * - 2 full-width tabs: Sources, Extensions (with update badge)
  * - Clean content layout fitting seamlessly into Bunori's themes
  */
@@ -58,10 +60,18 @@ fun RequestScreen(
     viewModel: RequestViewModel,
     crawlerViewModel: CrawlerViewModel
 ) {
-    var selectedTab by remember { mutableStateOf(BrowseTab.SOURCES) }
+    var selectedTabOrdinal by rememberSaveable {
+        mutableStateOf(crawlerViewModel.selectedTabOrdinal)
+    }
+    val selectedTab = BrowseTab.values().getOrElse(selectedTabOrdinal) { BrowseTab.SOURCES }
+
+    fun selectTab(tab: BrowseTab) {
+        selectedTabOrdinal = tab.ordinal
+        crawlerViewModel.selectedTabOrdinal = tab.ordinal
+    }
+
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    var showOverflowMenu by remember { mutableStateOf(false) }
 
     val updatesCount by crawlerViewModel.updatesCount.collectAsStateWithLifecycle()
     val failedExtensions by crawlerViewModel.failedExtensions.collectAsStateWithLifecycle()
@@ -155,56 +165,29 @@ fun RequestScreen(
                             }
                         }) {
                             Icon(
-                                imageVector = Icons.Default.Search,
+                                imageVector = if (selectedTab == BrowseTab.SOURCES) Icons.Default.TravelExplore else Icons.Default.Search,
                                 contentDescription = "Search",
                                 tint = PrimaryText
                             )
                         }
 
-                        Box {
-                            IconButton(onClick = { showOverflowMenu = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "More Options",
-                                    tint = PrimaryText
-                                )
-                            }
+                        IconButton(onClick = {
+                            crawlerViewModel.refreshCatalog()
+                            crawlerViewModel.syncCrawlers()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh",
+                                tint = PrimaryText
+                            )
+                        }
 
-                            DropdownMenu(
-                                expanded = showOverflowMenu,
-                                onDismissRequest = { showOverflowMenu = false },
-                                modifier = Modifier.background(DarkSurface)
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Extension settings", color = PrimaryText) },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        onNavigateToExtensionSettings()
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Settings,
-                                            contentDescription = null,
-                                            tint = BrandAccent
-                                        )
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Refresh", color = PrimaryText) },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        crawlerViewModel.refreshCatalog()
-                                        crawlerViewModel.syncCrawlers()
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Refresh,
-                                            contentDescription = null,
-                                            tint = BrandAccent
-                                        )
-                                    }
-                                )
-                            }
+                        IconButton(onClick = onNavigateToExtensionSettings) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = "Extension Settings",
+                                tint = PrimaryText
+                            )
                         }
                     }
                 }
@@ -231,7 +214,7 @@ fun RequestScreen(
                         Tab(
                             selected = isSelected,
                             onClick = {
-                                selectedTab = tab
+                                selectTab(tab)
                                 isSearchActive = false
                                 searchQuery = ""
                             },
@@ -277,8 +260,7 @@ fun RequestScreen(
                                 installedSources = installedSources,
                                 failedExtensions = failedExtensions,
                                 onNavigateToSearch = onNavigateToSearch,
-                                onNavigateToExtensionInfo = onNavigateToExtensionInfo,
-                                onNavigateToExtensions = { selectedTab = BrowseTab.EXTENSIONS }
+                                onNavigateToExtensions = { selectTab(BrowseTab.EXTENSIONS) }
                             )
                         }
                         BrowseTab.EXTENSIONS -> {
@@ -302,7 +284,6 @@ private fun SourcesTabContent(
     installedSources: List<ExtensionUiItem>,
     failedExtensions: List<String>,
     onNavigateToSearch: (String?) -> Unit,
-    onNavigateToExtensionInfo: ((String) -> Unit)? = null,
     onNavigateToExtensions: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -402,100 +383,56 @@ private fun SourcesTabContent(
             }
 
             items(installedSources, key = { "source_${it.id}" }) { source ->
-                Surface(
-                    onClick = { onNavigateToSearch(source.name) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = DarkSurface,
-                    border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.35f)),
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clickable { onNavigateToSearch(source.name) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Source icon: 42dp rounded with image loading and fallback
-                        SourceIcon(
-                            model = source.iconModel,
-                            fallbackText = source.name,
-                            size = 42.dp,
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = 6.dp
+                    // Source icon: 42dp rounded with image loading and fallback
+                    SourceIcon(
+                        model = source.iconModel,
+                        fallbackText = source.name,
+                        size = 42.dp,
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = 0.dp,
+                        contentScale = ContentScale.Crop
+                    )
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = source.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = PrimaryText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-
-                        Spacer(modifier = Modifier.width(14.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = source.name,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = PrimaryText,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            val langDisplay = if (source.lang.equals("all", ignoreCase = true)) "Multi" else source.lang.uppercase()
-                            val hostDisplay = try {
-                                java.net.URI(source.baseUrl).host ?: source.baseUrl
-                            } catch (e: Exception) {
-                                source.baseUrl
-                            }
-                            Text(
-                                text = "$langDisplay • $hostDisplay",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SecondaryText,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        val langDisplay = if (source.lang.equals("all", ignoreCase = true)) "Multi" else source.lang.uppercase()
+                        val hostDisplay = try {
+                            java.net.URI(source.baseUrl).host ?: source.baseUrl
+                        } catch (e: Exception) {
+                            source.baseUrl
                         }
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BrandAccent.copy(alpha = 0.1f),
-                            border = BorderStroke(1.dp, BrandAccent.copy(alpha = 0.3f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = BrandAccent,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Text(
-                                    text = "Search",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = BrandAccent,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-
-                        if (onNavigateToExtensionInfo != null) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            IconButton(
-                                onClick = { onNavigateToExtensionInfo(source.id) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = "Extension Info",
-                                    tint = SecondaryText,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
+                        Text(
+                            text = "$langDisplay • $hostDisplay",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryText,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
+                HorizontalDivider(
+                    color = BorderColor.copy(alpha = 0.25f),
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
         }
     }
@@ -507,7 +444,6 @@ fun ManualRequestScreen(
     viewModel: RequestViewModel,
     searchUrl: String?,
     onBack: () -> Unit,
-    onNavigateToPreview: () -> Unit,
     onNavigateToDetail: (String, String) -> Unit
 ) {
     val libraryUrls by viewModel.libraryUrls.collectAsStateWithLifecycle()
@@ -526,7 +462,6 @@ fun ManualRequestScreen(
                 viewModel = viewModel,
                 searchUrl = searchUrl,
                 libraryUrls = libraryUrls,
-                onNavigateToPreview = onNavigateToPreview,
                 onNavigateToDetail = onNavigateToDetail
             )
         }

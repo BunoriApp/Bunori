@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,10 +49,10 @@ fun NovelArtifactsScreen(
     artifacts: List<Artifact>,
     onBack: () -> Unit,
     onDownload: (Artifact) -> Unit,
-    viewModel: NovelDetailViewModel? = null
+    viewModel: NovelViewModel? = null
 ) {
     val context = LocalContext.current
-    val actualViewModel: NovelDetailViewModel = viewModel ?: run {
+    val actualViewModel: NovelViewModel = viewModel ?: run {
         val factory = remember { ViewModelFactory(context.applicationContext as Application) }
         viewModel(factory = factory)
     }
@@ -142,7 +142,7 @@ fun NovelArtifactsScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = Icons.Default.Inventory2,
+                        imageVector = Icons.Outlined.FileUpload,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = SecondaryText.copy(alpha = 0.2f)

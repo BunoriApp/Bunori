@@ -88,7 +88,7 @@ class ExtensionCrawlerAdapter(
                     id = 0,
                     url = chDto.url,
                     title = chDto.title,
-                    index = if (chDto.index > 0) chDto.index else idx + 1,
+                    index = if (chDto.index >= 0) chDto.index else idx + 1,
                     novelUrl = novelDto.url
                 ).apply {
                     scanlationSource = chDto.scanlation?.takeIf { it.isNotBlank() } ?: extension.metadata.name

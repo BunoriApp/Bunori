@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.feature.request.RequestViewModel
 
 @Composable
@@ -24,7 +25,6 @@ fun ManualRequestContent(
     viewModel: RequestViewModel,
     searchUrl: String?,
     libraryUrls: Set<String>,
-    onNavigateToPreview: () -> Unit,
     onNavigateToDetail: (String, String) -> Unit
 ) {
     var urlInput by remember { mutableStateOf(searchUrl ?: "") }
@@ -38,9 +38,16 @@ fun ManualRequestContent(
                 if (libraryUrls.contains(urlInput)) {
                     onNavigateToDetail(crawlerName, urlInput)
                 } else {
-                    viewModel.setPreviewUrl(urlInput)
-                    viewModel.setPreviewNovel(null)
-                    onNavigateToPreview()
+                    val novelStub = Novel(
+                        url = urlInput,
+                        title = urlInput,
+                        crawlerName = crawlerName,
+                        inLibrary = false,
+                        refreshExpiry = 0L
+                    )
+                    viewModel.saveNovelStub(novelStub) {
+                        onNavigateToDetail(crawlerName, urlInput)
+                    }
                 }
             }
         }

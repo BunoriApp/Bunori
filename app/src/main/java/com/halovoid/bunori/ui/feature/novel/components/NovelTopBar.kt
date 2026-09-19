@@ -40,7 +40,8 @@ fun NovelTopBar(
     onSourceFilterClick: () -> Unit,
     isSourceFilterActive: Boolean,
     onRefreshMetadata: () -> Unit,
-    onDeleteNovel: () -> Unit
+    onDeleteNovel: () -> Unit,
+    onActivityClick: (() -> Unit)? = null
 ) {
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelectionMode || isOpaque) DarkBackground else Color.Transparent,
@@ -181,6 +182,12 @@ fun NovelTopBar(
                     NovelActionsBottomSheet(
                         novel = novel,
                         onDismiss = { showMenu = false },
+                        onActivityClick = onActivityClick?.let { action ->
+                            {
+                                action()
+                                showMenu = false
+                            }
+                        },
                         onRefreshMetadata = {
                             onRefreshMetadata()
                             showMenu = false
@@ -201,6 +208,7 @@ fun NovelTopBar(
 fun NovelActionsBottomSheet(
     novel: Novel,
     onDismiss: () -> Unit,
+    onActivityClick: (() -> Unit)? = null,
     onRefreshMetadata: () -> Unit,
     onDeleteNovel: () -> Unit
 ) {
@@ -210,6 +218,15 @@ fun NovelActionsBottomSheet(
         subtitle = novel.title
     ) {
         AppBottomSheetGroup {
+            if (onActivityClick != null) {
+                ListItem(
+                    headlineContent = { Text("Activity History", color = PrimaryText) },
+                    leadingContent = { Icon(Icons.Default.History, contentDescription = null, tint = PrimaryText) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { onActivityClick() }
+                )
+                AppBottomSheetDivider()
+            }
             ListItem(
                 headlineContent = { Text("Refresh Metadata", color = PrimaryText) },
                 leadingContent = { Icon(Icons.Default.Refresh, contentDescription = null, tint = PrimaryText) },

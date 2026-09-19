@@ -73,8 +73,10 @@ class NovelRepository private constructor(context: Context) {
      * @param novelUrl The URL of the novel.
      * @return The populated [com.halovoid.bunori.domain.models.Novel] or null if not found.
      */
-    suspend fun getNovelDetails(novelUrl: String): Novel? {
-        return novelDao.getNovelByUrl(novelUrl)?.toDomain()
+    suspend fun getNovelDetails(novelUrl: String): Novel? = withContext(Dispatchers.IO) {
+        val novel = novelDao.getNovelByUrl(novelUrl)?.toDomain() ?: return@withContext null
+        val chapters = chapterDao.getChapterFromNovel(novelUrl).map { it.toDomain() }
+        novel.copy(chapters = chapters)
     }
 
     /**
@@ -82,11 +84,23 @@ class NovelRepository private constructor(context: Context) {
      * @param novel The novel to save.
      */
     suspend fun saveNovelMetadata(novel: Novel) = withContext(Dispatchers.IO) {
-        val novelToSave = if (novel.titleHash == null) {
-            novel.copy(titleHash = SimhashUtils.generateSimhash(novel.title))
+        val existing = novelDao.getNovelByUrl(novel.url)
+        val inLibrary = if (existing != null && existing.inLibrary) true else novel.inLibrary
+        val titleHash = if (inLibrary) {
+            existing?.titleHash ?: novel.titleHash ?: SimhashUtils.generateSimhash(novel.title)
         } else {
-            novel
+            null
         }
+        val refreshExpiry = if (novel.refreshExpiry > 0L) {
+            novel.refreshExpiry
+        } else {
+            existing?.refreshExpiry ?: 0L
+        }
+        val novelToSave = novel.copy(
+            inLibrary = inLibrary,
+            titleHash = titleHash,
+            refreshExpiry = refreshExpiry
+        )
         
         novelDao.upsertNovel(novelToSave.toEntity())
         
@@ -94,6 +108,20 @@ class NovelRepository private constructor(context: Context) {
         if (novel.chapters.isNotEmpty()) {
             chapterDao.upsertChapters(novel.chapters.map { it.toEntity() })
         }
+    }
+
+    suspend fun toggleLibrary(url: String, inLibrary: Boolean) = withContext(Dispatchers.IO) {
+        val novel = novelDao.getNovelByUrl(url) ?: return@withContext
+        val hash = if (inLibrary) {
+            novel.titleHash ?: SimhashUtils.generateSimhash(novel.title)
+        } else {
+            null
+        }
+        novelDao.updateLibraryStatus(url, inLibrary, hash)
+    }
+
+    suspend fun updateRefreshExpiry(url: String, refreshExpiry: Long) = withContext(Dispatchers.IO) {
+        novelDao.updateRefreshExpiry(url, refreshExpiry)
     }
 
     suspend fun getSimilarNovels(hash: Long, threshold: Int): List<Novel> = withContext(Dispatchers.IO) {
@@ -108,7 +136,7 @@ class NovelRepository private constructor(context: Context) {
      * Deletes a novel and its chapters from the local database.
      * @param novel The novel to delete.
      */
-    suspend fun deleteNovel(novel: Novel) {
+    suspend fun deleteNovel(novel: Novel) = withContext(Dispatchers.IO) {
         val entity = novel.toEntity()
         novelDao.deleteNovel(entity)
     }

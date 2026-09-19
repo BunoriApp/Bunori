@@ -12,17 +12,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,6 +68,10 @@ fun CrawlerScreen(
             onUninstall = {
                 selectedItemForDetails = null
                 viewModel.uninstallExtension(detailItem.id)
+            },
+            onInstall = {
+                selectedItemForDetails = null
+                detailItem.repoEntry?.let { viewModel.installExtension(it) }
             }
         )
     }
@@ -99,17 +104,10 @@ fun CrawlerScreen(
             filteredItems.filter { !it.isInstalled && !it.hasUpdate && !it.isActionInProgress }.sortedBy { it.name.lowercase() }
         }
 
-        // Group available extensions: "Multi" first if present, then alphabetical language groups
+        // Group available extensions: "Available" section for non-installed extensions
         val availableGroups = remember(available) {
-            available.groupBy { item ->
-                when (item.lang.lowercase()) {
-                    "all", "multi" -> "Multi"
-                    "en" -> "English"
-                    else -> item.lang.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                }
-            }.toList().sortedWith(compareBy { (group, _) ->
-                if (group == "Multi") "0" else "1_$group"
-            })
+            if (available.isEmpty()) emptyList()
+            else listOf("Available" to available)
         }
 
         Box(modifier = modifier.fillMaxSize()) {
@@ -192,17 +190,17 @@ fun CrawlerScreen(
                                     text = "Installing",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = BrandAccent
+                                    color = PrimaryText
                                 )
                                 Surface(
-                                    color = BrandAccent.copy(alpha = 0.15f),
+                                    color = DarkSurfaceVariant,
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
                                         text = "${installing.size}",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = BrandAccent,
+                                        color = SecondaryText,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                     )
                                 }
@@ -389,8 +387,6 @@ fun CrawlerScreen(
                     .fillMaxSize()
                     .padding(bottom = innerPadding.calculateBottomPadding())
             ) {
-                var showMenu by remember { mutableStateOf(false) }
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -443,34 +439,12 @@ fun CrawlerScreen(
                     }
 
                     if (onNavigateToExtensionSettings != null) {
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "More Options",
-                                    tint = SecondaryText
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false },
-                                modifier = Modifier.background(DarkSurface)
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Extension settings", color = PrimaryText) },
-                                    onClick = {
-                                        showMenu = false
-                                        onNavigateToExtensionSettings()
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Settings,
-                                            contentDescription = null,
-                                            tint = BrandAccent
-                                        )
-                                    }
-                                )
-                            }
+                        IconButton(onClick = onNavigateToExtensionSettings) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = "Extension Settings",
+                                tint = SecondaryText
+                            )
                         }
                     }
                 }
@@ -508,7 +482,8 @@ fun ExtensionRow(
             fallbackText = item.name,
             size = 42.dp,
             shape = RoundedCornerShape(10.dp),
-            contentPadding = 6.dp
+            contentPadding = 0.dp,
+            contentScale = ContentScale.Crop
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -545,7 +520,7 @@ fun ExtensionRow(
             Text(
                 text = metadata,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (item.isActionInProgress || item.hasUpdate) BrandAccent else SecondaryText,
+                color = if (item.hasUpdate && !item.isActionInProgress) BrandAccent else SecondaryText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -556,9 +531,9 @@ fun ExtensionRow(
         // Action icon / button
         if (item.isActionInProgress) {
             CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,
-                color = BrandAccent
+                color = SecondaryText
             )
         } else if (item.hasUpdate) {
             Button(
@@ -583,8 +558,8 @@ fun ExtensionRow(
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Settings,
-                    contentDescription = "Extension Settings",
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Extension Info",
                     tint = SecondaryText,
                     modifier = Modifier.size(20.dp)
                 )
@@ -595,7 +570,7 @@ fun ExtensionRow(
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Download,
+                    imageVector = Icons.Outlined.FileDownload,
                     contentDescription = "Download Extension",
                     tint = SecondaryText,
                     modifier = Modifier.size(22.dp)
@@ -609,9 +584,28 @@ fun ExtensionRow(
 fun ExtensionDetailDialog(
     item: ExtensionUiItem,
     onDismiss: () -> Unit,
-    onUninstall: () -> Unit
+    onUninstall: () -> Unit,
+    onInstall: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
+
+    val manifest = item.loadedExtension?.manifest
+    val metadata = item.loadedExtension?.extension?.metadata
+    val repoEntry = item.repoEntry
+
+    val concurrency = metadata?.runnerConcurrency ?: repoEntry?.runnerConcurrency ?: manifest?.runnerConcurrency ?: 3
+    val cooldownMs = metadata?.runnerCooldown ?: repoEntry?.runnerCooldown ?: manifest?.runnerCooldown ?: 1000L
+    val maxAttempts = metadata?.maxAttempts ?: repoEntry?.maxAttempts ?: manifest?.maxAttempts ?: 3
+    val webviewNeeded = metadata?.webviewNeeded ?: repoEntry?.webviewNeeded ?: manifest?.webviewNeeded ?: false
+
+    val packageSizeBytes = item.loadedExtension?.bextFile?.takeIf { it.exists() }?.length()
+        ?: repoEntry?.size
+        ?: 0L
+    val packageSizeFormatted = if (packageSizeBytes > 0) {
+        String.format("%.1f KB", packageSizeBytes / 1024.0)
+    } else {
+        null
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -623,9 +617,10 @@ fun ExtensionDetailDialog(
                 SourceIcon(
                     model = item.iconModel,
                     fallbackText = item.name,
-                    size = 42.dp,
+                    size = 46.dp,
                     shape = RoundedCornerShape(10.dp),
-                    contentPadding = 6.dp
+                    contentPadding = 0.dp,
+                    contentScale = ContentScale.Crop
                 )
                 Column {
                     Text(
@@ -646,7 +641,7 @@ fun ExtensionDetailDialog(
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (item.baseUrl.isNotEmpty()) {
                     Row(
@@ -656,14 +651,14 @@ fun ExtensionDetailDialog(
                                 val intent = Intent(Intent.ACTION_VIEW, item.baseUrl.toUri())
                                 context.startActivity(intent)
                             }
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Website",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = SecondaryText
                             )
                             Text(
@@ -678,13 +673,28 @@ fun ExtensionDetailDialog(
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = "Open Website",
                             tint = SecondaryText,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
 
+                HorizontalDivider(color = BorderColor.copy(alpha = 0.3f), thickness = 0.5.dp)
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    DetailSpecRow(label = "Rate Limit (Cooldown)", value = "${cooldownMs} ms (${cooldownMs / 1000.0}s)")
+                    DetailSpecRow(label = "Max Concurrency", value = "$concurrency workers")
+                    DetailSpecRow(label = "Retry Attempts", value = "$maxAttempts retries")
+                    DetailSpecRow(label = "WebView Bypass", value = if (webviewNeeded) "Required" else "Not required")
+                    if (packageSizeFormatted != null) {
+                        DetailSpecRow(label = "Package Size", value = packageSizeFormatted)
+                    }
+                }
+
                 if (item.isInstalled) {
-                    HorizontalDivider(color = BorderColor.copy(alpha = 0.5f))
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.3f), thickness = 0.5.dp)
                     Button(
                         onClick = {
                             onDismiss()
@@ -705,6 +715,28 @@ fun ExtensionDetailDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Uninstall", fontWeight = FontWeight.Bold)
                     }
+                } else if (onInstall != null) {
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.3f), thickness = 0.5.dp)
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onInstall()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BrandAccent,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.FileDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Install", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         },
@@ -714,6 +746,27 @@ fun ExtensionDetailDialog(
             }
         }
     )
+}
+
+@Composable
+private fun DetailSpecRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = SecondaryText
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = PrimaryText
+        )
+    }
 }
 
 // Deprecated fallback preserved for backward compatibility

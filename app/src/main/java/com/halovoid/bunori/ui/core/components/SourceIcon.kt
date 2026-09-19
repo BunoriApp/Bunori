@@ -43,7 +43,8 @@ fun SourceIcon(
     size: Dp = 40.dp,
     shape: Shape = RoundedCornerShape(8.dp),
     backgroundColor: Color = DarkSurfaceVariant,
-    contentPadding: Dp = 4.dp
+    contentPadding: Dp = 0.dp,
+    contentScale: ContentScale = ContentScale.Crop
 ) {
     var errorCount by remember(model) { mutableStateOf(0) }
 
@@ -76,7 +77,7 @@ fun SourceIcon(
                     .crossfade(true)
                     .build(),
                 contentDescription = fallbackText,
-                contentScale = ContentScale.Fit,
+                contentScale = contentScale,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(contentPadding),

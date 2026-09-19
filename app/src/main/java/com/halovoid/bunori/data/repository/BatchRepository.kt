@@ -178,6 +178,10 @@ class BatchRepository private constructor(private val context: Context) {
         taskDao.deleteByBatchId(effectiveBatchId)
     }
 
+    suspend fun hasActiveMetadataRequest(novelUrl: String): Boolean = withContext(Dispatchers.IO) {
+        batchDao.hasActiveMetadataBatch(novelUrl)
+    }
+
     companion object {
         @Volatile
         private var INSTANCE: BatchRepository? = null
