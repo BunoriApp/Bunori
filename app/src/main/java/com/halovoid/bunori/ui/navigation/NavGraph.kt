@@ -32,8 +32,8 @@ import com.halovoid.bunori.ui.feature.novel.GroupedRequestsScreen
 import com.halovoid.bunori.ui.feature.novel.GroupedRequestsViewModel
 import com.halovoid.bunori.ui.feature.novel.NovelActivityScreen
 import com.halovoid.bunori.ui.feature.novel.NovelArtifactsScreen
-import com.halovoid.bunori.ui.feature.novel.NovelDetailScreen
-import com.halovoid.bunori.ui.feature.novel.NovelDetailViewModel
+import com.halovoid.bunori.ui.feature.novel.NovelScreen
+import com.halovoid.bunori.ui.feature.novel.NovelViewModel
 import com.halovoid.bunori.ui.feature.onboarding.FolderScreen
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
 import com.halovoid.bunori.ui.feature.onboarding.PermissionScreen
@@ -42,7 +42,6 @@ import com.halovoid.bunori.ui.feature.reader.ReaderScreen
 import com.halovoid.bunori.ui.feature.reader.ReaderViewModel
 import com.halovoid.bunori.ui.feature.layout.LayoutSettingsScreen
 import com.halovoid.bunori.ui.feature.request.ManualRequestScreen
-import com.halovoid.bunori.ui.feature.request.NovelPreviewScreen
 import com.halovoid.bunori.ui.feature.request.RequestDetailScreen
 import com.halovoid.bunori.ui.feature.request.RequestScreen
 import com.halovoid.bunori.ui.feature.request.RequestViewModel
@@ -97,8 +96,8 @@ sealed class Screen(val route: String) {
     object RequestDetail : Screen("request_detail/{requestId}") {
         fun createRoute(requestId: String) = "request_detail/${URLEncoder.encode(requestId, "UTF-8")}"
     }
-    object NovelDetail : Screen("novel_detail/{crawlerName}/{novelUrl}") {
-        fun createRoute(crawlerName: String, novelUrl: String) = "novel_detail/$crawlerName/${URLEncoder.encode(novelUrl, "UTF-8")}"
+    object Novel : Screen("novel/{crawlerName}/{novelUrl}") {
+        fun createRoute(crawlerName: String, novelUrl: String) = "novel/$crawlerName/${URLEncoder.encode(novelUrl, "UTF-8")}"
     }
     object NovelActivity : Screen("novel_activity/{novelUrl}") {
         fun createRoute(novelUrl: String) = "novel_activity/${URLEncoder.encode(novelUrl, "UTF-8")}"
@@ -106,7 +105,6 @@ sealed class Screen(val route: String) {
     object NovelArtifacts : Screen("novel_artifacts/{novelUrl}") {
         fun createRoute(novelUrl: String) = "novel_artifacts/${URLEncoder.encode(novelUrl, "UTF-8")}"
     }
-    object NovelPreview : Screen("novel_preview")
     object GroupedRequests : Screen("grouped_requests/{contextType}/{contextValue}/{type}") {
         fun createRoute(contextType: String, contextValue: String, type: String) = 
             "grouped_requests/$contextType/${URLEncoder.encode(contextValue, "UTF-8")}/$type"
@@ -187,35 +185,6 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             }
-            composable(Screen.NovelPreview.route) { backStackEntry ->
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(navController.graph.id)
-                }
-                val requestViewModel: RequestViewModel = viewModel(
-                    viewModelStoreOwner = parentEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
-                NovelPreviewScreen(
-                    viewModel = requestViewModel,
-                    onBack = {
-                        requestViewModel.clearPreview()
-                        navController.popBackStack()
-                    },
-                    onConfirm = { novel ->
-                        requestViewModel.addNovelDirectly(novel)
-                    },
-                    onNavigateToDetail = { crawlerName, novelUrl ->
-                        requestViewModel.clearPreview()
-                        navController.popBackStack()
-                        navController.navigate(Screen.NovelDetail.createRoute(crawlerName, novelUrl))
-                    },
-                    onCrawlManually = { crawlerName, url, title ->
-                        requestViewModel.startNovelCrawl(crawlerName, url, title)
-                        requestViewModel.clearPreview()
-                        navController.popBackStack()
-                    }
-                )
-            }
             composable(Screen.Request.route) { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry(navController.graph.id)
@@ -272,12 +241,9 @@ fun NavGraph(navController: NavHostController) {
                     onNavigateToRequest = {
                         navController.navigate(Screen.ManualRequest.route)
                     },
-                    onNavigateToPreview = {
-                        navController.navigate(Screen.NovelPreview.route)
-                    },
                     onNavigateToDetail = { crawlerName, novelUrl ->
                         navController.navigate(
-                            Screen.NovelDetail.createRoute(
+                            Screen.Novel.createRoute(
                                 crawlerName,
                                 novelUrl
                             )
@@ -297,12 +263,9 @@ fun NavGraph(navController: NavHostController) {
                     viewModel = requestViewModel,
                     searchUrl = null,
                     onBack = { navController.popBackStack() },
-                    onNavigateToPreview = {
-                        navController.navigate(Screen.NovelPreview.route)
-                    },
                     onNavigateToDetail = { crawlerName, novelUrl ->
                         navController.navigate(
-                            Screen.NovelDetail.createRoute(
+                            Screen.Novel.createRoute(
                                 crawlerName,
                                 novelUrl
                             )
@@ -318,7 +281,7 @@ fun NavGraph(navController: NavHostController) {
                     viewModel = libraryViewModel,
                     onNovelClick = { crawlerName, novelUrl ->
                         navController.navigate(
-                            Screen.NovelDetail.createRoute(
+                            Screen.Novel.createRoute(
                                 crawlerName,
                                 novelUrl
                             )
@@ -549,13 +512,13 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             }
-            composable(Screen.NovelDetail.route) { backStackEntry ->
+            composable(Screen.Novel.route) { backStackEntry ->
                 val crawlerName = backStackEntry.arguments?.getString("crawlerName") ?: ""
                 val novelUrl = URLDecoder.decode(
                     backStackEntry.arguments?.getString("novelUrl") ?: "",
                     "UTF-8"
                 )
-                NovelDetailScreen(
+                NovelScreen(
                     novelUrl = novelUrl,
                     onRequestClick = { requestId ->
                         navController.navigate(Screen.RequestDetail.createRoute(requestId))
@@ -610,7 +573,7 @@ fun NavGraph(navController: NavHostController) {
                     backStackEntry.arguments?.getString("novelUrl") ?: "",
                     "UTF-8"
                 )
-                val viewModel: NovelDetailViewModel = viewModel(
+                val viewModel: NovelViewModel = viewModel(
                     factory = remember { ViewModelFactory(application) }
                 )
                 LaunchedEffect(novelUrl) {

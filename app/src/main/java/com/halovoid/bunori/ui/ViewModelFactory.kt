@@ -12,7 +12,7 @@ import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
 import com.halovoid.bunori.ui.feature.novel.GroupedRequestsViewModel
-import com.halovoid.bunori.ui.feature.novel.NovelDetailViewModel
+import com.halovoid.bunori.ui.feature.novel.NovelViewModel
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
 import com.halovoid.bunori.ui.feature.reader.ReaderViewModel
 import com.halovoid.bunori.ui.feature.request.RequestDetailViewModel
@@ -33,8 +33,8 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             modelClass.isAssignableFrom(RequestDetailViewModel::class.java) -> {
                 RequestDetailViewModel(application, BatchRepository.getInstance(application)) as T
             }
-            modelClass.isAssignableFrom(NovelDetailViewModel::class.java) -> {
-                NovelDetailViewModel(
+            modelClass.isAssignableFrom(NovelViewModel::class.java) -> {
+                NovelViewModel(
                     application,
                     BatchRepository.getInstance(application),
                     preferenceRepository = PreferenceRepository.getInstance(application)

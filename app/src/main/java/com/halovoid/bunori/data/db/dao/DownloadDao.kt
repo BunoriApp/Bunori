@@ -17,23 +17,26 @@ interface DownloadDao {
     @Query("SELECT * FROM downloads WHERE novelUrl = :novelUrl AND chapterUrl = :chapterUrl LIMIT 1")
     fun getDownloadFlow(novelUrl: String, chapterUrl: String): Flow<DownloadEntity?>
 
-    @Query("SELECT * FROM downloads WHERE novelUrl = :novelUrl ORDER BY chapterIndex ASC")
+    @Query("SELECT * FROM downloads WHERE novelUrl = :novelUrl AND isCache = 0 ORDER BY chapterIndex ASC")
     fun getDownloadsForNovelFlow(novelUrl: String): Flow<List<DownloadEntity>>
 
-    @Query("SELECT * FROM downloads WHERE novelUrl = :novelUrl ORDER BY chapterIndex ASC")
+    @Query("SELECT * FROM downloads WHERE novelUrl = :novelUrl AND isCache = 0 ORDER BY chapterIndex ASC")
     suspend fun getDownloadsForNovel(novelUrl: String): List<DownloadEntity>
 
-    @Query("SELECT * FROM downloads ORDER BY downloadedAt DESC")
+    @Query("SELECT * FROM downloads WHERE isCache = 0 ORDER BY downloadedAt DESC")
     fun getAllDownloadsFlow(): Flow<List<DownloadEntity>>
 
-    @Query("SELECT * FROM downloads ORDER BY downloadedAt DESC")
+    @Query("SELECT * FROM downloads WHERE isCache = 0 ORDER BY downloadedAt DESC")
     suspend fun getAllDownloads(): List<DownloadEntity>
 
-    @Query("SELECT chapterUrl FROM downloads WHERE novelUrl = :novelUrl")
+    @Query("SELECT chapterUrl FROM downloads WHERE novelUrl = :novelUrl AND isCache = 0")
     fun getDownloadedChapterUrlsFlow(novelUrl: String): Flow<List<String>>
 
-    @Query("SELECT chapterUrl FROM downloads WHERE novelUrl = :novelUrl")
+    @Query("SELECT chapterUrl FROM downloads WHERE novelUrl = :novelUrl AND isCache = 0")
     suspend fun getDownloadedChapterUrls(novelUrl: String): List<String>
+
+    @Query("DELETE FROM downloads WHERE isCache = 1 AND expirationTime IS NOT NULL AND expirationTime < :currentTime")
+    suspend fun deleteExpiredCache(currentTime: Long)
 
     @Upsert
     suspend fun upsertDownload(download: DownloadEntity): Long

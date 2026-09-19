@@ -54,7 +54,6 @@ fun SearchScreen(
     requestViewModel: RequestViewModel,
     onBack: () -> Unit,
     onNavigateToRequest: () -> Unit,
-    onNavigateToPreview: () -> Unit,
     onNavigateToDetail: (String, String) -> Unit,
     initialSource: String? = null,
     modifier: Modifier = Modifier
@@ -545,8 +544,7 @@ fun SearchScreen(
                                                                     item = item,
                                                                     isInLibrary = isInLibrary,
                                                                     onNavigateToDetail = onNavigateToDetail,
-                                                                    requestViewModel = requestViewModel,
-                                                                    onNavigateToPreview = onNavigateToPreview
+                                                                    requestViewModel = requestViewModel
                                                                 )
                                                             }
                                                         )
@@ -567,8 +565,7 @@ fun SearchScreen(
                                                                             item = item,
                                                                             isInLibrary = isInLibrary,
                                                                             onNavigateToDetail = onNavigateToDetail,
-                                                                            requestViewModel = requestViewModel,
-                                                                            onNavigateToPreview = onNavigateToPreview
+                                                                            requestViewModel = requestViewModel
                                                                         )
                                                                     }
                                                                 )
@@ -701,23 +698,23 @@ private fun handleSearchResultClick(
     item: SearchItem,
     isInLibrary: Boolean,
     onNavigateToDetail: (String, String) -> Unit,
-    requestViewModel: RequestViewModel,
-    onNavigateToPreview: () -> Unit
+    requestViewModel: RequestViewModel
 ) {
     if (isInLibrary) {
         onNavigateToDetail(item.source, item.url)
     } else {
-        requestViewModel.setPreviewUrl(item.url)
-        requestViewModel.setPreviewNovel(
-            Novel(
-                url = item.url,
-                title = item.title,
-                description = item.description,
-                coverUrl = item.imageUrl,
-                coverHttpsUrl = item.imageUrl,
-                crawlerName = item.source
-            )
+        val novel = Novel(
+            url = item.url,
+            title = item.title,
+            description = item.description,
+            coverUrl = item.imageUrl,
+            coverHttpsUrl = item.imageUrl,
+            crawlerName = item.source,
+            inLibrary = false,
+            refreshExpiry = 0L
         )
-        onNavigateToPreview()
+        requestViewModel.saveNovelStub(novel) {
+            onNavigateToDetail(item.source, item.url)
+        }
     }
 }

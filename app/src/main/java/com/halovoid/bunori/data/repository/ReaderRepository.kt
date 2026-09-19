@@ -8,10 +8,12 @@ import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Download
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class ReaderRepository private constructor(
     private val context: Context,
-    private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.getInstance(context)
+    private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.getInstance(context),
+    private val novelRepository: NovelRepository = NovelRepository.getInstance(context)
 ) {
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -28,30 +30,90 @@ class ReaderRepository private constructor(
     suspend fun getChapterContent(chapter: Chapter, crawlerName: String): String =
         withContext(Dispatchers.IO) {
             val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
+            val now = System.currentTimeMillis()
             val html = if (download != null) {
-                readDownloaded(download) ?: fetchLive(chapter, crawlerName)
+                if (download.isCache && download.expirationTime != null && download.expirationTime < now) {
+                    deleteCacheFile(download.fileLocation)
+                    downloadRepository.deleteDownload(download.novelUrl, download.chapterUrl)
+                    fetchAndCache(chapter, crawlerName)
+                } else {
+                    readDownloaded(download) ?: fetchAndCache(chapter, crawlerName)
+                }
             } else {
-                fetchLive(chapter, crawlerName)
+                fetchAndCache(chapter, crawlerName)
             }
             html ?: "<p>Couldn't load this chapter. Check your connection and try again</p>"
         }
 
     private suspend fun readDownloaded(download: Download): String? {
         val fileLocation = download.fileLocation
-        if (fileLocation.isBlank() || !fileLocation.startsWith("content://")) return null
+        if (fileLocation.isBlank()) return null
         return try {
-            context.contentResolver.openInputStream(fileLocation.toUri())
-                ?.bufferedReader()
-                ?.use { it.readText() }
+            when {
+                fileLocation.startsWith("content://") -> {
+                    context.contentResolver.openInputStream(fileLocation.toUri())
+                        ?.bufferedReader()
+                        ?.use { it.readText() }
+                }
+                fileLocation.startsWith("file://") -> {
+                    File(fileLocation.removePrefix("file://")).readText()
+                }
+                else -> {
+                    val file = File(fileLocation)
+                    if (file.exists()) file.readText() else null
+                }
+            }
         } catch (e: Exception) {
             downloadRepository.deleteDownload(download.novelUrl, download.chapterUrl)
             null
         }
     }
 
+    private suspend fun fetchAndCache(chapter: Chapter, crawlerName: String): String? {
+        val html = fetchLive(chapter, crawlerName) ?: return null
+        if (html.isNotBlank() && html.trim().length > 50) {
+            try {
+                val cacheDir = File(context.cacheDir, "chapter_cache").apply { mkdirs() }
+                val safeFileName = "ch_${chapter.novelUrl.hashCode()}_${chapter.id}_${System.currentTimeMillis()}.html"
+                val cacheFile = File(cacheDir, safeFileName)
+                cacheFile.writeText(html)
+
+                val novel = novelRepository.getNovelDetails(chapter.novelUrl)
+                val novelTitle = novel?.title ?: "Novel"
+
+                val cachedDownload = Download(
+                    novelUrl = chapter.novelUrl,
+                    chapterUrl = chapter.url,
+                    fileLocation = cacheFile.absolutePath,
+                    chapterIndex = chapter.index,
+                    chapterTitle = chapter.title,
+                    scanlationSource = chapter.scanlationSource,
+                    novelTitle = novelTitle,
+                    sizeBytes = cacheFile.length(),
+                    downloadedAt = System.currentTimeMillis(),
+                    isCache = true,
+                    expirationTime = System.currentTimeMillis() + 2 * 60 * 60 * 1000L // 2 hours
+                )
+                downloadRepository.saveDownload(cachedDownload)
+            } catch (_: Exception) {
+                // Ignore caching errors so chapter display is uninterrupted
+            }
+        }
+        return html
+    }
+
     private suspend fun fetchLive(chapter: Chapter, crawlerName: String): String? {
         val crawler = CrawlerFactory.getCrawler(crawlerName) ?: return null
         val url = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url
         return crawler.getChapterContent(url)
+    }
+
+    private fun deleteCacheFile(fileLocation: String) {
+        try {
+            if (!fileLocation.startsWith("content://")) {
+                val path = fileLocation.removePrefix("file://")
+                File(path).delete()
+            }
+        } catch (_: Exception) {}
     }
 }

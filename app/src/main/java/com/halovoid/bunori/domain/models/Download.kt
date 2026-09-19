@@ -10,5 +10,7 @@ data class Download(
     val scanlationSource: String = "Not Provided",
     val novelTitle: String,
     val sizeBytes: Long = 0,
-    val downloadedAt: Long = System.currentTimeMillis()
+    val downloadedAt: Long = System.currentTimeMillis(),
+    val isCache: Boolean = false,
+    val expirationTime: Long? = null
 )

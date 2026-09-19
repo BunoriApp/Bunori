@@ -49,10 +49,10 @@ fun NovelArtifactsScreen(
     artifacts: List<Artifact>,
     onBack: () -> Unit,
     onDownload: (Artifact) -> Unit,
-    viewModel: NovelDetailViewModel? = null
+    viewModel: NovelViewModel? = null
 ) {
     val context = LocalContext.current
-    val actualViewModel: NovelDetailViewModel = viewModel ?: run {
+    val actualViewModel: NovelViewModel = viewModel ?: run {
         val factory = remember { ViewModelFactory(context.applicationContext as Application) }
         viewModel(factory = factory)
     }

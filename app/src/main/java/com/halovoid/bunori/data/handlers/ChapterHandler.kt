@@ -15,6 +15,7 @@ import com.halovoid.bunori.data.scheduler.jobs.JobHandler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Download
+import java.io.File
 
 import com.halovoid.bunori.ui.core.logging.AppLog
 import com.halovoid.bunori.wasm.WamrHttpBridge
@@ -48,6 +49,60 @@ class ChapterHandler(
 
         val novel = novelRepository.getNovelDetails(chapter.novelUrl)
         val novelTitle = novel?.title ?: "Novel"
+
+        // Cache Promotion: Check if valid cached version is already available locally
+        val existingDownload = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
+        if (existingDownload != null) {
+            if (!existingDownload.isCache) {
+                return JobResult.Success
+            }
+            val now = System.currentTimeMillis()
+            val isExpired = existingDownload.expirationTime?.let { it < now } ?: false
+            if (!isExpired) {
+                val cachedContent = try {
+                    val fileLoc = existingDownload.fileLocation
+                    if (fileLoc.startsWith("content://")) {
+                        storageRepository.readText(Uri.parse(fileLoc))
+                    } else {
+                        val path = fileLoc.removePrefix("file://")
+                        val file = File(path)
+                        if (file.exists()) file.readText() else null
+                    }
+                } catch (_: Exception) {
+                    null
+                }
+
+                if (!cachedContent.isNullOrBlank() && cachedContent.trim().length > 50) {
+                    val novelKey = crawler.getNovelKey(chapter.novelUrl)
+                    val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html"
+                    val relativePath = "novels/$novelKey/chapters"
+
+                    val permanentUri = storageRepository.saveText(
+                        relativePath = relativePath,
+                        fileName = fileName,
+                        mimeType = "text/html",
+                        content = cachedContent
+                    )
+
+                    try {
+                        if (!existingDownload.fileLocation.startsWith("content://")) {
+                            File(existingDownload.fileLocation.removePrefix("file://")).delete()
+                        }
+                    } catch (_: Exception) {}
+
+                    downloadRepository.saveDownload(
+                        existingDownload.copy(
+                            fileLocation = permanentUri.toString(),
+                            isCache = false,
+                            expirationTime = null,
+                            downloadedAt = System.currentTimeMillis()
+                        )
+                    )
+
+                    return JobResult.Success
+                }
+            }
+        }
 
         val targetUrl = task.url?.takeIf { it.isNotBlank() }
             ?: chapter.sourceUrl?.takeIf { it.isNotBlank() }

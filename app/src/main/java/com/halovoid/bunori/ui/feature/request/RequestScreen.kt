@@ -507,7 +507,6 @@ fun ManualRequestScreen(
     viewModel: RequestViewModel,
     searchUrl: String?,
     onBack: () -> Unit,
-    onNavigateToPreview: () -> Unit,
     onNavigateToDetail: (String, String) -> Unit
 ) {
     val libraryUrls by viewModel.libraryUrls.collectAsStateWithLifecycle()
@@ -526,7 +525,6 @@ fun ManualRequestScreen(
                 viewModel = viewModel,
                 searchUrl = searchUrl,
                 libraryUrls = libraryUrls,
-                onNavigateToPreview = onNavigateToPreview,
                 onNavigateToDetail = onNavigateToDetail
             )
         }

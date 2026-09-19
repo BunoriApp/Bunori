@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
     tableName = "downloads",
     indices = [
         Index(value = ["novelUrl", "chapterUrl"], unique = true),
-        Index(value = ["novelUrl"])
+        Index(value = ["novelUrl"]),
+        Index(value = ["isCache"])
     ]
 )
 data class DownloadEntity(
@@ -22,5 +23,7 @@ data class DownloadEntity(
     val scanlationSource: String = "Not Provided",
     val novelTitle: String,
     val sizeBytes: Long = 0,
-    val downloadedAt: Long = System.currentTimeMillis()
+    val downloadedAt: Long = System.currentTimeMillis(),
+    val isCache: Boolean = false,
+    val expirationTime: Long? = null
 )

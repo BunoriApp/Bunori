@@ -26,7 +26,7 @@ import com.halovoid.bunori.data.db.migrations.DatabaseMigrations
 @Database(
     entities = [NovelEntity::class, ChapterEntity::class, BatchEntity::class, TaskEntity::class, ArtifactEntity::class, DownloadEntity::class],
     version = 1,
-    exportSchema = true
+    exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun novelDao(): NovelDao
