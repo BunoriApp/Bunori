@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -380,91 +381,49 @@ fun NavGraph(navController: NavHostController) {
                 )
             }
             composable(Screen.ThemeSettings.route) { backStackEntry ->
-                val supportEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(Screen.Support.route)
-                }
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    viewModelStoreOwner = supportEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
+                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
                 ThemeSettingsScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.BackupSettings.route) { backStackEntry ->
-                val supportEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(Screen.Support.route)
-                }
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    viewModelStoreOwner = supportEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
+                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
                 BackupSettingsScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.UpdateDetail.route) { backStackEntry ->
-                val supportEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(Screen.Support.route)
-                }
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    viewModelStoreOwner = supportEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
+                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
                 UpdateDetailScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.DownloadPreferences.route) { backStackEntry ->
-                val supportEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(Screen.Support.route)
-                }
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    viewModelStoreOwner = supportEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
+                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
                 DownloadPreferencesScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.LayoutSettings.route) { backStackEntry ->
-                val supportEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(Screen.Support.route)
-                }
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    viewModelStoreOwner = supportEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
+                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
                 LayoutSettingsScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.ExtensionSettings.route) { backStackEntry ->
-                val supportEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(Screen.Support.route)
-                }
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    viewModelStoreOwner = supportEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
+                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
                 ExtensionSettingsScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.AdvancedSettings.route) { backStackEntry ->
-                val supportEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(Screen.Support.route)
-                }
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    viewModelStoreOwner = supportEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
+                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
                 AdvancedSettingsScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() },
@@ -472,13 +431,7 @@ fun NavGraph(navController: NavHostController) {
                 )
             }
             composable(Screen.WebViewSettings.route) { backStackEntry ->
-                val supportEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(Screen.Support.route)
-                }
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    viewModelStoreOwner = supportEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
+                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
                 WebViewSettingsScreen(
                     viewModel = settingsViewModel,
                     onBack = { navController.popBackStack() },
@@ -654,4 +607,19 @@ fun NavGraph(navController: NavHostController) {
             }
         }
     }
+}
+
+@Composable
+private fun rememberSettingsViewModel(
+    navController: NavHostController,
+    backStackEntry: NavBackStackEntry,
+    application: Application
+): SettingsViewModel {
+    val owner = remember(backStackEntry) {
+        runCatching { navController.getBackStackEntry(Screen.Support.route) }.getOrNull() ?: backStackEntry
+    }
+    return viewModel(
+        viewModelStoreOwner = owner,
+        factory = remember { ViewModelFactory(application) }
+    )
 }

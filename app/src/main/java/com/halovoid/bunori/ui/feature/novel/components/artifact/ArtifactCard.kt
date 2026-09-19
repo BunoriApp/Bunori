@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -68,7 +68,7 @@ fun ArtifactCard(
 
         IconButton(onClick = { onDownload(artifact) }) {
             Icon(
-                imageVector = Icons.Default.Download,
+                imageVector = Icons.Outlined.FileDownload,
                 contentDescription = "Download",
                 tint = SecondaryText.copy(alpha = 0.7f),
                 modifier = Modifier.size(20.dp)

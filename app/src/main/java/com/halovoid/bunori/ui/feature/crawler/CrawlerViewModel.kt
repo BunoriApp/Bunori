@@ -81,6 +81,8 @@ class CrawlerViewModel(
 
     private val extensionManager = ExtensionManager.getInstance(application)
 
+    var selectedTabOrdinal: Int = 0
+
     val crawlers: StateFlow<List<Crawler>> = CrawlerFactory.crawlersFlow
     val failedExtensions: StateFlow<List<String>> = extensionManager.failedExtensions
 

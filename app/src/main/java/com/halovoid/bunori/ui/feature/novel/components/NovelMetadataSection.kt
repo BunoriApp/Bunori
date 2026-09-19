@@ -10,6 +10,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.core.theme.*
@@ -17,7 +19,11 @@ import com.halovoid.bunori.ui.core.theme.*
 @Composable
 fun NovelMetadataTable(novel: Novel, onClick: () -> Unit = {}) {
     val sources = novel.chapters.map { it.scanlationSource }.filter { it.isNotBlank() && it != "NotProvided" && it != "Not Provided" }.distinct()
-    val sourceDisplay = if (sources.isNotEmpty()) sources.joinToString(", ") else novel.crawlerName
+    val sourceDisplay = when {
+        sources.isEmpty() -> novel.crawlerName
+        sources.size <= 2 -> sources.joinToString(", ")
+        else -> "${sources.take(2).joinToString(", ")}, ..."
+    }
 
     Column(
         modifier = Modifier
@@ -29,17 +35,21 @@ fun NovelMetadataTable(novel: Novel, onClick: () -> Unit = {}) {
             .padding(12.dp)
     ) {
         MetadataSection(
-            mapOf(
+            data = mapOf(
                 "Author" to (novel.author ?: "Unknown"),
                 "Chapters" to novel.chapters.size.toString(),
                 "Sources" to sourceDisplay
-            )
+            ),
+            singleLine = true
         )
     }
 }
 
 @Composable
-fun MetadataSection(data: Map<String, String>) {
+fun MetadataSection(
+    data: Map<String, String>,
+    singleLine: Boolean = false
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -56,11 +66,16 @@ fun MetadataSection(data: Map<String, String>) {
                     color = SecondaryText,
                     fontWeight = FontWeight.Medium
                 )
+                Spacer(modifier = Modifier.width(16.dp))
                 Text(
                     text = value, 
                     style = MaterialTheme.typography.bodyMedium,
                     color = PrimaryText, 
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+                    overflow = if (singleLine) TextOverflow.Ellipsis else TextOverflow.Clip,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
             }
         }

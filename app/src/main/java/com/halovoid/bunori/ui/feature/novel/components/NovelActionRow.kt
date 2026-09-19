@@ -1,10 +1,14 @@
 package com.halovoid.bunori.ui.feature.novel.components
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,11 +24,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +41,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -71,19 +80,19 @@ fun NovelActionRow(
             onClick = onFavoriteClick
         )
         ActionItem(
-            icon = Icons.Default.Download,
+            icon = Icons.Outlined.FileDownload,
             label = "Download",
             onClick = onDownloadClick,
             enabled = downloadEnabled
         )
         ActionItem(
-            icon = Icons.Default.Inventory2,
+            icon = Icons.Outlined.FileUpload,
             label = "Artifacts",
             onClick = onArtifactsClick,
             enabled = artifactsExist
         )
         ActionItem(
-            icon = Icons.Default.Language,
+            icon = Icons.Outlined.Language,
             label = "WebView",
             onClick = onWebViewClick
         )
@@ -103,13 +112,13 @@ private fun FavoriteActionItem(
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
                 animation = keyframes {
-                    durationMillis = 1000
+                    durationMillis = 1400
                     1.0f at 0
-                    1.28f at 140
-                    1.08f at 280
-                    1.25f at 420
-                    1.0f at 700
-                    1.0f at 1000
+                    1.20f at 200
+                    1.05f at 380
+                    1.16f at 560
+                    1.0f at 800
+                    1.0f at 1400
                 },
                 repeatMode = RepeatMode.Restart
             ),
@@ -118,6 +127,9 @@ private fun FavoriteActionItem(
     } else {
         remember { mutableFloatStateOf(1f) }
     }
+
+    val icon = if (inLibrary) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder
+    val iconTint = if (inLibrary) BrandAccent else PrimaryText
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -131,10 +143,18 @@ private fun FavoriteActionItem(
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
+            // Animated ECG waveform running behind the heart when activity is running and novel is in library
+            if (isActivityRunning && inLibrary) {
+                EcgWaveformBackground(
+                    modifier = Modifier.fillMaxSize(),
+                    color = BrandAccent
+                )
+            }
+
             Icon(
-                imageVector = if (inLibrary) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                imageVector = icon,
                 contentDescription = if (inLibrary) "In Library" else "Add to Library",
-                tint = if (inLibrary) Color(0xFFE91E63) else PrimaryText,
+                tint = iconTint,
                 modifier = Modifier
                     .size(22.dp)
                     .scale(heartbeatScale)
@@ -146,10 +166,105 @@ private fun FavoriteActionItem(
         Text(
             text = if (inLibrary) "Library" else "Add",
             style = MaterialTheme.typography.labelSmall,
-            color = PrimaryText,
+            color = if (inLibrary) BrandAccent else PrimaryText,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1
+        )
+    }
+}
+
+/**
+ * Animated ECG/heartbeat waveform continuously running horizontally across the canvas.
+ */
+@Composable
+fun EcgWaveformBackground(
+    modifier: Modifier = Modifier,
+    color: Color = BrandAccent
+) {
+    val transition = rememberInfiniteTransition(label = "ecgWave")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ecgProgress"
+    )
+
+    Canvas(modifier = modifier) {
+        val width = size.width
+        val height = size.height
+        val centerY = height / 2f
+        val amplitude = height * 0.40f
+        val waveLength = width * 1.25f
+
+        val path = Path()
+        var isFirst = true
+
+        val step = 2f
+        var x = 0f
+        while (x <= width) {
+            val t = (x / waveLength) - progress
+            val normT = (t % 1f + 1f) % 1f
+
+            val offset = when {
+                normT in 0.12f..0.22f -> {
+                    // P wave: small upward bump
+                    val p = (normT - 0.12f) / 0.10f
+                    -Math.sin(p * Math.PI).toFloat() * 0.18f
+                }
+                normT in 0.32f..0.36f -> {
+                    // Q wave: small downward dip
+                    val q = (normT - 0.32f) / 0.04f
+                    Math.sin(q * Math.PI).toFloat() * 0.15f
+                }
+                normT in 0.36f..0.44f -> {
+                    // R wave: tall sharp spike
+                    val r = (normT - 0.36f) / 0.08f
+                    -Math.sin(r * Math.PI).toFloat() * 0.95f
+                }
+                normT in 0.44f..0.50f -> {
+                    // S wave: downward spike
+                    val s = (normT - 0.44f) / 0.06f
+                    Math.sin(s * Math.PI).toFloat() * 0.32f
+                }
+                normT in 0.58f..0.72f -> {
+                    // T wave: medium rounded bump
+                    val tProg = (normT - 0.58f) / 0.14f
+                    -Math.sin(tProg * Math.PI).toFloat() * 0.25f
+                }
+                else -> 0f
+            }
+
+            val y = centerY + offset * amplitude
+
+            if (isFirst) {
+                path.moveTo(x, y)
+                isFirst = false
+            } else {
+                path.lineTo(x, y)
+            }
+            x += step
+        }
+
+        drawPath(
+            path = path,
+            brush = Brush.horizontalGradient(
+                listOf(
+                    color.copy(alpha = 0.15f),
+                    color.copy(alpha = 0.85f),
+                    color,
+                    color.copy(alpha = 0.85f),
+                    color.copy(alpha = 0.15f)
+                )
+            ),
+            style = Stroke(
+                width = 2.dp.toPx(),
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round
+            )
         )
     }
 }
