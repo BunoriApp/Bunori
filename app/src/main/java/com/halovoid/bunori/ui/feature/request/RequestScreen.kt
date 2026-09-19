@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -395,7 +396,8 @@ private fun SourcesTabContent(
                         fallbackText = source.name,
                         size = 42.dp,
                         shape = RoundedCornerShape(10.dp),
-                        contentPadding = 6.dp
+                        contentPadding = 0.dp,
+                        contentScale = ContentScale.Crop
                     )
 
                     Spacer(modifier = Modifier.width(14.dp))

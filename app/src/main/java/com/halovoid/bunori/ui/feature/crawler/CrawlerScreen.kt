@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -481,7 +482,8 @@ fun ExtensionRow(
             fallbackText = item.name,
             size = 42.dp,
             shape = RoundedCornerShape(10.dp),
-            contentPadding = 6.dp
+            contentPadding = 0.dp,
+            contentScale = ContentScale.Crop
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -617,7 +619,8 @@ fun ExtensionDetailDialog(
                     fallbackText = item.name,
                     size = 46.dp,
                     shape = RoundedCornerShape(10.dp),
-                    contentPadding = 4.dp
+                    contentPadding = 0.dp,
+                    contentScale = ContentScale.Crop
                 )
                 Column {
                     Text(

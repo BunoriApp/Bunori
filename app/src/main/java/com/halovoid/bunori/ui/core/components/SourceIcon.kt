@@ -43,8 +43,8 @@ fun SourceIcon(
     size: Dp = 40.dp,
     shape: Shape = RoundedCornerShape(8.dp),
     backgroundColor: Color = DarkSurfaceVariant,
-    contentPadding: Dp = 4.dp,
-    contentScale: ContentScale = ContentScale.Fit
+    contentPadding: Dp = 0.dp,
+    contentScale: ContentScale = ContentScale.Crop
 ) {
     var errorCount by remember(model) { mutableStateOf(0) }
 
